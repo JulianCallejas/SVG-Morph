@@ -6,6 +6,13 @@ import { Point } from '../utils/kdTree';
 import { BezierCurve } from '../components/BezierEasingEditor';
 import { Keyframe } from '../components/KeyframeTimeline';
 import { RecentFile } from '../components/RecentFilesHistory';
+import { GradientMorphOptions } from '../utils/gradientMorphing';
+import { TextMorphOptions } from '../utils/textPathMorphing';
+import { MultiPathMorphOptions } from '../utils/multiPathSupport';
+import { PhysicsOptions, SpringConfig } from '../utils/physicsSimulation';
+import { VideoExportOptions } from '../utils/videoExport';
+import { ShareOptions } from '../utils/socialIntegration';
+import { CanvasRenderOptions } from '../utils/canvasRenderer';
 
 export interface AnimationSettings {
   duration: number;
@@ -59,6 +66,21 @@ interface MorphState {
   realTimeAdjustmentEnabled: boolean;
   customEasingCurves: { [key: string]: BezierCurve };
   
+  // Phase 4 properties
+  gradientMorphOptions: GradientMorphOptions;
+  textMorphOptions: TextMorphOptions;
+  multiPathMorphOptions: MultiPathMorphOptions;
+  physicsOptions: PhysicsOptions;
+  videoExportOptions: VideoExportOptions;
+  shareOptions: ShareOptions;
+  canvasRenderOptions: CanvasRenderOptions;
+  enableHardwareAcceleration: boolean;
+  enableMemoryOptimization: boolean;
+  enableProgressiveLoading: boolean;
+  debouncedUpdatesEnabled: boolean;
+  animationType: 'standard' | 'spring' | 'elastic' | 'damped';
+  renderMode: '2d' | 'webgl' | 'offscreen';
+  
   // Actions
   setSourceSVG: (svg: string) => Promise<void>;
   setTargetSVG: (svg: string) => Promise<void>;
@@ -95,6 +117,24 @@ interface MorphState {
   toggleRealTimeAdjustment: () => void;
   setCustomEasingCurve: (name: string, curve: BezierCurve) => void;
   removeCustomEasingCurve: (name: string) => void;
+  
+  // Phase 4 actions
+  updateGradientMorphOptions: (options: Partial<GradientMorphOptions>) => void;
+  updateTextMorphOptions: (options: Partial<TextMorphOptions>) => void;
+  updateMultiPathMorphOptions: (options: Partial<MultiPathMorphOptions>) => void;
+  updatePhysicsOptions: (options: Partial<PhysicsOptions>) => void;
+  updateVideoExportOptions: (options: Partial<VideoExportOptions>) => void;
+  updateShareOptions: (options: Partial<ShareOptions>) => void;
+  updateCanvasRenderOptions: (options: Partial<CanvasRenderOptions>) => void;
+  setAnimationType: (type: 'standard' | 'spring' | 'elastic' | 'damped') => void;
+  setRenderMode: (mode: '2d' | 'webgl' | 'offscreen') => void;
+  toggleHardwareAcceleration: () => void;
+  toggleMemoryOptimization: () => void;
+  toggleProgressiveLoading: () => void;
+  toggleDebouncedUpdates: () => void;
+  optimizePerformance: () => void;
+  exportVideo: () => Promise<void>;
+  shareToSocial: (platform: string) => Promise<void>;
 }
 
 const defaultAnimationSettings: AnimationSettings = {
@@ -149,6 +189,80 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   showPerformanceMonitor: false,
   realTimeAdjustmentEnabled: false,
   customEasingCurves: {},
+  
+  // Phase 4 state
+  gradientMorphOptions: {
+    preserveStopCount: true,
+    colorSpace: 'rgb',
+    interpolateOpacity: true,
+    smoothTransition: true,
+  },
+  textMorphOptions: {
+    morphText: true,
+    morphPath: true,
+    morphTypography: true,
+    preserveReadability: true,
+    animateLetterSpacing: true,
+    animateWordSpacing: true,
+    textTransitionMethod: 'morph',
+    pathTransitionMethod: 'bezier',
+  },
+  multiPathMorphOptions: {
+    groupMatching: 'automatic',
+    pathMatching: 'similarity',
+    preserveGroupStructure: true,
+    interpolateTransforms: true,
+    handleMissingPaths: 'fade',
+    complexityThreshold: 100,
+    maxPathsPerGroup: 50,
+  },
+  physicsOptions: {
+    springConfig: {
+      stiffness: 100,
+      damping: 10,
+      mass: 1,
+      precision: 0.01,
+      velocity: 0,
+    },
+    enableGravity: false,
+    gravityStrength: 9.81,
+    enableFriction: false,
+    frictionCoefficient: 0.1,
+    enableCollisions: false,
+    boundaryBehavior: 'bounce',
+    timeStep: 1 / 60,
+  },
+  videoExportOptions: {
+    format: 'mp4',
+    width: 800,
+    height: 600,
+    fps: 30,
+    duration: 3,
+    quality: 'high',
+    loop: false,
+    backgroundColor: '#ffffff',
+  },
+  shareOptions: {
+    platform: 'twitter',
+    title: 'Amazing SVG Morphing Animation',
+    description: 'Created with SVG Morph',
+    hashtags: ['SVGMorph', 'Animation'],
+  },
+  canvasRenderOptions: {
+    width: 800,
+    height: 600,
+    devicePixelRatio: window.devicePixelRatio || 1,
+    antialias: true,
+    alpha: true,
+    preserveDrawingBuffer: false,
+    powerPreference: 'high-performance',
+  },
+  enableHardwareAcceleration: true,
+  enableMemoryOptimization: true,
+  enableProgressiveLoading: true,
+  debouncedUpdatesEnabled: true,
+  animationType: 'standard',
+  renderMode: '2d',
 
   setSourceSVG: async (svg) => {
     set({ sourceSVG: svg, sourceSVGData: null });
@@ -461,6 +575,162 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       const { [name]: removed, ...rest } = state.customEasingCurves;
       return { customEasingCurves: rest };
     }),
+  
+  // Phase 4 actions
+  updateGradientMorphOptions: (options) =>
+    set((state) => ({
+      gradientMorphOptions: { ...state.gradientMorphOptions, ...options },
+    })),
+  
+  updateTextMorphOptions: (options) =>
+    set((state) => ({
+      textMorphOptions: { ...state.textMorphOptions, ...options },
+    })),
+  
+  updateMultiPathMorphOptions: (options) =>
+    set((state) => ({
+      multiPathMorphOptions: { ...state.multiPathMorphOptions, ...options },
+    })),
+  
+  updatePhysicsOptions: (options) =>
+    set((state) => ({
+      physicsOptions: { ...state.physicsOptions, ...options },
+    })),
+  
+  updateVideoExportOptions: (options) =>
+    set((state) => ({
+      videoExportOptions: { ...state.videoExportOptions, ...options },
+    })),
+  
+  updateShareOptions: (options) =>
+    set((state) => ({
+      shareOptions: { ...state.shareOptions, ...options },
+    })),
+  
+  updateCanvasRenderOptions: (options) =>
+    set((state) => ({
+      canvasRenderOptions: { ...state.canvasRenderOptions, ...options },
+    })),
+  
+  setAnimationType: (type) => set({ animationType: type }),
+  
+  setRenderMode: (mode) => set({ renderMode: mode }),
+  
+  toggleHardwareAcceleration: () =>
+    set((state) => ({ enableHardwareAcceleration: !state.enableHardwareAcceleration })),
+  
+  toggleMemoryOptimization: () =>
+    set((state) => ({ enableMemoryOptimization: !state.enableMemoryOptimization })),
+  
+  toggleProgressiveLoading: () =>
+    set((state) => ({ enableProgressiveLoading: !state.enableProgressiveLoading })),
+  
+  toggleDebouncedUpdates: () =>
+    set((state) => ({ debouncedUpdatesEnabled: !state.debouncedUpdatesEnabled })),
+  
+  optimizePerformance: () => {
+    const state = get();
+    
+    // Enable memory optimization
+    if (!state.enableMemoryOptimization) {
+      set({ enableMemoryOptimization: true });
+    }
+    
+    // Enable hardware acceleration if available
+    if (!state.enableHardwareAcceleration) {
+      set({ enableHardwareAcceleration: true });
+    }
+    
+    // Enable debounced updates
+    if (!state.debouncedUpdatesEnabled) {
+      set({ debouncedUpdatesEnabled: true });
+    }
+    
+    // Optimize physics settings for better performance
+    set({
+      physicsOptions: {
+        ...state.physicsOptions,
+        timeStep: 1 / 30, // Lower frame rate for better performance
+        springConfig: {
+          ...state.physicsOptions.springConfig,
+          precision: 0.1, // Lower precision for faster calculations
+        },
+      },
+    });
+  },
+  
+  exportVideo: async () => {
+    const state = get();
+    if (!state.sourceSVG || !state.targetSVG) return;
+    
+    try {
+      set({
+        processingState: {
+          isProcessing: true,
+          currentTask: 'Exporting video...',
+          progress: 0,
+          error: null,
+        },
+      });
+      
+      // Video export logic would go here
+      // This is a placeholder for the actual implementation
+      
+      set({
+        processingState: {
+          isProcessing: false,
+          currentTask: null,
+          progress: 100,
+          error: null,
+        },
+      });
+    } catch (error) {
+      set({
+        processingState: {
+          isProcessing: false,
+          currentTask: null,
+          progress: 0,
+          error: error instanceof Error ? error.message : 'Video export failed',
+        },
+      });
+    }
+  },
+  
+  shareToSocial: async (platform: string) => {
+    const state = get();
+    
+    try {
+      set({
+        processingState: {
+          isProcessing: true,
+          currentTask: `Sharing to ${platform}...`,
+          progress: 0,
+          error: null,
+        },
+      });
+      
+      // Social sharing logic would go here
+      // This is a placeholder for the actual implementation
+      
+      set({
+        processingState: {
+          isProcessing: false,
+          currentTask: null,
+          progress: 100,
+          error: null,
+        },
+      });
+    } catch (error) {
+      set({
+        processingState: {
+          isProcessing: false,
+          currentTask: null,
+          progress: 0,
+          error: error instanceof Error ? error.message : 'Social sharing failed',
+        },
+      });
+    }
+  },
 }));
 
 function applyEasing(t: number, easing: AnimationSettings['easing'], customCurve?: BezierCurve): number {
