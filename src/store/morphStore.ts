@@ -3,14 +3,19 @@ import { workerManager } from '../utils/workerManager';
 import { SVGData } from '../workers/pathProcessor';
 import { NodeMatcher, MatchingOptions, NodeMatch } from '../utils/nodeMatching';
 import { Point } from '../utils/kdTree';
+import { BezierCurve } from '../components/BezierEasingEditor';
+import { Keyframe } from '../components/KeyframeTimeline';
+import { RecentFile } from '../components/RecentFilesHistory';
 
 export interface AnimationSettings {
   duration: number;
-  easing: 'linear' | 'easeInOut' | 'easeIn' | 'easeOut' | 'bounce' | 'elastic';
+  easing: 'linear' | 'easeInOut' | 'easeIn' | 'easeOut' | 'bounce' | 'elastic' | 'custom';
   colorInterpolation: boolean;
   strokeWidthInterpolation: boolean;
   loop: boolean;
   reverse: boolean;
+  customEasing?: BezierCurve;
+  playbackSpeed?: number;
 }
 
 export interface NodePair {
@@ -40,11 +45,19 @@ interface MorphState {
   processingState: ProcessingState;
   interpolatedSVG: string | null;
   
-  // New Phase 2 properties
+  // Phase 2 properties
   sourcePoints: Point[];
   targetPoints: Point[];
   nodeMatches: NodeMatch[];
   matchingOptions: MatchingOptions;
+  
+  // Phase 3 properties
+  keyframes: Keyframe[];
+  recentFiles: RecentFile[];
+  showTutorial: boolean;
+  showPerformanceMonitor: boolean;
+  realTimeAdjustmentEnabled: boolean;
+  customEasingCurves: { [key: string]: BezierCurve };
   
   // Actions
   setSourceSVG: (svg: string) => Promise<void>;
@@ -64,11 +77,24 @@ interface MorphState {
   generateInterpolatedSVG: (progress: number) => Promise<void>;
   setProcessingState: (state: Partial<ProcessingState>) => void;
   
-  // New Phase 2 actions
+  // Phase 2 actions
   autoMatchNodes: () => void;
   updateMatchingOptions: (options: Partial<MatchingOptions>) => void;
   setSourcePoints: (points: Point[]) => void;
   setTargetPoints: (points: Point[]) => void;
+  
+  // Phase 3 actions
+  setKeyframes: (keyframes: Keyframe[]) => void;
+  addKeyframe: (keyframe: Keyframe) => void;
+  removeKeyframe: (keyframeId: string) => void;
+  updateKeyframe: (keyframeId: string, updates: Partial<Keyframe>) => void;
+  addRecentFile: (file: Omit<RecentFile, 'id' | 'lastUsed' | 'isFavorite'>) => void;
+  removeRecentFile: (fileId: string) => void;
+  toggleTutorial: () => void;
+  togglePerformanceMonitor: () => void;
+  toggleRealTimeAdjustment: () => void;
+  setCustomEasingCurve: (name: string, curve: BezierCurve) => void;
+  removeCustomEasingCurve: (name: string) => void;
 }
 
 const defaultAnimationSettings: AnimationSettings = {
@@ -78,6 +104,7 @@ const defaultAnimationSettings: AnimationSettings = {
   strokeWidthInterpolation: true,
   loop: false,
   reverse: false,
+  playbackSpeed: 1,
 };
 
 const defaultProcessingState: ProcessingState = {
@@ -109,11 +136,19 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   processingState: defaultProcessingState,
   interpolatedSVG: null,
   
-  // New Phase 2 state
+  // Phase 2 state
   sourcePoints: [],
   targetPoints: [],
   nodeMatches: [],
   matchingOptions: defaultMatchingOptions,
+  
+  // Phase 3 state
+  keyframes: [],
+  recentFiles: [],
+  showTutorial: false,
+  showPerformanceMonitor: false,
+  realTimeAdjustmentEnabled: false,
+  customEasingCurves: {},
 
   setSourceSVG: async (svg) => {
     set({ sourceSVG: svg, sourceSVGData: null });
@@ -324,7 +359,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       processingState: { ...state.processingState, ...newState },
     })),
 
-  // New Phase 2 actions
+  // Phase 2 actions
   autoMatchNodes: () => {
     const state = get();
     if (state.sourcePoints.length === 0 || state.targetPoints.length === 0) return;
@@ -353,9 +388,82 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   setSourcePoints: (points) => set({ sourcePoints: points }),
   
   setTargetPoints: (points) => set({ targetPoints: points }),
+  
+  // Phase 3 actions
+  setKeyframes: (keyframes) => set({ keyframes }),
+  
+  addKeyframe: (keyframe) => 
+    set((state) => ({
+      keyframes: [...state.keyframes, keyframe].sort((a, b) => a.time - b.time)
+    })),
+  
+  removeKeyframe: (keyframeId) =>
+    set((state) => ({
+      keyframes: state.keyframes.filter(kf => kf.id !== keyframeId)
+    })),
+  
+  updateKeyframe: (keyframeId, updates) =>
+    set((state) => ({
+      keyframes: state.keyframes.map(kf => 
+        kf.id === keyframeId ? { ...kf, ...updates } : kf
+      )
+    })),
+  
+  addRecentFile: (file) => {
+    const newFile: RecentFile = {
+      ...file,
+      id: `recent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      lastUsed: new Date(),
+      isFavorite: false
+    };
+    
+    set((state) => {
+      const filtered = state.recentFiles.filter(f => f.svgContent !== file.svgContent);
+      const updated = [newFile, ...filtered].slice(0, 50);
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('svg-morph-recent-files', JSON.stringify(updated));
+      } catch (error) {
+        console.error('Failed to save recent files:', error);
+      }
+      
+      return { recentFiles: updated };
+    });
+  },
+  
+  removeRecentFile: (fileId) =>
+    set((state) => {
+      const updated = state.recentFiles.filter(f => f.id !== fileId);
+      
+      try {
+        localStorage.setItem('svg-morph-recent-files', JSON.stringify(updated));
+      } catch (error) {
+        console.error('Failed to save recent files:', error);
+      }
+      
+      return { recentFiles: updated };
+    }),
+  
+  toggleTutorial: () => set((state) => ({ showTutorial: !state.showTutorial })),
+  
+  togglePerformanceMonitor: () => set((state) => ({ showPerformanceMonitor: !state.showPerformanceMonitor })),
+  
+  toggleRealTimeAdjustment: () => set((state) => ({ realTimeAdjustmentEnabled: !state.realTimeAdjustmentEnabled })),
+  
+  setCustomEasingCurve: (name, curve) =>
+    set((state) => ({
+      customEasingCurves: { ...state.customEasingCurves, [name]: curve }
+    })),
+  
+  removeCustomEasingCurve: (name) =>
+    set((state) => {
+      const { [name]: removed, ...rest } = state.customEasingCurves;
+      return { customEasingCurves: rest };
+    }),
 }));
 
-function applyEasing(t: number, easing: AnimationSettings['easing']): number {
+function applyEasing(t: number, easing: AnimationSettings['easing'], customCurve?: BezierCurve): number {
   switch (easing) {
     case 'linear':
       return t;
@@ -384,7 +492,21 @@ function applyEasing(t: number, easing: AnimationSettings['easing']): number {
         : t === 1
         ? 1
         : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+    case 'custom':
+      if (customCurve) {
+        return evaluateBezierCurve(t, customCurve);
+      }
+      return t;
     default:
       return t;
   }
+}
+
+// Evaluate Bézier curve for custom easing
+function evaluateBezierCurve(t: number, curve: BezierCurve): number {
+  const mt = 1 - t;
+  const mt2 = mt * mt;
+  const t2 = t * t;
+  
+  return mt2 * mt * 0 + 3 * mt2 * t * curve.p1.y + 3 * mt * t2 * curve.p2.y + t2 * t * 1;
 }
