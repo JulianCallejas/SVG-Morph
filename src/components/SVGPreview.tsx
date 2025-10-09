@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { createInterpolatedSVG } from '../utils/svgMorphing';
+import { useMorphStore } from '../store/morphStore';
 
 interface SVGPreviewProps {
   sourceSVG: string | null;
@@ -17,6 +17,7 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
   animationSettings,
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const { interpolatedSVG } = useMorphStore();
 
   useEffect(() => {
     if (!canvasRef.current || !sourceSVG || !targetSVG) return;
@@ -66,13 +67,22 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
       const morphContainer = document.createElement('div');
       morphContainer.className = 'text-center';
       
-      // Create interpolated SVG based on progress
-      const interpolatedSVG = createInterpolatedSVG(sourceSVG, targetSVG, currentProgress);
+      // Use interpolated SVG from Web Worker or fallback
+      const displaySVG = interpolatedSVG || `
+        <div style="position: relative; width: 100%; height: 100%;">
+          <div style="position: absolute; opacity: ${1 - currentProgress};">
+            ${sourceSVG}
+          </div>
+          <div style="position: absolute; opacity: ${currentProgress};">
+            ${targetSVG}
+          </div>
+        </div>
+      `;
       
       morphContainer.innerHTML = `
         <div class="w-64 h-64 mx-auto mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm flex items-center justify-center overflow-hidden">
           <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-            ${interpolatedSVG}
+            ${displaySVG}
           </div>
         </div>
         <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -89,7 +99,7 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
       container.appendChild(morphContainer);
       canvas.appendChild(container);
     }
-  }, [sourceSVG, targetSVG, viewMode, currentProgress]);
+  }, [sourceSVG, targetSVG, viewMode, currentProgress, interpolatedSVG]);
 
   if (!sourceSVG && !targetSVG) {
     return (

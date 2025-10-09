@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { workerManager } from '../utils/workerManager';
+import { SVGData } from '../workers/pathProcessor';
 
 export interface AnimationSettings {
   duration: number;
@@ -15,19 +17,30 @@ export interface NodePair {
   color: string;
 }
 
+export interface ProcessingState {
+  isProcessing: boolean;
+  currentTask: string | null;
+  progress: number;
+  error: string | null;
+}
+
 interface MorphState {
   sourceSVG: string | null;
   targetSVG: string | null;
+  sourceSVGData: SVGData | null;
+  targetSVGData: SVGData | null;
   animationSettings: AnimationSettings;
   isAnimating: boolean;
   currentProgress: number;
   manualModeEnabled: boolean;
   nodePairs: NodePair[];
   animationId: number | null;
+  processingState: ProcessingState;
+  interpolatedSVG: string | null;
   
   // Actions
-  setSourceSVG: (svg: string) => void;
-  setTargetSVG: (svg: string) => void;
+  setSourceSVG: (svg: string) => Promise<void>;
+  setTargetSVG: (svg: string) => Promise<void>;
   updateAnimationSettings: (settings: Partial<AnimationSettings>) => void;
   toggleManualMode: () => void;
   addNodePair: (pair: NodePair) => void;
@@ -36,7 +49,12 @@ interface MorphState {
   startAnimation: () => void;
   pauseAnimation: () => void;
   resetAnimation: () => void;
-  setProgress: (progress: number) => void;
+  setProgress: (progress: number) => Promise<void>;
+  
+  // New Web Worker actions
+  processSVGs: () => Promise<void>;
+  generateInterpolatedSVG: (progress: number) => Promise<void>;
+  setProcessingState: (state: Partial<ProcessingState>) => void;
 }
 
 const defaultAnimationSettings: AnimationSettings = {
@@ -48,18 +66,40 @@ const defaultAnimationSettings: AnimationSettings = {
   reverse: false,
 };
 
+const defaultProcessingState: ProcessingState = {
+  isProcessing: false,
+  currentTask: null,
+  progress: 0,
+  error: null,
+};
+
 export const useMorphStore = create<MorphState>((set, get) => ({
   sourceSVG: null,
   targetSVG: null,
+  sourceSVGData: null,
+  targetSVGData: null,
   animationSettings: defaultAnimationSettings,
   isAnimating: false,
   currentProgress: 0,
   manualModeEnabled: false,
   nodePairs: [],
   animationId: null,
+  processingState: defaultProcessingState,
+  interpolatedSVG: null,
 
-  setSourceSVG: (svg) => set({ sourceSVG: svg }),
-  setTargetSVG: (svg) => set({ targetSVG: svg }),
+  setSourceSVG: async (svg) => {
+    set({ sourceSVG: svg, sourceSVGData: null });
+    if (svg) {
+      await get().processSVGs();
+    }
+  },
+  
+  setTargetSVG: async (svg) => {
+    set({ targetSVG: svg, targetSVGData: null });
+    if (svg) {
+      await get().processSVGs();
+    }
+  },
   
   updateAnimationSettings: (settings) =>
     set((state) => ({
@@ -88,7 +128,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
     const startTime = performance.now();
     const duration = state.animationSettings.duration * 1000;
 
-    const animate = (currentTime: number) => {
+    const animate = async (currentTime: number) => {
       const elapsed = currentTime - startTime;
       let progress = Math.min(elapsed / duration, 1);
 
@@ -96,6 +136,11 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       progress = applyEasing(progress, state.animationSettings.easing);
 
       set({ currentProgress: progress });
+
+      // Generate interpolated SVG using Web Worker
+      if (state.sourceSVG && state.targetSVG) {
+        await get().generateInterpolatedSVG(progress);
+      }
 
       if (progress < 1) {
         const animationId = requestAnimationFrame(animate);
@@ -133,7 +178,123 @@ export const useMorphStore = create<MorphState>((set, get) => ({
     set({ isAnimating: false, currentProgress: 0, animationId: null });
   },
 
-  setProgress: (progress) => set({ currentProgress: progress }),
+  setProgress: async (progress) => {
+    set({ currentProgress: progress });
+    const state = get();
+    if (state.sourceSVG && state.targetSVG) {
+      await get().generateInterpolatedSVG(progress);
+    }
+  },
+
+  // New Web Worker methods
+  processSVGs: async () => {
+    const state = get();
+    if (!state.sourceSVG && !state.targetSVG) return;
+
+    try {
+      set({
+        processingState: {
+          isProcessing: true,
+          currentTask: 'Parsing SVG files...',
+          progress: 0,
+          error: null,
+        }
+      });
+
+      const promises: Promise<SVGData | null>[] = [];
+
+      if (state.sourceSVG && !state.sourceSVGData) {
+        promises.push(
+          workerManager.parseSVG(state.sourceSVG, (progress) => {
+            set((state) => ({
+              processingState: {
+                ...state.processingState,
+                progress: progress * 0.5,
+              }
+            }));
+          })
+        );
+      } else {
+        promises.push(Promise.resolve(state.sourceSVGData));
+      }
+
+      if (state.targetSVG && !state.targetSVGData) {
+        promises.push(
+          workerManager.parseSVG(state.targetSVG, (progress) => {
+            set((state) => ({
+              processingState: {
+                ...state.processingState,
+                progress: 50 + (progress * 0.5),
+              }
+            }));
+          })
+        );
+      } else {
+        promises.push(Promise.resolve(state.targetSVGData));
+      }
+
+      const [sourceSVGData, targetSVGData] = await Promise.all(promises);
+
+      set({
+        sourceSVGData,
+        targetSVGData,
+        processingState: {
+          isProcessing: false,
+          currentTask: null,
+          progress: 100,
+          error: null,
+        }
+      });
+
+      // Generate initial interpolated SVG
+      if (sourceSVGData && targetSVGData) {
+        await get().generateInterpolatedSVG(state.currentProgress);
+      }
+    } catch (error) {
+      set({
+        processingState: {
+          isProcessing: false,
+          currentTask: null,
+          progress: 0,
+          error: error instanceof Error ? error.message : 'Processing failed',
+        }
+      });
+    }
+  },
+
+  generateInterpolatedSVG: async (progress) => {
+    const state = get();
+    if (!state.sourceSVG || !state.targetSVG) return;
+
+    try {
+      const interpolatedSVG = await workerManager.createInterpolatedSVG(
+        state.sourceSVG,
+        state.targetSVG,
+        progress
+      );
+
+      set({ interpolatedSVG });
+    } catch (error) {
+      console.error('Failed to generate interpolated SVG:', error);
+      // Fallback to simple opacity blending
+      const fallbackSVG = `
+        <div style="position: relative; width: 100%; height: 100%;">
+          <div style="position: absolute; opacity: ${1 - progress};">
+            ${state.sourceSVG}
+          </div>
+          <div style="position: absolute; opacity: ${progress};">
+            ${state.targetSVG}
+          </div>
+        </div>
+      `;
+      set({ interpolatedSVG: fallbackSVG });
+    }
+  },
+
+  setProcessingState: (newState) =>
+    set((state) => ({
+      processingState: { ...state.processingState, ...newState },
+    })),
 }));
 
 function applyEasing(t: number, easing: AnimationSettings['easing']): number {

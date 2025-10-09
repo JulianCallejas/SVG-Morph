@@ -1,0 +1,592 @@
+import { interpolate } from 'd3-interpolate';
+import SVGPathCommander from 'svg-path-commander';
+
+export interface PathData {
+  d: string;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  opacity?: number;
+}
+
+export interface SVGData {
+  paths: PathData[];
+  viewBox: string;
+  width: number;
+  height: number;
+}
+
+export interface WorkerMessage {
+  type: 'PARSE_SVG' | 'INTERPOLATE_PATHS' | 'CREATE_INTERPOLATED_SVG' | 'NORMALIZE_PATH';
+  id: string;
+  payload: any;
+}
+
+export interface WorkerResponse {
+  type: 'SUCCESS' | 'ERROR' | 'PROGRESS';
+  id: string;
+  payload?: any;
+  error?: string;
+  progress?: number;
+}
+
+// Web Worker message handler
+self.onmessage = function(event: MessageEvent<WorkerMessage>) {
+  const { type, id, payload } = event.data;
+  
+  try {
+    switch (type) {
+      case 'PARSE_SVG':
+        handleParseSVG(id, payload.svgString);
+        break;
+      
+      case 'NORMALIZE_PATH':
+        handleNormalizePath(id, payload.pathData, payload.targetPoints);
+        break;
+      
+      case 'INTERPOLATE_PATHS':
+        handleInterpolatePaths(id, payload.sourcePath, payload.targetPath, payload.progress);
+        break;
+      
+      case 'CREATE_INTERPOLATED_SVG':
+        handleCreateInterpolatedSVG(id, payload.sourceSVG, payload.targetSVG, payload.progress);
+        break;
+      
+      default:
+        postMessage({
+          type: 'ERROR',
+          id,
+          error: `Unknown message type: ${type}`
+        } as WorkerResponse);
+    }
+  } catch (error) {
+    postMessage({
+      type: 'ERROR',
+      id,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    } as WorkerResponse);
+  }
+};
+
+function handleParseSVG(id: string, svgString: string) {
+  postMessage({ type: 'PROGRESS', id, progress: 0 } as WorkerResponse);
+  
+  try {
+    const result = parseSVGString(svgString);
+    
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: result,
+      progress: 100
+    } as WorkerResponse);
+  } catch (error) {
+    throw new Error(`SVG parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+function handleNormalizePath(id: string, pathData: string, targetPoints: number = 100) {
+  postMessage({ type: 'PROGRESS', id, progress: 0 } as WorkerResponse);
+  
+  try {
+    const path = new SVGPathCommander(pathData);
+    const normalized = path.normalize();
+    
+    postMessage({ type: 'PROGRESS', id, progress: 30 } as WorkerResponse);
+    
+    // Convert to absolute coordinates and sample points
+    const totalLength = normalized.getTotalLength();
+    const points: Array<{x: number, y: number}> = [];
+    
+    postMessage({ type: 'PROGRESS', id, progress: 50 } as WorkerResponse);
+    
+    for (let i = 0; i <= targetPoints; i++) {
+      const t = i / targetPoints;
+      const point = normalized.getPointAtLength(t * totalLength);
+      points.push({ x: point.x, y: point.y });
+      
+      // Report progress for long operations
+      if (i % 10 === 0) {
+        const progress = 50 + (i / targetPoints) * 40;
+        postMessage({ type: 'PROGRESS', id, progress } as WorkerResponse);
+      }
+    }
+    
+    postMessage({ type: 'PROGRESS', id, progress: 90 } as WorkerResponse);
+    
+    // Convert points back to path data
+    if (points.length === 0) {
+      postMessage({
+        type: 'SUCCESS',
+        id,
+        payload: pathData,
+        progress: 100
+      } as WorkerResponse);
+      return;
+    }
+    
+    let pathString = `M${points[0].x},${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      pathString += ` L${points[i].x},${points[i].y}`;
+    }
+    
+    // Close path if original was closed
+    if (pathData.includes('Z') || pathData.includes('z')) {
+      pathString += ' Z';
+    }
+    
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: pathString,
+      progress: 100
+    } as WorkerResponse);
+  } catch (error) {
+    console.warn('Path normalization failed, using original:', error);
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: pathData,
+      progress: 100
+    } as WorkerResponse);
+  }
+}
+
+function handleInterpolatePaths(id: string, sourcePath: string, targetPath: string, progress: number) {
+  postMessage({ type: 'PROGRESS', id, progress: 0 } as WorkerResponse);
+  
+  try {
+    // Normalize both paths to have the same number of points
+    postMessage({ type: 'PROGRESS', id, progress: 20 } as WorkerResponse);
+    const normalizedSource = normalizePath(sourcePath);
+    
+    postMessage({ type: 'PROGRESS', id, progress: 40 } as WorkerResponse);
+    const normalizedTarget = normalizePath(targetPath);
+    
+    postMessage({ type: 'PROGRESS', id, progress: 60 } as WorkerResponse);
+    
+    // Parse path commands
+    const sourceCommands = parsePathCommands(normalizedSource);
+    const targetCommands = parsePathCommands(normalizedTarget);
+    
+    postMessage({ type: 'PROGRESS', id, progress: 70 } as WorkerResponse);
+    
+    // Ensure both paths have the same number of commands
+    const maxLength = Math.max(sourceCommands.length, targetCommands.length);
+    const paddedSource = padPathCommands(sourceCommands, maxLength);
+    const paddedTarget = padPathCommands(targetCommands, maxLength);
+    
+    postMessage({ type: 'PROGRESS', id, progress: 85 } as WorkerResponse);
+    
+    // Interpolate each command
+    const interpolatedCommands = paddedSource.map((sourceCmd, index) => {
+      const targetCmd = paddedTarget[index];
+      return interpolatePathCommand(sourceCmd, targetCmd, progress);
+    });
+    
+    const result = interpolatedCommands.join(' ');
+    
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: result,
+      progress: 100
+    } as WorkerResponse);
+  } catch (error) {
+    console.warn('Path interpolation failed, using fallback:', error);
+    // Fallback to simple opacity blending
+    const result = progress < 0.5 ? sourcePath : targetPath;
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: result,
+      progress: 100
+    } as WorkerResponse);
+  }
+}
+
+function handleCreateInterpolatedSVG(id: string, sourceSVG: string, targetSVG: string, progress: number) {
+  postMessage({ type: 'PROGRESS', id, progress: 0 } as WorkerResponse);
+  
+  try {
+    const sourceData = parseSVGString(sourceSVG);
+    postMessage({ type: 'PROGRESS', id, progress: 25 } as WorkerResponse);
+    
+    const targetData = parseSVGString(targetSVG);
+    postMessage({ type: 'PROGRESS', id, progress: 50 } as WorkerResponse);
+    
+    // Use the source SVG's dimensions and viewBox
+    const { viewBox, width, height } = sourceData;
+    
+    // Interpolate paths
+    const maxPaths = Math.max(sourceData.paths.length, targetData.paths.length);
+    const interpolatedPaths: string[] = [];
+    
+    for (let i = 0; i < maxPaths; i++) {
+      const sourcePath = sourceData.paths[i] || sourceData.paths[sourceData.paths.length - 1];
+      const targetPath = targetData.paths[i] || targetData.paths[targetData.paths.length - 1];
+      
+      if (!sourcePath || !targetPath) continue;
+      
+      const interpolatedD = interpolatePaths(sourcePath.d, targetPath.d, progress);
+      const interpolatedFill = interpolateColor(sourcePath.fill || '#000000', targetPath.fill || '#000000', progress);
+      const interpolatedStroke = sourcePath.stroke === 'none' || targetPath.stroke === 'none' 
+        ? (progress < 0.5 ? sourcePath.stroke : targetPath.stroke)
+        : interpolateColor(sourcePath.stroke || '#000000', targetPath.stroke || '#000000', progress);
+      const interpolatedStrokeWidth = lerp(sourcePath.strokeWidth || 1, targetPath.strokeWidth || 1, progress);
+      const interpolatedOpacity = lerp(sourcePath.opacity || 1, targetPath.opacity || 1, progress);
+      
+      interpolatedPaths.push(`
+        <path 
+          d="${interpolatedD}" 
+          fill="${interpolatedFill}"
+          stroke="${interpolatedStroke}"
+          stroke-width="${interpolatedStrokeWidth}"
+          opacity="${interpolatedOpacity}"
+        />
+      `);
+      
+      // Report progress for each path
+      const pathProgress = 50 + ((i + 1) / maxPaths) * 40;
+      postMessage({ type: 'PROGRESS', id, progress: pathProgress } as WorkerResponse);
+    }
+    
+    const result = `
+      <svg width="${width}" height="${height}" viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg">
+        ${interpolatedPaths.join('')}
+      </svg>
+    `;
+    
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: result,
+      progress: 100
+    } as WorkerResponse);
+  } catch (error) {
+    console.error('SVG interpolation failed:', error);
+    // Fallback to opacity blending
+    const result = `
+      <div style="position: relative; width: 100%; height: 100%;">
+        <div style="position: absolute; opacity: ${1 - progress};">
+          ${sourceSVG}
+        </div>
+        <div style="position: absolute; opacity: ${progress};">
+          ${targetSVG}
+        </div>
+      </div>
+    `;
+    
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: result,
+      progress: 100
+    } as WorkerResponse);
+  }
+}
+
+// Helper functions for Web Worker environment (no DOM APIs available)
+function parseSVGString(svgString: string): SVGData {
+  // Extract SVG attributes using regex since we can't use DOMParser
+  const svgMatch = svgString.match(/<svg[^>]*>/i);
+  if (!svgMatch) {
+    throw new Error('Invalid SVG format - no <svg> tag found');
+  }
+
+  const svgTag = svgMatch[0];
+  
+  // Extract viewBox
+  const viewBoxMatch = svgTag.match(/viewBox\s*=\s*["']([^"']*)["']/i);
+  const viewBox = viewBoxMatch ? viewBoxMatch[1] : '0 0 512 512';
+  
+  // Extract width and height
+  const widthMatch = svgTag.match(/width\s*=\s*["']?([^"'\s>]*)["']?/i);
+  const heightMatch = svgTag.match(/height\s*=\s*["']?([^"'\s>]*)["']?/i);
+  
+  let width = 512;
+  let height = 512;
+  
+  if (widthMatch) {
+    const w = parseFloat(widthMatch[1]);
+    if (!isNaN(w)) width = w;
+  }
+  
+  if (heightMatch) {
+    const h = parseFloat(heightMatch[1]);
+    if (!isNaN(h)) height = h;
+  }
+  
+  // If no explicit width/height, try to extract from viewBox
+  if ((!widthMatch || !heightMatch) && viewBoxMatch) {
+    const viewBoxValues = viewBoxMatch[1].split(/\s+/);
+    if (viewBoxValues.length >= 4) {
+      if (!widthMatch) width = parseFloat(viewBoxValues[2]) || 512;
+      if (!heightMatch) height = parseFloat(viewBoxValues[3]) || 512;
+    }
+  }
+
+  // Extract path elements
+  const paths: PathData[] = [];
+  const pathRegex = /<path[^>]*>/gi;
+  let pathMatch;
+  
+  while ((pathMatch = pathRegex.exec(svgString)) !== null) {
+    const pathTag = pathMatch[0];
+    
+    // Extract path attributes
+    const dMatch = pathTag.match(/d\s*=\s*["']([^"']*)["']/i);
+    const fillMatch = pathTag.match(/fill\s*=\s*["']([^"']*)["']/i);
+    const strokeMatch = pathTag.match(/stroke\s*=\s*["']([^"']*)["']/i);
+    const strokeWidthMatch = pathTag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
+    const opacityMatch = pathTag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
+    
+    if (dMatch) {
+      paths.push({
+        d: dMatch[1],
+        fill: fillMatch ? fillMatch[1] : '#000000',
+        stroke: strokeMatch ? strokeMatch[1] : 'none',
+        strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
+        opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
+      });
+    }
+  }
+
+  // If no paths found, try to convert basic shapes
+  if (paths.length === 0) {
+    // Extract circles
+    const circleRegex = /<circle[^>]*>/gi;
+    let circleMatch;
+    
+    while ((circleMatch = circleRegex.exec(svgString)) !== null) {
+      const circleTag = circleMatch[0];
+      const pathData = convertCircleToPath(circleTag);
+      if (pathData) {
+        const fillMatch = circleTag.match(/fill\s*=\s*["']([^"']*)["']/i);
+        const strokeMatch = circleTag.match(/stroke\s*=\s*["']([^"']*)["']/i);
+        const strokeWidthMatch = circleTag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
+        const opacityMatch = circleTag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
+        
+        paths.push({
+          d: pathData,
+          fill: fillMatch ? fillMatch[1] : '#000000',
+          stroke: strokeMatch ? strokeMatch[1] : 'none',
+          strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
+          opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
+        });
+      }
+    }
+
+    // Extract rectangles
+    const rectRegex = /<rect[^>]*>/gi;
+    let rectMatch;
+    
+    while ((rectMatch = rectRegex.exec(svgString)) !== null) {
+      const rectTag = rectMatch[0];
+      const pathData = convertRectToPath(rectTag);
+      if (pathData) {
+        const fillMatch = rectTag.match(/fill\s*=\s*["']([^"']*)["']/i);
+        const strokeMatch = rectTag.match(/stroke\s*=\s*["']([^"']*)["']/i);
+        const strokeWidthMatch = rectTag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
+        const opacityMatch = rectTag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
+        
+        paths.push({
+          d: pathData,
+          fill: fillMatch ? fillMatch[1] : '#000000',
+          stroke: strokeMatch ? strokeMatch[1] : 'none',
+          strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
+          opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
+        });
+      }
+    }
+  }
+
+  return { paths, viewBox, width, height };
+}
+
+function convertCircleToPath(circleTag: string): string | null {
+  const cxMatch = circleTag.match(/cx\s*=\s*["']?([^"'\s>]*)["']?/i);
+  const cyMatch = circleTag.match(/cy\s*=\s*["']?([^"'\s>]*)["']?/i);
+  const rMatch = circleTag.match(/r\s*=\s*["']?([^"'\s>]*)["']?/i);
+  
+  if (!rMatch) return null;
+  
+  const cx = cxMatch ? parseFloat(cxMatch[1]) || 0 : 0;
+  const cy = cyMatch ? parseFloat(cyMatch[1]) || 0 : 0;
+  const r = parseFloat(rMatch[1]) || 0;
+  
+  if (r <= 0) return null;
+  
+  return `M${cx - r},${cy} A${r},${r} 0 1,0 ${cx + r},${cy} A${r},${r} 0 1,0 ${cx - r},${cy} Z`;
+}
+
+function convertRectToPath(rectTag: string): string | null {
+  const xMatch = rectTag.match(/x\s*=\s*["']?([^"'\s>]*)["']?/i);
+  const yMatch = rectTag.match(/y\s*=\s*["']?([^"'\s>]*)["']?/i);
+  const widthMatch = rectTag.match(/width\s*=\s*["']?([^"'\s>]*)["']?/i);
+  const heightMatch = rectTag.match(/height\s*=\s*["']?([^"'\s>]*)["']?/i);
+  
+  if (!widthMatch || !heightMatch) return null;
+  
+  const x = xMatch ? parseFloat(xMatch[1]) || 0 : 0;
+  const y = yMatch ? parseFloat(yMatch[1]) || 0 : 0;
+  const width = parseFloat(widthMatch[1]) || 0;
+  const height = parseFloat(heightMatch[1]) || 0;
+  
+  if (width <= 0 || height <= 0) return null;
+  
+  return `M${x},${y} L${x + width},${y} L${x + width},${y + height} L${x},${y + height} Z`;
+}
+
+// DOM-based shape conversion removed - using regex-based parsing instead
+
+// Note: parseSVG function replaced with parseSVGString for Web Worker compatibility
+
+function normalizePath(pathData: string, targetPoints: number = 100): string {
+  try {
+    const path = new SVGPathCommander(pathData);
+    const normalized = path.normalize();
+    
+    // Convert to absolute coordinates and sample points
+    const totalLength = normalized.getTotalLength();
+    const points: Array<{x: number, y: number}> = [];
+    
+    for (let i = 0; i <= targetPoints; i++) {
+      const t = i / targetPoints;
+      const point = normalized.getPointAtLength(t * totalLength);
+      points.push({ x: point.x, y: point.y });
+    }
+    
+    // Convert points back to path data
+    if (points.length === 0) return pathData;
+    
+    let pathString = `M${points[0].x},${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      pathString += ` L${points[i].x},${points[i].y}`;
+    }
+    
+    // Close path if original was closed
+    if (pathData.includes('Z') || pathData.includes('z')) {
+      pathString += ' Z';
+    }
+    
+    return pathString;
+  } catch (error) {
+    console.warn('Path normalization failed, using original:', error);
+    return pathData;
+  }
+}
+
+function interpolatePaths(sourcePath: string, targetPath: string, progress: number): string {
+  try {
+    // Normalize both paths to have the same number of points
+    const normalizedSource = normalizePath(sourcePath);
+    const normalizedTarget = normalizePath(targetPath);
+    
+    // Parse path commands
+    const sourceCommands = parsePathCommands(normalizedSource);
+    const targetCommands = parsePathCommands(normalizedTarget);
+    
+    // Ensure both paths have the same number of commands
+    const maxLength = Math.max(sourceCommands.length, targetCommands.length);
+    const paddedSource = padPathCommands(sourceCommands, maxLength);
+    const paddedTarget = padPathCommands(targetCommands, maxLength);
+    
+    // Interpolate each command
+    const interpolatedCommands = paddedSource.map((sourceCmd, index) => {
+      const targetCmd = paddedTarget[index];
+      return interpolatePathCommand(sourceCmd, targetCmd, progress);
+    });
+    
+    return interpolatedCommands.join(' ');
+  } catch (error) {
+    console.warn('Path interpolation failed, using fallback:', error);
+    // Fallback to simple opacity blending
+    return progress < 0.5 ? sourcePath : targetPath;
+  }
+}
+
+interface PathCommand {
+  type: string;
+  values: number[];
+}
+
+function parsePathCommands(pathData: string): PathCommand[] {
+  const commands: PathCommand[] = [];
+  const regex = /([MmLlHhVvCcSsQqTtAaZz])([\d\s,.-]*)/g;
+  let match;
+  
+  while ((match = regex.exec(pathData)) !== null) {
+    const type = match[1];
+    const valueString = match[2].trim();
+    const values = valueString ? valueString.split(/[\s,]+/).map(Number).filter(n => !isNaN(n)) : [];
+    commands.push({ type, values });
+  }
+  
+  return commands;
+}
+
+function padPathCommands(commands: PathCommand[], targetLength: number): PathCommand[] {
+  const padded = [...commands];
+  
+  while (padded.length < targetLength) {
+    const lastCommand = padded[padded.length - 1];
+    if (lastCommand && lastCommand.type.toLowerCase() === 'l') {
+      // Add a line command with the same endpoint
+      padded.push({
+        type: lastCommand.type,
+        values: [...lastCommand.values]
+      });
+    } else {
+      // Add a move command to the last position
+      const lastValues = lastCommand?.values || [0, 0];
+      const lastX = lastValues[lastValues.length - 2] || 0;
+      const lastY = lastValues[lastValues.length - 1] || 0;
+      padded.push({
+        type: 'L',
+        values: [lastX, lastY]
+      });
+    }
+  }
+  
+  return padded.slice(0, targetLength);
+}
+
+function interpolatePathCommand(source: PathCommand, target: PathCommand, progress: number): string {
+  // Use the source command type
+  const type = source.type;
+  
+  // Ensure both commands have the same number of values
+  const maxValues = Math.max(source.values.length, target.values.length);
+  const sourceValues = [...source.values];
+  const targetValues = [...target.values];
+  
+  // Pad with zeros if needed
+  while (sourceValues.length < maxValues) sourceValues.push(0);
+  while (targetValues.length < maxValues) targetValues.push(0);
+  
+  // Interpolate each value
+  const interpolatedValues = sourceValues.map((sourceVal, index) => {
+    const targetVal = targetValues[index] || sourceVal;
+    return sourceVal + (targetVal - sourceVal) * progress;
+  });
+  
+  return type + interpolatedValues.join(',');
+}
+
+function interpolateColor(sourceColor: string, targetColor: string, progress: number): string {
+  if (sourceColor === 'none' || targetColor === 'none') {
+    return progress < 0.5 ? sourceColor : targetColor;
+  }
+  
+  try {
+    const interpolator = interpolate(sourceColor, targetColor);
+    return interpolator(progress);
+  } catch (error) {
+    return progress < 0.5 ? sourceColor : targetColor;
+  }
+}
+
+function lerp(start: number, end: number, progress: number): number {
+  return start + (end - start) * progress;
+}

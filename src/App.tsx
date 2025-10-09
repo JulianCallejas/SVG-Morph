@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
+import { ProcessingIndicator } from './components/ProcessingIndicator';
 import { Home } from './pages/Home';
 import { Playground } from './pages/Playground';
 import { About } from './pages/About';
@@ -10,6 +11,7 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gray-50 dark:bg-primary text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <Navigation />
+        <ProcessingIndicator />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/playground" element={<Playground />} />

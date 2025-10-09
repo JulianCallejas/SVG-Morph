@@ -3,7 +3,7 @@ import { Upload, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface FileUploadZoneProps {
   label: string;
-  onUpload: (file: File, content: string) => void;
+  onUpload: (file: File, content: string) => Promise<void>;
   hasFile: boolean;
 }
 
@@ -75,7 +75,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
     try {
       const content = await validateSVG(file);
-      onUpload(file, content);
+      await onUpload(file, content);
     } catch (err) {
       setError(err as string);
     } finally {

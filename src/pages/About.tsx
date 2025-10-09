@@ -1,5 +1,6 @@
 import React from 'react';
 import { Github, Linkedin, Mail, Cpu, Zap, Code2 } from 'lucide-react';
+import { WorkerTest } from '../components/WorkerTest';
 
 export const About: React.FC = () => {
   return (
@@ -60,6 +61,11 @@ export const About: React.FC = () => {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Web Worker Test Section */}
+        <section className="mb-16">
+          <WorkerTest />
         </section>
 
         {/* Tech Stack Section */}
