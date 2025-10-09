@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { workerManager } from '../utils/workerManager';
 import { SVGData } from '../workers/pathProcessor';
+import { NodeMatcher, MatchingOptions, NodeMatch } from '../utils/nodeMatching';
+import { Point } from '../utils/kdTree';
 
 export interface AnimationSettings {
   duration: number;
@@ -38,6 +40,12 @@ interface MorphState {
   processingState: ProcessingState;
   interpolatedSVG: string | null;
   
+  // New Phase 2 properties
+  sourcePoints: Point[];
+  targetPoints: Point[];
+  nodeMatches: NodeMatch[];
+  matchingOptions: MatchingOptions;
+  
   // Actions
   setSourceSVG: (svg: string) => Promise<void>;
   setTargetSVG: (svg: string) => Promise<void>;
@@ -55,6 +63,12 @@ interface MorphState {
   processSVGs: () => Promise<void>;
   generateInterpolatedSVG: (progress: number) => Promise<void>;
   setProcessingState: (state: Partial<ProcessingState>) => void;
+  
+  // New Phase 2 actions
+  autoMatchNodes: () => void;
+  updateMatchingOptions: (options: Partial<MatchingOptions>) => void;
+  setSourcePoints: (points: Point[]) => void;
+  setTargetPoints: (points: Point[]) => void;
 }
 
 const defaultAnimationSettings: AnimationSettings = {
@@ -73,6 +87,14 @@ const defaultProcessingState: ProcessingState = {
   error: null,
 };
 
+const defaultMatchingOptions: MatchingOptions = {
+  distanceMetric: 'euclidean',
+  maxDistance: 100,
+  confidenceThreshold: 0.3,
+  useThinPlateSpline: false,
+  balanceMatching: true,
+};
+
 export const useMorphStore = create<MorphState>((set, get) => ({
   sourceSVG: null,
   targetSVG: null,
@@ -86,6 +108,12 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   animationId: null,
   processingState: defaultProcessingState,
   interpolatedSVG: null,
+  
+  // New Phase 2 state
+  sourcePoints: [],
+  targetPoints: [],
+  nodeMatches: [],
+  matchingOptions: defaultMatchingOptions,
 
   setSourceSVG: async (svg) => {
     set({ sourceSVG: svg, sourceSVGData: null });
@@ -295,6 +323,36 @@ export const useMorphStore = create<MorphState>((set, get) => ({
     set((state) => ({
       processingState: { ...state.processingState, ...newState },
     })),
+
+  // New Phase 2 actions
+  autoMatchNodes: () => {
+    const state = get();
+    if (state.sourcePoints.length === 0 || state.targetPoints.length === 0) return;
+
+    const matcher = new NodeMatcher(state.matchingOptions);
+    const result = matcher.autoMatchNodes(state.sourcePoints, state.targetPoints);
+    
+    // Convert matches to node pairs
+    const newNodePairs = result.matches.map((match, index) => ({
+      sourceId: match.sourcePoint.id!,
+      targetId: match.targetPoint.id!,
+      color: `hsl(${(index * 137.5) % 360}, 70%, 50%)`, // Golden angle for color distribution
+    }));
+
+    set({ 
+      nodeMatches: result.matches,
+      nodePairs: newNodePairs,
+    });
+  },
+
+  updateMatchingOptions: (options) =>
+    set((state) => ({
+      matchingOptions: { ...state.matchingOptions, ...options },
+    })),
+
+  setSourcePoints: (points) => set({ sourcePoints: points }),
+  
+  setTargetPoints: (points) => set({ targetPoints: points }),
 }));
 
 function applyEasing(t: number, easing: AnimationSettings['easing']): number {

@@ -4,6 +4,7 @@ import { Navigation } from './components/Navigation';
 import { ProcessingIndicator } from './components/ProcessingIndicator';
 import { Home } from './pages/Home';
 import { Playground } from './pages/Playground';
+import { PlaygroundEnhanced } from './pages/PlaygroundEnhanced';
 import { About } from './pages/About';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/playground" element={<Playground />} />
+          <Route path="/playground-enhanced" element={<PlaygroundEnhanced />} />
           <Route path="/about" element={<About />} />
         </Routes>
       </div>

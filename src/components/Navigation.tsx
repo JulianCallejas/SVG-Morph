@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shapes, Home, Play, Info } from 'lucide-react';
+import { Shapes, Home, Play, Info, Zap } from 'lucide-react';
 
 export const Navigation: React.FC = () => {
   const location = useLocation();
@@ -8,6 +8,7 @@ export const Navigation: React.FC = () => {
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/playground', icon: Play, label: 'Playground' },
+    { path: '/playground-enhanced', icon: Zap, label: 'Enhanced', badge: 'Phase 2' },
     { path: '/about', icon: Info, label: 'About' },
   ];
 
@@ -28,13 +29,13 @@ export const Navigation: React.FC = () => {
 
           {/* Navigation Links */}
           <div className="flex space-x-1">
-            {navItems.map(({ path, icon: Icon, label }) => {
+            {navItems.map(({ path, icon: Icon, label, badge }) => {
               const isActive = location.pathname === path;
               return (
                 <Link
                   key={path}
                   to={path}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
+                  className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
                     isActive
                       ? 'bg-accent/10 text-accent border border-accent/20'
                       : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-accent'
@@ -42,6 +43,11 @@ export const Navigation: React.FC = () => {
                 >
                   <Icon className="h-4 w-4" />
                   <span className="hidden sm:inline font-medium">{label}</span>
+                  {badge && (
+                    <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full font-medium">
+                      {badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
