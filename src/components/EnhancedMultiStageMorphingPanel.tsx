@@ -114,7 +114,7 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
       easing: 'ease-in-out',
       delay: 0
     };
-    setStageUploads(prev => [...prev, newStage]);
+    setStageUploads(prev => [newStage, ...prev]);
   }, [stageUploads.length]);
 
   const handleRemoveStage = useCallback((stageId: string) => {

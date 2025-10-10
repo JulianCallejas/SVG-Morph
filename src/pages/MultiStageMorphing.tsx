@@ -36,6 +36,19 @@ export const MultiStageMorphing: React.FC = () => {
       );
     }
 
+    // Check if paths exist and is an array
+    if (!previewSVG.paths || !Array.isArray(previewSVG.paths)) {
+      return (
+        <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
+          <div className="text-center">
+            <Layers className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-medium">Invalid SVG Data</p>
+            <p className="text-sm">SVG paths are missing or invalid</p>
+          </div>
+        </div>
+      );
+    }
+
     const svgContent = `
       <svg 
         width="100%" 

@@ -40,20 +40,41 @@ export class MultiStageMorphingEngine {
   createSequence(
     name: string,
     svgDataArray: SVGData[],
+    durations?: number[],
+    easings?: string[],
+    delays?: number[]
+  ): string;
+  createSequence(
+    name: string,
+    stages: MorphingStage[]
+  ): string;
+  createSequence(
+    name: string,
+    svgDataArrayOrStages: SVGData[] | MorphingStage[],
     durations: number[] = [],
     easings: string[] = [],
     delays: number[] = []
   ): string {
     const sequenceId = `sequence_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    const stages: MorphingStage[] = svgDataArray.map((svgData, index) => ({
-      id: `stage_${index}`,
-      svgData,
-      duration: durations[index] || 1000,
-      easing: easings[index] || 'ease-in-out',
-      delay: delays[index] || 0,
-      name: `Stage ${index + 1}`
-    }));
+    let stages: MorphingStage[];
+    
+    // Check if we received MorphingStage[] or SVGData[]
+    if (svgDataArrayOrStages.length > 0 && 'svgData' in svgDataArrayOrStages[0]) {
+      // It's MorphingStage[]
+      stages = svgDataArrayOrStages as MorphingStage[];
+    } else {
+      // It's SVGData[]
+      const svgDataArray = svgDataArrayOrStages as SVGData[];
+      stages = svgDataArray.map((svgData, index) => ({
+        id: `stage_${index}`,
+        svgData,
+        duration: durations[index] || 1000,
+        easing: easings[index] || 'ease-in-out',
+        delay: delays[index] || 0,
+        name: `Stage ${index + 1}`
+      }));
+    }
 
     const totalDuration = stages.reduce((sum, stage) => sum + stage.duration + stage.delay, 0);
 
@@ -129,7 +150,6 @@ export class MultiStageMorphingEngine {
 
     for (let i = 0; i < sequence.stages.length - 1; i++) {
       const currentStage = sequence.stages[i];
-      const nextStage = sequence.stages[i + 1];
       const stageEndTime = accumulatedTime + currentStage.duration + currentStage.delay;
 
       if (totalTime <= stageEndTime) {
@@ -192,10 +212,11 @@ export class MultiStageMorphingEngine {
         } else {
           return 7.5625 * (progress -= 2.625 / 2.75) * progress + 0.984375;
         }
-      case 'elastic':
+      case 'elastic': {
         const c4 = (2 * Math.PI) / 3;
         return progress === 0 ? 0 : progress === 1 ? 1 :
           -Math.pow(2, 10 * progress - 10) * Math.sin((progress * 10 - 10.75) * c4);
+      }
       default:
         return progress;
     }
@@ -213,6 +234,12 @@ export class MultiStageMorphingEngine {
     const easedProgress = this.applyEasing(progress, easing);
 
     try {
+      // Validate that both SVGs have paths arrays
+      if (!fromSVG.paths || !Array.isArray(fromSVG.paths) || !toSVG.paths || !Array.isArray(toSVG.paths)) {
+        console.warn('Invalid SVG data: missing or invalid paths array');
+        return fromSVG;
+      }
+
       // Use the existing worker manager for path interpolation
       const interpolatedPaths = await Promise.all(
         fromSVG.paths.map(async (fromPath, index) => {
