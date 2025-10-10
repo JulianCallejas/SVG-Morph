@@ -310,7 +310,12 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       let progress = Math.min(elapsed / duration, 1);
 
       // Apply easing
-      progress = applyEasing(progress, state.animationSettings.easing);
+      progress = applyEasing(progress, state.animationSettings.easing, state.animationSettings.customEasing);
+
+      // Apply reverse if enabled
+      if (state.animationSettings.reverse) {
+        progress = 1 - progress;
+      }
 
       set({ currentProgress: progress });
 
@@ -319,10 +324,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
         await get().generateInterpolatedSVG(progress);
       }
 
-      if (progress < 1) {
-        const animationId = requestAnimationFrame(animate);
-        set({ animationId });
-      } else {
+      if (elapsed >= duration) {
         set({ isAnimating: false, animationId: null });
         
         if (state.animationSettings.loop) {
@@ -331,6 +333,9 @@ export const useMorphStore = create<MorphState>((set, get) => ({
             get().startAnimation();
           }, 100);
         }
+      } else {
+        const animationId = requestAnimationFrame(animate);
+        set({ animationId });
       }
     };
 
@@ -352,14 +357,24 @@ export const useMorphStore = create<MorphState>((set, get) => ({
     if (state.animationId) {
       cancelAnimationFrame(state.animationId);
     }
-    set({ isAnimating: false, currentProgress: 0, animationId: null });
+    
+    // Set initial progress based on reverse setting
+    const initialProgress = state.animationSettings.reverse ? 1 : 0;
+    set({ isAnimating: false, currentProgress: initialProgress, animationId: null });
   },
 
   setProgress: async (progress) => {
-    set({ currentProgress: progress });
     const state = get();
+    let adjustedProgress = progress;
+    
+    // Apply reverse if enabled
+    if (state.animationSettings.reverse) {
+      adjustedProgress = 1 - progress;
+    }
+    
+    set({ currentProgress: adjustedProgress });
     if (state.sourceSVG && state.targetSVG) {
-      await get().generateInterpolatedSVG(progress);
+      await get().generateInterpolatedSVG(adjustedProgress);
     }
   },
 
