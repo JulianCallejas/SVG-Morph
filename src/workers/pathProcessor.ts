@@ -16,8 +16,14 @@ export interface SVGData {
   height: number;
 }
 
+export interface NodeMatch {
+  sourcePoint: { x: number; y: number; id?: string };
+  targetPoint: { x: number; y: number; id?: string };
+  confidence: number;
+}
+
 export interface WorkerMessage {
-  type: 'PARSE_SVG' | 'INTERPOLATE_PATHS' | 'CREATE_INTERPOLATED_SVG' | 'NORMALIZE_PATH';
+  type: 'PARSE_SVG' | 'INTERPOLATE_PATHS' | 'CREATE_INTERPOLATED_SVG' | 'NORMALIZE_PATH' | 'INTERPOLATE_WITH_MATCHES';
   id: string;
   payload: unknown;
 }
@@ -49,7 +55,11 @@ self.onmessage = function(event: MessageEvent<WorkerMessage>) {
         break;
       
       case 'CREATE_INTERPOLATED_SVG':
-        handleCreateInterpolatedSVG(id, (payload as { sourceSVG: string; targetSVG: string; progress: number }).sourceSVG, (payload as { sourceSVG: string; targetSVG: string; progress: number }).targetSVG, (payload as { sourceSVG: string; targetSVG: string; progress: number }).progress);
+        handleCreateInterpolatedSVG(id, (payload as { sourceSVG: string; targetSVG: string; progress: number; nodeMatches?: NodeMatch[] }).sourceSVG, (payload as { sourceSVG: string; targetSVG: string; progress: number; nodeMatches?: NodeMatch[] }).targetSVG, (payload as { sourceSVG: string; targetSVG: string; progress: number; nodeMatches?: NodeMatch[] }).progress, (payload as { sourceSVG: string; targetSVG: string; progress: number; nodeMatches?: NodeMatch[] }).nodeMatches);
+        break;
+      
+      case 'INTERPOLATE_WITH_MATCHES':
+        handleInterpolateWithMatches(id, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).sourcePath, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).targetPath, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).progress, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).nodeMatches);
         break;
       
       default:
@@ -205,10 +215,17 @@ function handleInterpolatePaths(id: string, sourcePath: string, targetPath: stri
   }
 }
 
-function handleCreateInterpolatedSVG(id: string, sourceSVG: string, targetSVG: string, progress: number) {
+function handleCreateInterpolatedSVG(id: string, sourceSVG: string, targetSVG: string, progress: number, nodeMatches?: NodeMatch[]) {
   postMessage({ type: 'PROGRESS', id, progress: 0 } as WorkerResponse);
   
   try {
+    // Debug logging for manual node matches
+    if (nodeMatches && nodeMatches.length > 0) {
+      console.log('🎯 Web Worker: Using manual node matches for interpolation:', nodeMatches.length, 'matches');
+    } else {
+      console.log('⚡ Web Worker: Using default interpolation (no manual matches)');
+    }
+    
     const sourceData = parseSVGString(sourceSVG);
     postMessage({ type: 'PROGRESS', id, progress: 25 } as WorkerResponse);
     
@@ -228,7 +245,10 @@ function handleCreateInterpolatedSVG(id: string, sourceSVG: string, targetSVG: s
       
       if (!sourcePath || !targetPath) continue;
       
-      const interpolatedD = interpolatePaths(sourcePath.d, targetPath.d, progress);
+      // Use manual node matches if available, otherwise use default interpolation
+      const interpolatedD = nodeMatches && nodeMatches.length > 0 
+        ? interpolatePathsWithMatches(sourcePath.d, targetPath.d, progress, nodeMatches)
+        : interpolatePaths(sourcePath.d, targetPath.d, progress);
       
       // Enhanced fill interpolation that preserves 'none' and undefined values
       let interpolatedFill: string;
@@ -672,4 +692,203 @@ function interpolateColor(sourceColor: string, targetColor: string, progress: nu
 
 function lerp(start: number, end: number, progress: number): number {
   return start + (end - start) * progress;
+}
+
+/**
+ * Handle interpolation with manual node matches
+ */
+function handleInterpolateWithMatches(id: string, sourcePath: string, targetPath: string, progress: number, nodeMatches: NodeMatch[]) {
+  postMessage({ type: 'PROGRESS', id, progress: 0 } as WorkerResponse);
+  
+  try {
+    const result = interpolatePathsWithMatches(sourcePath, targetPath, progress, nodeMatches);
+    
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: result,
+      progress: 100
+    } as WorkerResponse);
+  } catch (error) {
+    console.warn('Path interpolation with matches failed, using fallback:', error);
+    // Fallback to regular interpolation
+    const result = interpolatePaths(sourcePath, targetPath, progress);
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: result,
+      progress: 100
+    } as WorkerResponse);
+  }
+}
+
+/**
+ * Interpolate paths using manual node matches for better morphing
+ */
+function interpolatePathsWithMatches(sourcePath: string, targetPath: string, progress: number, nodeMatches: NodeMatch[]): string {
+  try {
+    console.log('🎯 Worker: interpolatePathsWithMatches called with', nodeMatches.length, 'matches');
+    console.log('📍 First few matches:', nodeMatches.slice(0, 2));
+    
+    // If we have node matches, use them to create better correspondence
+    if (nodeMatches.length === 0) {
+      console.warn('⚠️ No node matches provided, falling back to regular interpolation');
+      return interpolatePaths(sourcePath, targetPath, progress);
+    }
+    
+    // Parse source and target paths to get point arrays
+    const sourcePoints = extractPointsFromPath(sourcePath);
+    const targetPoints = extractPointsFromPath(targetPath);
+    
+    if (sourcePoints.length === 0 || targetPoints.length === 0) {
+      console.warn('Could not extract points from paths, using regular interpolation');
+      return interpolatePaths(sourcePath, targetPath, progress);
+    }
+    
+    // Create correspondence mapping based on manual matches
+    const correspondenceMap = new Map<number, number>();
+    
+    // Map manual matches to point indices
+    nodeMatches.forEach(match => {
+      const sourceIndex = findClosestPointIndex(sourcePoints, match.sourcePoint);
+      const targetIndex = findClosestPointIndex(targetPoints, match.targetPoint);
+      
+      if (sourceIndex !== -1 && targetIndex !== -1) {
+        correspondenceMap.set(sourceIndex, targetIndex);
+      }
+    });
+    
+    console.log('Created correspondence map with', correspondenceMap.size, 'mappings');
+    
+    // Interpolate points using the correspondence map
+    const interpolatedPoints = interpolatePointsWithCorrespondence(
+      sourcePoints, 
+      targetPoints, 
+      correspondenceMap, 
+      progress
+    );
+    
+    // Convert interpolated points back to path
+    return pointsToPath(interpolatedPoints);
+    
+  } catch (error) {
+    console.error('Manual node matching interpolation failed:', error);
+    return interpolatePaths(sourcePath, targetPath, progress);
+  }
+}
+
+/**
+ * Extract points from a path string
+ */
+function extractPointsFromPath(pathData: string): Array<{x: number, y: number}> {
+  try {
+    const path = new SVGPathCommander(pathData);
+    const normalized = path.normalize();
+    const totalLength = normalized.getTotalLength();
+    const points: Array<{x: number, y: number}> = [];
+    
+    // Sample 100 points along the path
+    const sampleCount = 100;
+    for (let i = 0; i <= sampleCount; i++) {
+      const t = i / sampleCount;
+      const point = normalized.getPointAtLength(t * totalLength);
+      points.push({ x: point.x, y: point.y });
+    }
+    
+    return points;
+  } catch (error) {
+    console.warn('Failed to extract points from path:', error);
+    return [];
+  }
+}
+
+/**
+ * Find the closest point index to a target point
+ */
+function findClosestPointIndex(points: Array<{x: number, y: number}>, target: {x: number, y: number}): number {
+  let closestIndex = -1;
+  let minDistance = Infinity;
+  
+  points.forEach((point, index) => {
+    const distance = Math.sqrt(
+      Math.pow(point.x - target.x, 2) + Math.pow(point.y - target.y, 2)
+    );
+    
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestIndex = index;
+    }
+  });
+  
+  return closestIndex;
+}
+
+/**
+ * Interpolate points using correspondence mapping
+ */
+function interpolatePointsWithCorrespondence(
+  sourcePoints: Array<{x: number, y: number}>,
+  targetPoints: Array<{x: number, y: number}>,
+  correspondenceMap: Map<number, number>,
+  progress: number
+): Array<{x: number, y: number}> {
+  const interpolatedPoints: Array<{x: number, y: number}> = [];
+  
+  // Create a target mapping for all source points
+  const targetMapping = new Array(sourcePoints.length);
+  
+  // Fill in manual correspondences
+  correspondenceMap.forEach((targetIndex, sourceIndex) => {
+    targetMapping[sourceIndex] = targetIndex;
+  });
+  
+  // Fill in remaining correspondences using simple linear mapping
+  let nextTargetIndex = 0;
+  for (let i = 0; i < sourcePoints.length; i++) {
+    if (targetMapping[i] === undefined) {
+      // Find next available target index
+      while (nextTargetIndex < targetPoints.length && 
+             Array.from(correspondenceMap.values()).includes(nextTargetIndex)) {
+        nextTargetIndex++;
+      }
+      
+      if (nextTargetIndex < targetPoints.length) {
+        targetMapping[i] = nextTargetIndex;
+        nextTargetIndex++;
+      } else {
+        // Use the last target point if we run out
+        targetMapping[i] = targetPoints.length - 1;
+      }
+    }
+  }
+  
+  // Interpolate each source point to its corresponding target point
+  sourcePoints.forEach((sourcePoint, index) => {
+    const targetIndex = targetMapping[index] || 0;
+    const targetPoint = targetPoints[targetIndex] || targetPoints[targetPoints.length - 1];
+    
+    const interpolatedPoint = {
+      x: sourcePoint.x + (targetPoint.x - sourcePoint.x) * progress,
+      y: sourcePoint.y + (targetPoint.y - sourcePoint.y) * progress
+    };
+    
+    interpolatedPoints.push(interpolatedPoint);
+  });
+  
+  return interpolatedPoints;
+}
+
+/**
+ * Convert points array back to path string
+ */
+function pointsToPath(points: Array<{x: number, y: number}>): string {
+  if (points.length === 0) return '';
+  
+  let pathString = `M${points[0].x},${points[0].y}`;
+  
+  for (let i = 1; i < points.length; i++) {
+    pathString += ` L${points[i].x},${points[i].y}`;
+  }
+  
+  return pathString;
 }

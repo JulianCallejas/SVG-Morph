@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useMorphStore } from '../store/morphStore';
-import { exportSystem, ExportOptions, JavaScriptExportOptions, ExportResult, createExportOptions } from '../utils/exportSystem';
+import { exportSystem, ExportOptions, JavaScriptExportOptions, ExportResult, createExportOptions, VideoExportOptionsExtended } from '../utils/exportSystem';
 import { useToast } from '../contexts/ToastContext';
 import { 
   Download, 
@@ -14,11 +14,12 @@ import {
   CheckSquare,
   Square,
   Loader2,
-  Zap
+  Zap,
+  Video
 } from 'lucide-react';
 
 export const EnhancedExportPanel: React.FC = () => {
-  const { sourceSVG, targetSVG, animationSettings } = useMorphStore();
+  const { sourceSVG, targetSVG, animationSettings, nodeMatches, manualModeEnabled } = useMorphStore();
   const { showSuccess, showError, showWarning, showInfo } = useToast();
   const [exportOptions, setExportOptions] = useState<ExportOptions>(createExportOptions({
     duration: animationSettings.duration,
@@ -37,6 +38,14 @@ export const EnhancedExportPanel: React.FC = () => {
     minified: false,
     includeTypeScript: false,
   });
+  const [videoOptions, setVideoOptions] = useState({
+    videoFormat: 'mp4' as 'gif' | 'mp4' | 'webm',
+    width: 800,
+    height: 600,
+    fps: 30,
+    quality: 'high' as 'low' | 'medium' | 'high' | 'ultra',
+    backgroundColor: '#ffffff',
+  });
 
   const formatIcons = {
     svg: Image,
@@ -44,6 +53,7 @@ export const EnhancedExportPanel: React.FC = () => {
     smil: FileText,
     json: Database,
     javascript: Zap,
+    video: Video,
   };
 
   const formatDescriptions = {
@@ -52,6 +62,7 @@ export const EnhancedExportPanel: React.FC = () => {
     smil: 'SVG with SMIL animations (native)',
     json: 'Animation data in JSON format',
     javascript: 'JavaScript function for programmatic control',
+    video: 'Video animation (MP4, WebM, GIF)',
   };
 
   const handleFormatToggle = useCallback((format: ExportOptions['format']) => {
@@ -72,7 +83,7 @@ export const EnhancedExportPanel: React.FC = () => {
 
     setIsExporting(true);
     try {
-      let options: ExportOptions | JavaScriptExportOptions;
+      let options: ExportOptions | JavaScriptExportOptions | VideoExportOptionsExtended;
       
       if (format === 'javascript') {
         options = { 
@@ -80,16 +91,61 @@ export const EnhancedExportPanel: React.FC = () => {
           format,
           ...jsOptions 
         } as JavaScriptExportOptions;
+      } else if (format === 'video') {
+        options = {
+          ...exportOptions,
+          format,
+          videoFormat: videoOptions.videoFormat,
+          width: videoOptions.width,
+          height: videoOptions.height,
+          fps: videoOptions.fps,
+          quality: videoOptions.quality,
+          backgroundColor: videoOptions.backgroundColor,
+        } as VideoExportOptionsExtended;
       } else {
         options = { ...exportOptions, format };
       }
       
-      const result = await exportSystem.exportAnimation(sourceSVG, targetSVG, options);
-      exportSystem.downloadResult(result);
+      // Add manual node matches to export options if Manual Mode is enabled and pairs exist
+      const shouldUseManualMatches = manualModeEnabled && nodeMatches.length > 0;
+      const optionsWithMatches = {
+        ...options,
+        nodeMatches: shouldUseManualMatches ? nodeMatches : undefined,
+        useManualMatching: shouldUseManualMatches
+      };
+      
+      if (shouldUseManualMatches) {
+        console.log('🎯 Export: Using manual node matches for export:', nodeMatches.length, 'matches');
+      } else if (manualModeEnabled && nodeMatches.length === 0) {
+        console.log('🟡 Export: Manual Mode enabled but no pairs, using default export');
+      } else {
+        console.log('⚡ Export: Manual Mode disabled, using default export');
+      }
+      
+      const result = await exportSystem.exportAnimation(sourceSVG, targetSVG, optionsWithMatches);
+      
+      // Handle download for different content types
+      if (result.content instanceof Blob) {
+        const url = URL.createObjectURL(result.content);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = result.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        exportSystem.downloadResult(result);
+      }
+      
       setExportResults(prev => [result, ...prev.slice(0, 4)]); // Keep last 5 results
       
       if (format === 'javascript') {
         showSuccess('JavaScript Export Complete', `Generated ${jsOptions.library} JavaScript function: ${jsOptions.functionName}`);
+      } else if (format === 'video') {
+        showSuccess('Video Export Complete', `Generated ${videoOptions.videoFormat.toUpperCase()} video: ${result.filename}`);
+      } else {
+        showSuccess('Export Complete', `Generated ${format.toUpperCase()} file: ${result.filename}`);
       }
     } catch (error) {
       console.error('Export failed:', error);
@@ -97,7 +153,7 @@ export const EnhancedExportPanel: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [sourceSVG, targetSVG, exportOptions, jsOptions, showWarning, showError, showSuccess]);
+  }, [sourceSVG, targetSVG, exportOptions, jsOptions, videoOptions, nodeMatches, manualModeEnabled, showWarning, showError, showSuccess]);
 
   const handleBatchExport = useCallback(async () => {
     if (!sourceSVG || !targetSVG) {
@@ -113,17 +169,21 @@ export const EnhancedExportPanel: React.FC = () => {
     setIsExporting(true);
     try {
       const formatOptions = Array.from(selectedFormats).map(format => {
+        const shouldUseManualMatches = manualModeEnabled && nodeMatches.length > 0;
+        const baseOptions = {
+          ...exportOptions,
+          format,
+          nodeMatches: shouldUseManualMatches ? nodeMatches : undefined,
+          useManualMatching: shouldUseManualMatches
+        };
+        
         if (format === 'javascript') {
           return {
-            ...exportOptions,
-            format,
+            ...baseOptions,
             ...jsOptions
           } as JavaScriptExportOptions;
         }
-        return {
-          ...exportOptions,
-          format,
-        };
+        return baseOptions;
       });
 
       const results = await exportSystem.batchExport(sourceSVG, targetSVG, formatOptions);
@@ -141,7 +201,7 @@ export const EnhancedExportPanel: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [sourceSVG, targetSVG, selectedFormats, exportOptions, jsOptions, showWarning, showError, showSuccess]);
+  }, [sourceSVG, targetSVG, selectedFormats, exportOptions, jsOptions, nodeMatches, manualModeEnabled, showWarning, showError, showSuccess]);
 
   const handleHistoryDownload = useCallback(() => {
     // In a real implementation, you'd re-export or store the content

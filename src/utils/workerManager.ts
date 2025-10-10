@@ -1,4 +1,4 @@
-import { WorkerMessage, WorkerResponse, SVGData } from '../workers/pathProcessor';
+import { WorkerMessage, WorkerResponse, SVGData, NodeMatch } from '../workers/pathProcessor';
 
 export interface WorkerTask {
   id: string;
@@ -160,7 +160,8 @@ export class WorkerManager {
     sourceSVG: string,
     targetSVG: string,
     progress: number,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    nodeMatches?: NodeMatch[]
   ): Promise<string> {
     if (!this.isInitialized) {
       // Fallback to synchronous processing
@@ -171,7 +172,8 @@ export class WorkerManager {
     return this.postMessage<string>('CREATE_INTERPOLATED_SVG', {
       sourceSVG,
       targetSVG,
-      progress
+      progress,
+      nodeMatches
     }, onProgress);
   }
 
@@ -213,6 +215,27 @@ export class WorkerManager {
   // Get number of pending tasks
   get pendingTasksCount(): number {
     return this.tasks.size;
+  }
+
+  // New method for interpolating with manual node matches
+  async interpolateWithMatches(
+    sourcePath: string,
+    targetPath: string,
+    progress: number,
+    nodeMatches: NodeMatch[],
+    onProgress?: (progress: number) => void
+  ): Promise<string> {
+    if (!this.isInitialized) {
+      // Fallback to regular interpolation
+      return this.interpolatePaths(sourcePath, targetPath, progress, onProgress);
+    }
+
+    return this.postMessage<string>('INTERPOLATE_WITH_MATCHES', {
+      sourcePath,
+      targetPath,
+      progress,
+      nodeMatches
+    }, onProgress);
   }
 }
 

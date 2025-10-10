@@ -22,6 +22,7 @@ export const PlaygroundEnhanced: React.FC = () => {
     toggleManualMode,
     sourcePoints,
     targetPoints,
+    nodeMatches,
     setSourcePoints,
     setTargetPoints,
     autoMatchNodes,
@@ -385,9 +386,27 @@ export const PlaygroundEnhanced: React.FC = () => {
             )}
           </div>
         )}
-
         {activeTab === 'export' && (
           <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Preview Your Animation</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Watch your SVG morphing animation and adjust the settings as needed
+              </p>
+              {manualModeEnabled && nodeMatches.length > 0 && (
+                <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-sm font-medium">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  Using Manual Node Matching ({nodeMatches.length} pairs)
+                </div>
+              )}
+              {manualModeEnabled && nodeMatches.length === 0 && (
+                <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-sm font-medium">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  Manual Mode Enabled (No pairs created yet)
+                </div>
+              )}
+            </div>
+
             <div className="text-center">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Export Your Animation</h2>
               <p className="text-gray-600 dark:text-gray-400">
@@ -398,7 +417,6 @@ export const PlaygroundEnhanced: React.FC = () => {
             <EnhancedExportPanel />
           </div>
         )}
-
         {activeTab === 'react' && (
           <div className="space-y-8">
             <div className="text-center">

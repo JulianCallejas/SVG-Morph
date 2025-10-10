@@ -287,14 +287,66 @@ export const useMorphStore = create<MorphState>((set, get) => ({
     set((state) => ({ manualModeEnabled: !state.manualModeEnabled })),
 
   addNodePair: (pair) =>
-    set((state) => ({ nodePairs: [...state.nodePairs, pair] })),
+    set((state) => {
+      const newNodePairs = [...state.nodePairs, pair];
+      
+      // Convert nodePairs to nodeMatches for animation system
+      const nodeMatches = newNodePairs.map(nodePair => {
+        // Find the actual points from sourcePoints and targetPoints
+        const sourcePoint = state.sourcePoints.find(p => p.id === nodePair.sourceId);
+        const targetPoint = state.targetPoints.find(p => p.id === nodePair.targetId);
+        
+        if (sourcePoint && targetPoint) {
+          return {
+            sourcePoint: { x: sourcePoint.x, y: sourcePoint.y, id: sourcePoint.id },
+            targetPoint: { x: targetPoint.x, y: targetPoint.y, id: targetPoint.id },
+            confidence: 1.0 // Manual matches have full confidence
+          };
+        }
+        return null;
+      }).filter(Boolean) as NodeMatch[];
+      
+      console.log('🔄 Store: Updated nodeMatches from nodePairs:', nodeMatches.length, 'matches');
+      
+      return { 
+        nodePairs: newNodePairs,
+        nodeMatches
+      };
+    }),
 
   removeNodePair: (pairId) =>
-    set((state) => ({
-      nodePairs: state.nodePairs.filter((pair) => pair.sourceId !== pairId),
-    })),
+    set((state) => {
+      const newNodePairs = state.nodePairs.filter(pair => pair.sourceId + '-' + pair.targetId !== pairId);
+      
+      // Convert nodePairs to nodeMatches for animation system
+      const nodeMatches = newNodePairs.map(nodePair => {
+        // Find the actual points from sourcePoints and targetPoints
+        const sourcePoint = state.sourcePoints.find(p => p.id === nodePair.sourceId);
+        const targetPoint = state.targetPoints.find(p => p.id === nodePair.targetId);
+        
+        if (sourcePoint && targetPoint) {
+          return {
+            sourcePoint: { x: sourcePoint.x, y: sourcePoint.y, id: sourcePoint.id },
+            targetPoint: { x: targetPoint.x, y: targetPoint.y, id: targetPoint.id },
+            confidence: 1.0 // Manual matches have full confidence
+          };
+        }
+        return null;
+      }).filter(Boolean) as NodeMatch[];
+      
+      console.log('🔄 Store: Updated nodeMatches after removal:', nodeMatches.length, 'matches');
+      
+      return { 
+        nodePairs: newNodePairs,
+        nodeMatches
+      };
+    }),
 
-  clearNodePairs: () => set({ nodePairs: [] }),
+  clearNodePairs: () =>
+    set({ 
+      nodePairs: [],
+      nodeMatches: []
+    }),
 
   startAnimation: () => {
     const state = get();
@@ -459,10 +511,26 @@ export const useMorphStore = create<MorphState>((set, get) => ({
     if (!state.sourceSVG || !state.targetSVG) return;
 
     try {
+      // Only use manual node matches if Manual Mode is enabled AND there are accepted pairs
+      const shouldUseManualMatches = state.manualModeEnabled && state.nodeMatches.length > 0;
+      const nodeMatches = shouldUseManualMatches ? state.nodeMatches : undefined;
+      
+      // Debug logging for manual node matches
+      if (shouldUseManualMatches && nodeMatches && nodeMatches.length > 0) {
+        console.log('🎯 Store: Manual Mode ENABLED - Passing manual node matches to Web Worker:', nodeMatches.length, 'matches');
+        console.log('📍 Node matches:', nodeMatches.slice(0, 3)); // Log first 3 matches
+      } else if (state.manualModeEnabled && state.nodeMatches.length === 0) {
+        console.log('🟡 Store: Manual Mode enabled but no node pairs created yet, using default interpolation');
+      } else {
+        console.log('⚡ Store: Manual Mode disabled, using default interpolation');
+      }
+      
       const interpolatedSVG = await workerManager.createInterpolatedSVG(
         state.sourceSVG,
         state.targetSVG,
-        progress
+        progress,
+        undefined, // onProgress callback
+        nodeMatches
       );
 
       set({ interpolatedSVG });

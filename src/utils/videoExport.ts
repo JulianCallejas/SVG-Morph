@@ -276,29 +276,43 @@ export class VideoExporter {
   }
 
   /**
-   * Simple SVG interpolation (placeholder - would use actual morphing logic)
+   * Proper SVG interpolation using Web Worker path morphing
    */
   private async interpolateSVG(
     sourceSVG: string,
     targetSVG: string,
     progress: number
   ): Promise<string> {
-    // This is a simplified interpolation
-    // In practice, this would use the actual morphing utilities
-    if (progress <= 0) return sourceSVG;
-    if (progress >= 1) return targetSVG;
-    
-    // Simple opacity blending as fallback
-    return `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
-        <g opacity="${1 - progress}">
-          ${this.extractSVGContent(sourceSVG)}
-        </g>
-        <g opacity="${progress}">
-          ${this.extractSVGContent(targetSVG)}
-        </g>
-      </svg>
-    `;
+    try {
+      // Import workerManager for proper path interpolation
+      const { workerManager } = await import('./workerManager');
+      
+      // Use the same interpolation logic as the preview animation
+      const interpolatedSVG = await workerManager.createInterpolatedSVG(
+        sourceSVG,
+        targetSVG,
+        progress
+      );
+      
+      return interpolatedSVG;
+    } catch (error) {
+      console.warn('Path morphing failed in video export, using opacity fallback:', error);
+      
+      // Fallback to opacity blending if path morphing fails
+      if (progress <= 0) return sourceSVG;
+      if (progress >= 1) return targetSVG;
+      
+      return `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+          <g opacity="${1 - progress}">
+            ${this.extractSVGContent(sourceSVG)}
+          </g>
+          <g opacity="${progress}">
+            ${this.extractSVGContent(targetSVG)}
+          </g>
+        </svg>
+      `;
+    }
   }
 
   /**
