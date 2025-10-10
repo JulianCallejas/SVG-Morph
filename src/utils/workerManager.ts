@@ -237,6 +237,29 @@ export class WorkerManager {
       nodeMatches
     }, onProgress);
   }
+
+  // New method for normalizing paths with manual node matches
+  async normalizePathsWithMatches(
+    sourcePath: string,
+    targetPath: string,
+    nodeMatches: NodeMatch[],
+    targetPoints: number = 100,
+    onProgress?: (progress: number) => void
+  ): Promise<{ normalizedSource: string; normalizedTarget: string }> {
+    if (!this.isInitialized) {
+      // Fallback to regular normalization
+      const normalizedSource = await this.normalizePath(sourcePath, targetPoints, onProgress);
+      const normalizedTarget = await this.normalizePath(targetPath, targetPoints, onProgress);
+      return { normalizedSource, normalizedTarget };
+    }
+
+    return this.postMessage<{ normalizedSource: string; normalizedTarget: string }>('NORMALIZE_PATHS_WITH_MATCHES', {
+      sourcePath,
+      targetPath,
+      nodeMatches,
+      targetPoints
+    }, onProgress);
+  }
 }
 
 // Singleton instance

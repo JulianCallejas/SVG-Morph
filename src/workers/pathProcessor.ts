@@ -23,7 +23,7 @@ export interface NodeMatch {
 }
 
 export interface WorkerMessage {
-  type: 'PARSE_SVG' | 'INTERPOLATE_PATHS' | 'CREATE_INTERPOLATED_SVG' | 'NORMALIZE_PATH' | 'INTERPOLATE_WITH_MATCHES';
+  type: 'PARSE_SVG' | 'INTERPOLATE_PATHS' | 'CREATE_INTERPOLATED_SVG' | 'NORMALIZE_PATH' | 'INTERPOLATE_WITH_MATCHES' | 'NORMALIZE_PATHS_WITH_MATCHES';
   id: string;
   payload: unknown;
 }
@@ -60,6 +60,10 @@ self.onmessage = function(event: MessageEvent<WorkerMessage>) {
       
       case 'INTERPOLATE_WITH_MATCHES':
         handleInterpolateWithMatches(id, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).sourcePath, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).targetPath, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).progress, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).nodeMatches);
+        break;
+      
+      case 'NORMALIZE_PATHS_WITH_MATCHES':
+        handleNormalizePathsWithMatches(id, (payload as { sourcePath: string; targetPath: string; nodeMatches: NodeMatch[]; targetPoints: number }).sourcePath, (payload as { sourcePath: string; targetPath: string; nodeMatches: NodeMatch[]; targetPoints: number }).targetPath, (payload as { sourcePath: string; targetPath: string; nodeMatches: NodeMatch[]; targetPoints: number }).nodeMatches, (payload as { sourcePath: string; targetPath: string; nodeMatches: NodeMatch[]; targetPoints: number }).targetPoints);
         break;
       
       default:
@@ -780,17 +784,15 @@ function interpolatePathsWithMatches(sourcePath: string, targetPath: string, pro
 /**
  * Extract points from a path string
  */
-function extractPointsFromPath(pathData: string): Array<{x: number, y: number}> {
+function extractPointsFromPath(pathData: string, targetPoints: number = 100): Array<{x: number, y: number}> {
   try {
     const path = new SVGPathCommander(pathData);
     const normalized = path.normalize();
     const totalLength = normalized.getTotalLength();
     const points: Array<{x: number, y: number}> = [];
     
-    // Sample 100 points along the path
-    const sampleCount = 100;
-    for (let i = 0; i <= sampleCount; i++) {
-      const t = i / sampleCount;
+    for (let i = 0; i <= targetPoints; i++) {
+      const t = i / targetPoints;
       const point = normalized.getPointAtLength(t * totalLength);
       points.push({ x: point.x, y: point.y });
     }
@@ -798,7 +800,10 @@ function extractPointsFromPath(pathData: string): Array<{x: number, y: number}> 
     return points;
   } catch (error) {
     console.warn('Failed to extract points from path:', error);
-    return [];
+    return Array.from({ length: targetPoints }, (_, i) => ({
+      x: i * 10,
+      y: i * 10
+    }));
   }
 }
 
@@ -892,3 +897,152 @@ function pointsToPath(points: Array<{x: number, y: number}>): string {
   
   return pathString;
 }
+
+/**
+ * Handle normalizing paths with manual node matches for SMIL export
+ */
+function handleNormalizePathsWithMatches(
+  id: string, 
+  sourcePath: string, 
+  targetPath: string, 
+  nodeMatches: NodeMatch[], 
+  targetPoints: number = 100
+) {
+  postMessage({ type: 'PROGRESS', id, progress: 0 } as WorkerResponse);
+  
+  try {
+    console.log('🎯 Worker: Normalizing paths with manual node matches:', nodeMatches.length, 'matches');
+    
+    // Step 1: Extract points from both paths using manual matches
+    postMessage({ type: 'PROGRESS', id, progress: 20 } as WorkerResponse);
+    
+    const sourcePoints = extractPointsFromPath(sourcePath, targetPoints);
+    const targetPoints_extracted = extractPointsFromPath(targetPath, targetPoints);
+    
+    postMessage({ type: 'PROGRESS', id, progress: 40 } as WorkerResponse);
+    
+    // Step 2: Apply manual node matches to create corresponding point sequences
+    const { alignedSource, alignedTarget } = applyNodeMatchesToPoints(
+      sourcePoints, 
+      targetPoints_extracted, 
+      nodeMatches, 
+      targetPoints
+    );
+    
+    postMessage({ type: 'PROGRESS', id, progress: 70 } as WorkerResponse);
+    
+    // Step 3: Convert back to normalized path strings
+    const normalizedSource = pointsToPath(alignedSource);
+    const normalizedTarget = pointsToPath(alignedTarget);
+    
+    postMessage({ type: 'PROGRESS', id, progress: 90 } as WorkerResponse);
+    
+    console.log('🎯 Worker: Generated normalized paths with matches:', {
+      sourceLength: normalizedSource.length,
+      targetLength: normalizedTarget.length,
+      pointCount: alignedSource.length
+    });
+    
+    postMessage({
+      type: 'SUCCESS',
+      id,
+      payload: { normalizedSource, normalizedTarget },
+      progress: 100
+    } as WorkerResponse);
+    
+  } catch (error) {
+    console.warn('Path normalization with matches failed, using fallback:', error);
+    
+    // Fallback to regular normalization
+    try {
+      const normalizedSource = normalizePath(sourcePath, targetPoints);
+      const normalizedTarget = normalizePath(targetPath, targetPoints);
+      
+      postMessage({
+        type: 'SUCCESS',
+        id,
+        payload: { normalizedSource, normalizedTarget },
+        progress: 100
+      } as WorkerResponse);
+    } catch (fallbackError) {
+      postMessage({
+        type: 'ERROR',
+        id,
+        error: `Path normalization failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`
+      } as WorkerResponse);
+    }
+  }
+}
+
+/**
+ * Apply manual node matches to create aligned point sequences
+ */
+function applyNodeMatchesToPoints(
+  sourcePoints: Array<{x: number, y: number}>,
+  targetPoints: Array<{x: number, y: number}>,
+  nodeMatches: NodeMatch[],
+  desiredPointCount: number
+): { alignedSource: Array<{x: number, y: number}>, alignedTarget: Array<{x: number, y: number}> } {
+  
+  if (nodeMatches.length === 0) {
+    // No matches, return original points
+    return { 
+      alignedSource: sourcePoints.slice(0, desiredPointCount), 
+      alignedTarget: targetPoints.slice(0, desiredPointCount) 
+    };
+  }
+  
+  // Create aligned sequences based on manual matches
+  const alignedSource: Array<{x: number, y: number}> = [];
+  const alignedTarget: Array<{x: number, y: number}> = [];
+  
+  // Sort matches by source point position for consistent ordering
+  const sortedMatches = [...nodeMatches].sort((a, b) => {
+    const aIndex = sourcePoints.findIndex(p => 
+      Math.abs(p.x - a.sourcePoint.x) < 5 && Math.abs(p.y - a.sourcePoint.y) < 5
+    );
+    const bIndex = sourcePoints.findIndex(p => 
+      Math.abs(p.x - b.sourcePoint.x) < 5 && Math.abs(p.y - b.sourcePoint.y) < 5
+    );
+    return aIndex - bIndex;
+  });
+  
+  // Distribute points evenly, ensuring matched points are included
+  const pointsPerSegment = Math.floor(desiredPointCount / (sortedMatches.length + 1));
+  
+  for (let i = 0; i < sortedMatches.length; i++) {
+    const match = sortedMatches[i];
+    
+    // Add interpolated points leading up to this match
+    const startIndex = i * pointsPerSegment;
+    const endIndex = startIndex + pointsPerSegment;
+    
+    for (let j = startIndex; j < endIndex && alignedSource.length < desiredPointCount - 1; j++) {
+      const t = j / desiredPointCount;
+      const sourceIndex = Math.floor(t * (sourcePoints.length - 1));
+      const targetIndex = Math.floor(t * (targetPoints.length - 1));
+      
+      alignedSource.push(sourcePoints[sourceIndex] || sourcePoints[sourcePoints.length - 1]);
+      alignedTarget.push(targetPoints[targetIndex] || targetPoints[targetPoints.length - 1]);
+    }
+    
+    // Add the matched points
+    if (alignedSource.length < desiredPointCount) {
+      alignedSource.push(match.sourcePoint);
+      alignedTarget.push(match.targetPoint);
+    }
+  }
+  
+  // Fill remaining points
+  while (alignedSource.length < desiredPointCount) {
+    const t = alignedSource.length / desiredPointCount;
+    const sourceIndex = Math.floor(t * (sourcePoints.length - 1));
+    const targetIndex = Math.floor(t * (targetPoints.length - 1));
+    
+    alignedSource.push(sourcePoints[sourceIndex] || sourcePoints[sourcePoints.length - 1]);
+    alignedTarget.push(targetPoints[targetIndex] || targetPoints[targetPoints.length - 1]);
+  }
+  
+  return { alignedSource, alignedTarget };
+}
+

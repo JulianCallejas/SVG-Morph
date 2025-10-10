@@ -373,12 +373,31 @@ function ${options.functionName}(containerId, userOptions = {}) {
         
         // Normalize paths to ensure compatible structures for smooth SMIL animation
         console.log(`SMIL Export - Normalizing path ${i + 1}/${maxPaths}`);
-        const normalizedSource = await workerManager.normalizePath(sourcePath.d, 100);
-        const normalizedTarget = await workerManager.normalizePath(targetPath.d, 100);
+        
+        let normalizedSource: string;
+        let normalizedTarget: string;
+        
+        // Use manual node matches if available for this path
+        if (options.nodeMatches && options.nodeMatches.length > 0) {
+          console.log('🎯 SMIL Export - Using manual node matches for path normalization');
+          const result = await workerManager.normalizePathsWithMatches(
+            sourcePath.d, 
+            targetPath.d, 
+            options.nodeMatches, 
+            100
+          );
+          normalizedSource = result.normalizedSource;
+          normalizedTarget = result.normalizedTarget;
+        } else {
+          console.log('⚡ SMIL Export - Using default path normalization');
+          normalizedSource = await workerManager.normalizePath(sourcePath.d, 100);
+          normalizedTarget = await workerManager.normalizePath(targetPath.d, 100);
+        }
         
         console.log('SMIL Export - Normalized paths:', {
           source: normalizedSource.substring(0, 50) + '...',
-          target: normalizedTarget.substring(0, 50) + '...'
+          target: normalizedTarget.substring(0, 50) + '...',
+          usingManualMatches: !!(options.nodeMatches && options.nodeMatches.length > 0)
         });
         
         const pathId = `path-${i}`;
