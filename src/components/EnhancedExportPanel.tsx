@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useMorphStore } from '../store/morphStore';
 import { exportSystem, ExportOptions, ExportResult, createExportOptions } from '../utils/exportSystem';
+import { useToast } from '../contexts/ToastContext';
 import { 
   Download, 
   Settings, 
@@ -17,6 +18,7 @@ import {
 
 export const EnhancedExportPanel: React.FC = () => {
   const { sourceSVG, targetSVG, animationSettings } = useMorphStore();
+  const { showSuccess, showError, showWarning, showInfo } = useToast();
   const [exportOptions, setExportOptions] = useState<ExportOptions>(createExportOptions({
     duration: animationSettings.duration,
     easing: animationSettings.easing,
@@ -53,7 +55,7 @@ export const EnhancedExportPanel: React.FC = () => {
 
   const handleSingleExport = useCallback(async (format: ExportOptions['format']) => {
     if (!sourceSVG || !targetSVG) {
-      alert('Please load both source and target SVG files first.');
+      showWarning('Missing SVG Files', 'Please load both source and target SVG files first.');
       return;
     }
 
@@ -65,20 +67,20 @@ export const EnhancedExportPanel: React.FC = () => {
       setExportResults(prev => [result, ...prev.slice(0, 4)]); // Keep last 5 results
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please check the console for details.');
+      showError('Export Failed', 'An error occurred during export. Please check the console for details.');
     } finally {
       setIsExporting(false);
     }
-  }, [sourceSVG, targetSVG, exportOptions]);
+  }, [sourceSVG, targetSVG, exportOptions, showWarning, showError]);
 
   const handleBatchExport = useCallback(async () => {
     if (!sourceSVG || !targetSVG) {
-      alert('Please load both source and target SVG files first.');
+      showWarning('Missing SVG Files', 'Please load both source and target SVG files first.');
       return;
     }
 
     if (selectedFormats.size === 0) {
-      alert('Please select at least one format to export.');
+      showWarning('No Format Selected', 'Please select at least one format to export.');
       return;
     }
 
@@ -97,19 +99,19 @@ export const EnhancedExportPanel: React.FC = () => {
       });
 
       setExportResults(prev => [...results, ...prev].slice(0, 10)); // Keep last 10 results
-      alert(`Successfully exported ${results.length} format(s)!`);
+      showSuccess('Export Complete', `Successfully exported ${results.length} format(s)!`);
     } catch (error) {
       console.error('Batch export failed:', error);
-      alert('Batch export failed. Please check the console for details.');
+      showError('Batch Export Failed', 'An error occurred during batch export. Please check the console for details.');
     } finally {
       setIsExporting(false);
     }
-  }, [sourceSVG, targetSVG, selectedFormats, exportOptions]);
+  }, [sourceSVG, targetSVG, selectedFormats, exportOptions, showWarning, showError, showSuccess]);
 
-  const handleHistoryDownload = useCallback((..._args: unknown[]) => {
+  const handleHistoryDownload = useCallback(() => {
     // In a real implementation, you'd re-export or store the content
-    alert('Re-export functionality would be implemented here.');
-  }, []);
+    showInfo('Feature Coming Soon', 'Re-export functionality will be implemented in a future update.');
+  }, [showInfo]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -402,7 +404,7 @@ export const EnhancedExportPanel: React.FC = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => handleHistoryDownload(item)}
+                  onClick={() => handleHistoryDownload()}
                   className="px-4 py-2 text-sm bg-secondary/10 text-secondary rounded-lg hover:bg-secondary/20 transition-colors font-medium"
                 >
                   Re-export
