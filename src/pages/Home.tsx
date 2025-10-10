@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { 
-  ArrowRight, Upload, Layers, Search, Scissors, Code, Box,
+  ArrowRight, Upload, Search, Scissors, Code, Box,
   Play, Video, Share2, Sparkles, Cpu, Monitor, Gamepad2, Wand2, Brush, Target, Clock, 
-  FileText, Globe, Laptop, Camera, Film, Users, Heart, Star,
+  FileText, Globe, Camera, Film, Users, Star,
   Gauge, Shield, Lightbulb, Workflow, Sliders, MousePointer, Keyboard, Eye,
   Zap as Lightning, Rocket, Award, CheckCircle, TrendingUp
 } from 'lucide-react';
@@ -22,8 +22,8 @@ export const Home: React.FC = () => {
               Professional SVG Morphing Studio
             </p>
             <p className="text-lg text-gray-500 dark:text-gray-400 mb-12 max-w-3xl mx-auto animate-slide-up">
-              Create stunning morphing animations with advanced AI-powered node matching, 3D visualization, 
-              multi-format export, social sharing, and professional-grade tools for designers and developers.
+              Create stunning morphing animations with AI-powered node matching, 3D visualization, reverse engineering, 
+              physics simulation, video export, social sharing, and 15+ professional export formats.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -45,11 +45,14 @@ export const Home: React.FC = () => {
                 </span>
               </Link>
               <Link
-                to="/multi-stage"
-                className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl animate-scale-in"
+                to="/reverse-engineering"
+                className="inline-flex items-center space-x-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl animate-scale-in relative"
               >
-                <Layers className="h-5 w-5" />
-                <span>Multi-Stage</span>
+                <Search className="h-5 w-5" />
+                <span>Reverse Eng.</span>
+                <span className="absolute -top-2 -right-2 px-2 py-1 text-xs bg-yellow-400 text-yellow-900 rounded-full font-bold">
+                  NEW
+                </span>
               </Link>
               <Link
                 to="/playground"
@@ -85,7 +88,7 @@ export const Home: React.FC = () => {
                 step: '01',
                 icon: Upload,
                 title: 'Upload & Analyze',
-                description: 'Upload SVG files with automatic validation, complexity analysis, and AI-powered optimization. Supports multiple formats including AI, EPS, and PDF conversion.',
+                description: 'Upload SVG files or analyze existing animations with reverse engineering. Automatic validation, complexity analysis, and AI-powered optimization with multi-format support.',
                 color: 'from-accent to-accent/70',
               },
               {
@@ -99,7 +102,7 @@ export const Home: React.FC = () => {
                 step: '03',
                 icon: Share2,
                 title: 'Export & Share',
-                description: 'Export to 15+ formats including JavaScript, React components, 3D models (OBJ/STL/GLTF), videos (MP4/GIF), and share directly to social platforms.',
+                description: 'Export to 15+ formats including JavaScript, React components, 3D models (OBJ/STL/PLY/GLTF), videos (MP4/GIF/WebM), and share directly to 7 social platforms.',
                 color: 'from-purple-500 to-purple-400',
               },
             ].map((item, index) => (
@@ -127,6 +130,90 @@ export const Home: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Reverse Engineering Highlight */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-100 to-red-100 text-orange-800 rounded-full font-medium mb-4">
+              <Search className="h-4 w-4" />
+              Reverse Engineering
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+              Analyze & Recreate Existing Animations
+            </h2>
+            <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              Upload animated SVG files to extract morphing parameters, analyze animation techniques, and recreate them in SVG-Morph
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {[
+              {
+                icon: Search,
+                title: 'Animation Analysis',
+                description: 'Automatically detect SMIL, CSS, and JavaScript animations with comprehensive parameter extraction.',
+                color: 'from-orange-500 to-orange-600',
+                link: '/reverse-engineering',
+              },
+              {
+                icon: Wand2,
+                title: 'Smart Detection',
+                description: 'AI-powered analysis of morphing patterns, easing curves, and animation complexity with confidence scoring.',
+                color: 'from-red-500 to-red-600',
+                link: '/reverse-engineering',
+              },
+              {
+                icon: Code,
+                title: 'Multi-Format Support',
+                description: 'Supports SMIL animations, CSS keyframes, GSAP morphing, Anime.js, and custom JavaScript animations.',
+                color: 'from-purple-500 to-purple-600',
+                link: '/reverse-engineering',
+              },
+              {
+                icon: Target,
+                title: 'Recreation Ready',
+                description: 'Extract source/target SVGs and apply parameters directly to your morphing projects with one click.',
+                color: 'from-blue-500 to-blue-600',
+                link: '/reverse-engineering',
+              },
+            ].map((feature, index) => (
+              <Link
+                key={index}
+                to={feature.link}
+                className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700 group block"
+              >
+                <div className={`w-12 h-12 bg-gradient-to-r ${feature.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200`}>
+                  <feature.icon className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100 group-hover:text-orange-600 transition-colors">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  {feature.description}
+                </p>
+              </Link>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <Link
+              to="/reverse-engineering"
+              className="inline-flex items-center space-x-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg mr-4"
+            >
+              <Search className="h-5 w-5" />
+              <span>Try Reverse Engineering</span>
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+            <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+              <span className="inline-flex items-center gap-1">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                Supports SMIL, CSS, JavaScript, GSAP, Anime.js animations
+              </span>
+            </div>
           </div>
         </div>
       </section>
@@ -159,7 +246,7 @@ export const Home: React.FC = () => {
               {
                 icon: FileText,
                 title: 'Universal Formats',
-                description: 'Export to OBJ, STL, PLY, and GLTF formats compatible with Paint 3D, Blender, 3ds Max, Maya, and SketchUp.',
+                description: 'Export to OBJ, STL, PLY, and GLTF formats compatible with Paint 3D, Blender, 3ds Max, Maya, SketchUp, and Unity.',
                 color: 'from-blue-500 to-blue-600',
                 link: '/3d-morphing',
               },
@@ -227,7 +314,7 @@ export const Home: React.FC = () => {
               Advanced Morphing & Export Suite
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Physics simulation, video export, social sharing, gradient morphing, and comprehensive performance optimization
+              Physics simulation, video export, social sharing, gradient morphing, text path morphing, multi-path support, and hardware-accelerated rendering
             </p>
           </div>
 
@@ -253,8 +340,8 @@ export const Home: React.FC = () => {
               },
               {
                 icon: Brush,
-                title: 'Gradient Morphing',
-                description: 'Advanced gradient transitions with color space interpolation and automatic gradient matching.',
+                title: 'Advanced Morphing',
+                description: 'Gradient morphing, text path animation, multi-path support with automatic matching and transform interpolation.',
                 color: 'from-orange-500 to-orange-600',
               },
             ].map((feature, index) => (
@@ -314,14 +401,14 @@ export const Home: React.FC = () => {
               },
               {
                 icon: Scissors,
-                title: 'React Components',
-                description: 'Export as ready-to-use React components with TypeScript support and customizable props.',
+                title: 'Framework Export',
+                description: 'Export as React, Vue, Angular components with TypeScript support, or standalone JavaScript with multiple library options.',
                 color: 'from-blue-500 to-blue-600',
               },
               {
                 icon: Globe,
-                title: 'Multi-Platform',
-                description: 'Compatible with all major browsers and frameworks. Optimized for web, mobile, and desktop applications.',
+                title: 'Universal Export',
+                description: 'Export to 15+ formats: SVG, JavaScript (Vanilla/GSAP/Anime.js), React, 3D models, videos, and social platforms.',
                 color: 'from-purple-500 to-purple-600',
               },
             ].map((feature, index) => (
@@ -364,8 +451,8 @@ export const Home: React.FC = () => {
             {[
               {
                 icon: Monitor,
-                title: 'Performance Monitor',
-                description: 'Real-time FPS counter, memory usage tracking, and performance optimization suggestions.',
+                title: 'Hardware Acceleration',
+                description: 'WebGL rendering, OffscreenCanvas support, real-time FPS monitoring, and automatic performance optimization.',
                 color: 'from-blue-500 to-blue-600',
               },
               {
@@ -376,8 +463,8 @@ export const Home: React.FC = () => {
               },
               {
                 icon: Eye,
-                title: 'Interactive Tutorial',
-                description: 'Step-by-step guided onboarding with contextual help and progress tracking.',
+                title: 'Professional UX',
+                description: 'Interactive tutorials, custom easing editor, keyframe timeline, real-time parameter adjustment, and comprehensive error handling.',
                 color: 'from-green-500 to-green-600',
               },
               {
@@ -451,8 +538,8 @@ export const Home: React.FC = () => {
               },
               {
                 icon: TrendingUp,
-                title: '15+ Export Formats',
-                description: 'Export to SVG, JavaScript, React, 3D models, videos, and share directly to social platforms.',
+                title: 'Complete Export Suite',
+                description: 'SVG/SMIL, JavaScript (3 libraries), React/Vue/Angular, 3D models (4 formats), videos (3 formats), social sharing (7 platforms).',
               },
             ].map((feature, index) => (
               <div
@@ -512,10 +599,10 @@ export const Home: React.FC = () => {
                 gradient: 'from-green-500 to-emerald-500'
               },
               { 
-                title: 'Social Sharing', 
-                description: 'Direct platform export',
-                icon: Heart,
-                gradient: 'from-red-500 to-rose-500'
+                title: 'Reverse Engineering', 
+                description: 'Animation analysis & recreation',
+                icon: Search,
+                gradient: 'from-orange-500 to-red-500'
               },
             ].map((example, index) => (
               <div
@@ -550,7 +637,7 @@ export const Home: React.FC = () => {
               Ready to Start Morphing?
             </h2>
             <p className="text-xl text-white/90 mb-8">
-              Experience the future of SVG morphing with AI-powered tools, 3D visualization, and professional export options
+              Experience the complete SVG morphing suite with AI-powered tools, 3D visualization, reverse engineering, physics simulation, and 15+ export formats
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -571,15 +658,15 @@ export const Home: React.FC = () => {
             <div className="mt-6 flex items-center justify-center gap-8 text-white/70 text-sm">
               <span className="flex items-center gap-1">
                 <CheckCircle className="h-4 w-4" />
-                15+ Export Formats
+                AI-Powered Matching
               </span>
               <span className="flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                Social Sharing
+                <Search className="h-4 w-4" />
+                Reverse Engineering
               </span>
               <span className="flex items-center gap-1">
-                <Laptop className="h-4 w-4" />
-                Cross-Platform
+                <Box className="h-4 w-4" />
+                3D Export Ready
               </span>
             </div>
           </div>
