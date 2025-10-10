@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Play, Pause, Square, RotateCcw, Plus, Trash2, Edit3, Save, Upload, Download, Settings, X, FileImage } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, Plus, Trash2, Save, Upload, Download, Settings, X, FileImage, ArrowUpDown } from 'lucide-react';
 import { multiStageMorphing, MultiStageSequence, MorphingStage, StageTransition } from '../utils/multiStageMorphing';
 import { SVGData } from '../types/svg';
 import { useToast } from '../contexts/ToastContext';
@@ -27,8 +27,6 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState(0);
-  const [editingSequence, setEditingSequence] = useState<string | null>(null);
-  const [newSequenceName, setNewSequenceName] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showStageBuilder, setShowStageBuilder] = useState(false);
   
@@ -85,8 +83,9 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
   }, []);
 
   const handleReverse = useCallback(() => {
-    multiStageMorphing.reverse();
-  }, []);
+    if (!activeSequenceId) return;
+    multiStageMorphing.reverse(activeSequenceId);
+  }, [activeSequenceId]);
 
   const handleSeek = useCallback(async (progress: number) => {
     if (!activeSequenceId) return;
@@ -175,7 +174,7 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
     }
   }, [showSuccess, showError, showWarning]);
 
-  const handleUpdateStageProperty = useCallback((stageId: string, property: keyof StageUpload, value: any) => {
+  const handleUpdateStageProperty = useCallback((stageId: string, property: keyof StageUpload, value: string | number) => {
     setStageUploads(prev => prev.map(stage => 
       stage.id === stageId ? { ...stage, [property]: value } : stage
     ));
@@ -234,6 +233,25 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
     }
     showSuccess('Sequence deleted');
   }, [activeSequenceId, onSequenceChange, showSuccess]);
+
+  const handleReverseSequence = useCallback((sequenceId: string) => {
+    const success = multiStageMorphing.reverseSequenceOrder(sequenceId);
+    if (success) {
+      setSequences(multiStageMorphing.getSequences());
+      
+      // Update the active sequence if it's the one being reversed
+      if (activeSequenceId === sequenceId) {
+        const updatedSequence = multiStageMorphing.getSequence(sequenceId);
+        if (onSequenceChange && updatedSequence) {
+          onSequenceChange(updatedSequence);
+        }
+      }
+      
+      showSuccess('Sequence order reversed');
+    } else {
+      showError('Failed to reverse sequence');
+    }
+  }, [activeSequenceId, onSequenceChange, showSuccess, showError]);
 
   const handleExportSequence = useCallback((sequenceId: string) => {
     const sequence = multiStageMorphing.getSequence(sequenceId);
@@ -318,13 +336,24 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Animation Stages</h4>
-                    <button
-                      onClick={handleAddStage}
-                      className="inline-flex items-center space-x-2 bg-accent hover:bg-accent/90 text-white px-3 py-2 rounded-lg font-medium transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Stage</span>
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setStageUploads(prev => [...prev].reverse())}
+                        disabled={stageUploads.length < 2}
+                        className="inline-flex items-center space-x-2 bg-secondary hover:bg-secondary/90 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg font-medium transition-colors"
+                        title="Reverse Stage Order"
+                      >
+                        <ArrowUpDown className="w-4 h-4" />
+                        <span>Reverse</span>
+                      </button>
+                      <button
+                        onClick={handleAddStage}
+                        className="inline-flex items-center space-x-2 bg-accent hover:bg-accent/90 text-white px-3 py-2 rounded-lg font-medium transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Stage</span>
+                      </button>
+                    </div>
                   </div>
 
                   {stageUploads.length === 0 && (
@@ -494,6 +523,16 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReverseSequence(sequence.id);
+                      }}
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:text-accent hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      title="Reverse Stage Order"
+                    >
+                      <ArrowUpDown className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

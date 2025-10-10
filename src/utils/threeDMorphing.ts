@@ -1,4 +1,4 @@
-import { SVGData } from '../types/svg';
+import { SVGData } from '../workers/pathProcessor';
 
 export interface ThreeDMorphingOptions {
   depth: number;
@@ -329,8 +329,28 @@ export class ThreeDMorphingEngine {
   private async svgToGeometry(svgData: SVGData, options: ThreeDMorphingOptions): Promise<any> {
     const { THREE } = this;
 
+    // Validate SVG data structure
+    if (!svgData) {
+      throw new Error('SVG data is null or undefined');
+    }
+
+    // Check if paths exist and have data
+    if (!svgData.paths || svgData.paths.length === 0) {
+      throw new Error('No paths found in SVG data');
+    }
+
+    const firstPath = svgData.paths[0];
+    if (!firstPath || !firstPath.d) {
+      throw new Error('First path has no data');
+    }
+
     // Create shape from SVG path
-    const shape = this.pathToShape(svgData.paths[0]?.d || '');
+    const shape = this.pathToShape(firstPath.d);
+    
+    // Validate that the shape has points
+    if (!shape || shape.getPoints().length === 0) {
+      throw new Error('Failed to create valid shape from SVG path');
+    }
     
     // Extrude the shape to create 3D geometry
     const extrudeSettings = {

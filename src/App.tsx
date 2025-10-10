@@ -6,6 +6,7 @@ import { Home } from './pages/Home';
 import { Playground } from './pages/Playground';
 import { PlaygroundEnhanced } from './pages/PlaygroundEnhanced';
 import { MultiStageMorphing } from './pages/MultiStageMorphing';
+import { ThreeDMorphing } from './pages/ThreeDMorphing';
 import { About } from './pages/About';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="/playground" element={<Playground />} />
             <Route path="/playground-enhanced" element={<PlaygroundEnhanced />} />
             <Route path="/multi-stage" element={<MultiStageMorphing />} />
+            <Route path="/3d-morphing" element={<ThreeDMorphing />} />
             <Route path="/about" element={<About />} />
           </Routes>
         </div>

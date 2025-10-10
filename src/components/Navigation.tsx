@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shapes, Home, Play, Info, Zap, Layers } from 'lucide-react';
+import { Shapes, Home, Play, Info, Zap, Layers, Box } from 'lucide-react';
 
 export const Navigation: React.FC = () => {
   const location = useLocation();
@@ -10,6 +10,7 @@ export const Navigation: React.FC = () => {
     { path: '/playground', icon: Play, label: 'Playground' },
     { path: '/playground-enhanced', icon: Zap, label: 'Enhanced', badge: 'Pro' },
     { path: '/multi-stage', icon: Layers, label: 'Multi-Stage', badge: 'NEW' },
+    { path: '/3d-morphing', icon: Box, label: '3D Studio', badge: '3D' },
     { path: '/about', icon: Info, label: 'About' },
   ];
 

@@ -535,6 +535,26 @@ export class MultiStageMorphingEngine {
   }
 
   /**
+   * Reverse the order of stages in a sequence permanently
+   */
+  reverseSequenceOrder(sequenceId: string): boolean {
+    const sequence = this.sequences.get(sequenceId);
+    if (!sequence) return false;
+
+    // Create a new sequence with reversed stages
+    const reversedStages = [...sequence.stages].reverse();
+    
+    // Update the sequence with reversed stages
+    const updatedSequence: MultiStageSequence = {
+      ...sequence,
+      stages: reversedStages
+    };
+
+    this.sequences.set(sequenceId, updatedSequence);
+    return true;
+  }
+
+  /**
    * Export sequence as animation data
    */
   exportSequence(sequenceId: string): MultiStageSequence | null {
