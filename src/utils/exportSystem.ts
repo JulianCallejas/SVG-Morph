@@ -1,4 +1,3 @@
-import { SVGData } from '../workers/pathProcessor';
 import { videoExporter, VideoExportOptions, VideoExportProgress } from './videoExport';
 import { workerManager } from './workerManager';
 import { NodeMatch } from './nodeMatching';
@@ -123,7 +122,7 @@ export class ExportSystem {
       content,
       filename,
       mimeType,
-      size: content instanceof Blob ? content.size : new Blob([content as string]).size,
+      size: content instanceof Blob ? content.size : new Blob([content]).size,
     };
 
     // Add to history
@@ -332,7 +331,7 @@ function ${options.functionName}(containerId, userOptions = {}) {
   }
 
   /**
-   * Generate SVG with SMIL animation using proper path morphing
+   * Generate SVG with SMIL animation using normalized paths for smooth transitions
    */
   private async generateSVGWithSMILAnimation(sourceSVG: string, targetSVG: string, options: ExportOptions): Promise<string> {
     try {
@@ -348,95 +347,112 @@ function ${options.functionName}(containerId, userOptions = {}) {
         return this.generateOpacityFallbackSVG(sourceSVG, targetSVG, options);
       }
       
-      // Generate interpolated paths for smooth SMIL animation
-      const startPath = sourceSVGData.paths[0].d;
-      const endPath = targetSVGData.paths[0].d;
+      console.log('SMIL Export - Processing', sourceSVGData.paths.length, 'source paths and', targetSVGData.paths.length, 'target paths');
       
-      // Create three keyframe paths for smooth animation (0, 0.5, 1)
-      // Use manual node matches if available
-      let midPath: string;
-      if (options.nodeMatches && options.nodeMatches.length > 0) {
-        console.log('SMIL Export - Using manual node matches:', options.nodeMatches.length, 'matches');
-        midPath = await workerManager.interpolateWithMatches(startPath, endPath, 0.5, options.nodeMatches);
-      } else {
-        console.log('SMIL Export - Using default interpolation');
-        midPath = await workerManager.interpolatePaths(startPath, endPath, 0.5);
-      }
+      // Build the animated SVG with proper viewBox and dimensions
+      const { viewBox, width, height } = sourceSVGData;
+      let animatedSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${viewBox}">`;
       
-      console.log('SMIL Export - Path interpolation:', {
-        startPath: startPath.substring(0, 50) + '...',
-        midPath: midPath.substring(0, 50) + '...',
-        endPath: endPath.substring(0, 50) + '...'
-      });
-      
-      // Build the animated SVG
-      let animatedSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${sourceSVGData.viewBox || '0 0 400 400'}">`;
-      
-      // Add the morphing path
-      animatedSVG += `<path d="${startPath}"`;
-      
-      // Handle fill properly - always add fill attribute to avoid browser defaults
-      const sourceFill = sourceSVGData.paths[0].fill;
-      if (sourceFill !== undefined) {
-        animatedSVG += ` fill="${sourceFill}"`;
-      } else {
-        // Explicitly set fill to none if not defined to prevent black fill
-        animatedSVG += ` fill="none"`;
-      }
-      
-      // Add stroke if available
-      const sourceStroke = sourceSVGData.paths[0].stroke;
-      if (sourceStroke && sourceStroke !== 'none') {
-        animatedSVG += ` stroke="${sourceStroke}"`;
-      }
-      
-      // Add stroke-width if available
-      if (sourceSVGData.paths[0].strokeWidth) {
-        animatedSVG += ` stroke-width="${sourceSVGData.paths[0].strokeWidth}"`;
-      }
-      
-      animatedSVG += '>';
-      
-      // Add path morphing animation
+      // Add CSS to prevent unwanted fills
       animatedSVG += `
-        <animate
-          attributeName="d"
-          values="${startPath};${midPath};${endPath}"
-          dur="${duration}"
-          repeatCount="${repeatCount}"
-          calcMode="spline"
-          keySplines="0.4 0 0.6 1;0.4 0 0.6 1"
-          keyTimes="0;0.5;1"
-        />`;
+        <defs>
+          <style>
+            path:not([fill]) { fill: none !important; }
+            path[fill=""] { fill: none !important; }
+          </style>
+        </defs>`;
       
-      // Add fill animation if colors are different
-      if (sourceSVGData.paths[0].fill && targetSVGData.paths[0].fill && 
-          sourceSVGData.paths[0].fill !== targetSVGData.paths[0].fill) {
-        animatedSVG += `
-        <animate
-          attributeName="fill"
-          values="${sourceSVGData.paths[0].fill};${targetSVGData.paths[0].fill}"
-          dur="${duration}"
-          repeatCount="${repeatCount}"
-        />`;
+      // Process all paths, not just the first one
+      const maxPaths = Math.max(sourceSVGData.paths.length, targetSVGData.paths.length);
+      
+      for (let i = 0; i < maxPaths; i++) {
+        const sourcePath = sourceSVGData.paths[i] || sourceSVGData.paths[sourceSVGData.paths.length - 1];
+        const targetPath = targetSVGData.paths[i] || targetSVGData.paths[targetSVGData.paths.length - 1];
+        
+        if (!sourcePath || !targetPath) continue;
+        
+        // Normalize paths to ensure compatible structures for smooth SMIL animation
+        console.log(`SMIL Export - Normalizing path ${i + 1}/${maxPaths}`);
+        const normalizedSource = await workerManager.normalizePath(sourcePath.d, 100);
+        const normalizedTarget = await workerManager.normalizePath(targetPath.d, 100);
+        
+        console.log('SMIL Export - Normalized paths:', {
+          source: normalizedSource.substring(0, 50) + '...',
+          target: normalizedTarget.substring(0, 50) + '...'
+        });
+        
+        const pathId = `path-${i}`;
+        
+        // Build path element with conditional fill attribute
+        let pathElement = `<path id="${pathId}" d="${normalizedSource}"`;
+        
+        // Handle fill properly - only add fill attribute if we have a value
+        if (sourcePath.fill !== undefined) {
+          pathElement += ` fill="${sourcePath.fill}"`;
+        }
+        
+        pathElement += ` stroke="${sourcePath.stroke || 'none'}"`;
+        pathElement += ` stroke-width="${sourcePath.strokeWidth || 1}"`;
+        pathElement += ` opacity="${sourcePath.opacity || 1}">`;
+        
+        // Add path morphing animation with proper looping (source → target → source)
+        pathElement += `
+          <animate
+            attributeName="d"
+            values="${normalizedSource};${normalizedTarget};${normalizedSource}"
+            dur="${duration}"
+            repeatCount="${repeatCount}"
+            calcMode="spline"
+            keySplines="0.4 0 0.6 1;0.4 0 0.6 1"
+            keyTimes="0;0.5;1"
+          />`;
+        
+        // Add fill animation only if both paths have fill values and they're different
+        if (sourcePath.fill !== undefined && targetPath.fill !== undefined && 
+            sourcePath.fill !== targetPath.fill) {
+          pathElement += `
+          <animate
+            attributeName="fill"
+            values="${sourcePath.fill};${targetPath.fill};${sourcePath.fill}"
+            dur="${duration}"
+            repeatCount="${repeatCount}"
+          />`;
+        }
+        
+        // Add stroke-width animation if different
+        const sourceStrokeWidth = sourcePath.strokeWidth || 1;
+        const targetStrokeWidth = targetPath.strokeWidth || 1;
+        if (sourceStrokeWidth !== targetStrokeWidth) {
+          pathElement += `
+          <animate
+            attributeName="stroke-width"
+            values="${sourceStrokeWidth};${targetStrokeWidth};${sourceStrokeWidth}"
+            dur="${duration}"
+            repeatCount="${repeatCount}"
+          />`;
+        }
+        
+        // Add opacity animation if different
+        const sourceOpacity = sourcePath.opacity || 1;
+        const targetOpacity = targetPath.opacity || 1;
+        if (sourceOpacity !== targetOpacity) {
+          pathElement += `
+          <animate
+            attributeName="opacity"
+            values="${sourceOpacity};${targetOpacity};${sourceOpacity}"
+            dur="${duration}"
+            repeatCount="${repeatCount}"
+          />`;
+        }
+        
+        pathElement += '</path>';
+        animatedSVG += pathElement;
       }
       
-      // Add stroke-width animation if different
-      if (sourceSVGData.paths[0].strokeWidth && targetSVGData.paths[0].strokeWidth && 
-          sourceSVGData.paths[0].strokeWidth !== targetSVGData.paths[0].strokeWidth) {
-        animatedSVG += `
-        <animate
-          attributeName="stroke-width"
-          values="${sourceSVGData.paths[0].strokeWidth};${targetSVGData.paths[0].strokeWidth}"
-          dur="${duration}"
-          repeatCount="${repeatCount}"
-        />`;
-      }
+      animatedSVG += '</svg>';
       
-      animatedSVG += '</path></svg>';
-      
-      console.log('SMIL Export - Generated SVG length:', animatedSVG.length);
-      return animatedSVG;
+      console.log('SMIL Export - Generated SVG with', maxPaths, 'animated paths, length:', animatedSVG.length);
+      return animatedSVG.trim();
       
     } catch (error) {
       console.error('SMIL generation failed:', error);
