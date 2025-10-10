@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { ProcessingIndicator } from './components/ProcessingIndicator';
@@ -6,6 +5,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { Home } from './pages/Home';
 import { Playground } from './pages/Playground';
 import { PlaygroundEnhanced } from './pages/PlaygroundEnhanced';
+import { MultiStageMorphing } from './pages/MultiStageMorphing';
 import { About } from './pages/About';
 
 function App() {
@@ -19,6 +19,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/playground" element={<Playground />} />
             <Route path="/playground-enhanced" element={<PlaygroundEnhanced />} />
+            <Route path="/multi-stage" element={<MultiStageMorphing />} />
             <Route path="/about" element={<About />} />
           </Routes>
         </div>

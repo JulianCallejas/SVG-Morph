@@ -5,9 +5,11 @@ import { SVGPreview } from '../components/SVGPreview';
 import { AnimationControls } from '../components/AnimationControls';
 import { NodePairingInterface } from '../components/NodePairingInterface';
 import { EnhancedExportPanel } from '../components/EnhancedExportPanel';
+import { ReactComponentExportPanel } from '../components/ReactComponentExportPanel';
+import { ThreeDMorphingPanel } from '../components/ThreeDMorphingPanel';
 import { ProcessingIndicator } from '../components/ProcessingIndicator';
 import { extractPointsFromSVGData, scalePointsToFit } from '../utils/pointExtraction';
-import { Settings, Zap, Eye, Download, Play } from 'lucide-react';
+import { Settings, Zap, Eye, Download, Play, Code, Box } from 'lucide-react';
 
 export const PlaygroundEnhanced: React.FC = () => {
   const {
@@ -34,7 +36,7 @@ export const PlaygroundEnhanced: React.FC = () => {
     resetAnimation,
   } = useMorphStore();
 
-  const [activeTab, setActiveTab] = useState<'upload' | 'match' | 'animate' | 'export'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'match' | 'animate' | 'export' | 'react' | '3d'>('upload');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [viewMode, setViewMode] = useState<'split' | 'overlay'>('overlay');
 
@@ -181,6 +183,22 @@ export const PlaygroundEnhanced: React.FC = () => {
             >
               <Download size={16} />
               4. Export
+            </button>
+            
+            <button
+              onClick={() => canExport && setActiveTab('react')}
+              className={getTabClassName('react', activeTab === 'react', canExport)}
+            >
+              <Code size={16} />
+              5. React Components
+            </button>
+            
+            <button
+              onClick={() => canExport && setActiveTab('3d')}
+              className={getTabClassName('3d', activeTab === '3d', canExport)}
+            >
+              <Box size={16} />
+              6. 3D Preview
             </button>
 
             <div className="ml-auto">
@@ -378,6 +396,39 @@ export const PlaygroundEnhanced: React.FC = () => {
             </div>
 
             <EnhancedExportPanel />
+          </div>
+        )}
+
+        {activeTab === 'react' && (
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">React Component Generator</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Export your morphing animation as ready-to-use React components with TypeScript support
+              </p>
+            </div>
+
+            <ReactComponentExportPanel 
+              sourceSVG={sourceSVGData}
+              targetSVG={targetSVGData}
+            />
+          </div>
+        )}
+
+        {activeTab === '3d' && (
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">3D Morphing Preview</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Visualize your morphing animation in 3D space with depth, lighting, and interactive controls
+              </p>
+            </div>
+
+            <ThreeDMorphingPanel 
+              sourceSVG={sourceSVGData}
+              targetSVG={targetSVGData}
+              morphProgress={currentProgress}
+            />
           </div>
         )}
       </div>

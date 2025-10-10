@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shapes, Home, Play, Info, Zap } from 'lucide-react';
+import { Shapes, Home, Play, Info, Zap, Layers } from 'lucide-react';
 
 export const Navigation: React.FC = () => {
   const location = useLocation();
@@ -8,7 +8,8 @@ export const Navigation: React.FC = () => {
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/playground', icon: Play, label: 'Playground' },
-    { path: '/playground-enhanced', icon: Zap, label: 'Enhanced', badge: 'Phase 2' },
+    { path: '/playground-enhanced', icon: Zap, label: 'Enhanced', badge: 'Pro' },
+    { path: '/multi-stage', icon: Layers, label: 'Multi-Stage', badge: 'NEW' },
     { path: '/about', icon: Info, label: 'About' },
   ];
 
@@ -44,7 +45,13 @@ export const Navigation: React.FC = () => {
                   <Icon className="h-4 w-4" />
                   <span className="hidden sm:inline font-medium">{label}</span>
                   {badge && (
-                    <span className="absolute -top-1 -right-1 px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full font-medium">
+                    <span className={`absolute -top-1 -right-1 px-1.5 py-0.5 text-xs rounded-full font-medium ${
+                      badge === 'NEW' 
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
+                        : badge === 'Pro'
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
+                        : 'bg-blue-500 text-white'
+                    }`}>
                       {badge}
                     </span>
                   )}

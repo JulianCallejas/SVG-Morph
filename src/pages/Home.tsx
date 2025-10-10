@@ -1,6 +1,5 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Upload, Settings, Download, Zap, Palette, RotateCcw } from 'lucide-react';
+import { ArrowRight, Upload, Settings, Download, Zap, Palette, RotateCcw, Layers, Search, Scissors, Code, Box } from 'lucide-react';
 
 export const Home: React.FC = () => {
   return (
@@ -30,10 +29,17 @@ export const Home: React.FC = () => {
               </Link>
               <Link
                 to="/playground-enhanced"
-                className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl animate-scale-in relative"
+                className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl animate-scale-in"
               >
                 <Zap className="h-5 w-5" />
                 <span>Enhanced Studio</span>
+              </Link>
+              <Link
+                to="/multi-stage"
+                className="inline-flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl animate-scale-in relative"
+              >
+                <Layers className="h-5 w-5" />
+                <span>Multi-Stage</span>
                 <span className="absolute -top-2 -right-2 px-2 py-1 text-xs bg-yellow-400 text-yellow-900 rounded-full font-bold">
                   NEW
                 </span>
@@ -107,13 +113,106 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Phase 2 Features Highlight */}
+      {/* Advanced Features Highlight */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 rounded-full font-medium mb-4">
+              <Layers className="h-4 w-4" />
+              Advanced Features
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+              Professional-Grade SVG Morphing
+            </h2>
+            <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              Multi-stage sequences, reverse engineering, 3D preview, and React component generation
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
+            {[
+              {
+                icon: Layers,
+                title: 'Multi-Stage Morphing',
+                description: 'Create complex animation sequences with multiple SVGs (A → B → C → D).',
+                color: 'from-purple-500 to-purple-600',
+                link: '/multi-stage',
+              },
+              {
+                icon: Search,
+                title: 'Reverse Engineering',
+                description: 'Analyze existing SVG animations and extract morphing parameters.',
+                color: 'from-blue-500 to-blue-600',
+                link: '/playground-enhanced',
+              },
+              {
+                icon: Scissors,
+                title: 'Path Optimization',
+                description: 'Intelligent path splitting and merging for better morphing quality.',
+                color: 'from-green-500 to-green-600',
+                link: '/playground-enhanced',
+              },
+              {
+                icon: Code,
+                title: 'React Components',
+                description: 'Export morphing animations as ready-to-use React components.',
+                color: 'from-orange-500 to-orange-600',
+                link: '/playground-enhanced',
+              },
+              {
+                icon: Box,
+                title: '3D Preview',
+                description: 'Visualize morphing animations in 3D space with depth and lighting.',
+                color: 'from-pink-500 to-pink-600',
+                link: '/playground-enhanced',
+              },
+            ].map((feature, index) => (
+              <Link
+                key={index}
+                to={feature.link}
+                className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700 group block"
+              >
+                <div className={`w-12 h-12 bg-gradient-to-r ${feature.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200`}>
+                  <feature.icon className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100 group-hover:text-purple-600 transition-colors">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                  {feature.description}
+                </p>
+              </Link>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <Link
+              to="/multi-stage"
+              className="inline-flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg mr-4"
+            >
+              <Layers className="h-5 w-5" />
+              <span>Try Multi-Stage</span>
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+            <Link
+              to="/playground-enhanced"
+              className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg"
+            >
+              <Zap className="h-5 w-5" />
+              <span>Enhanced Studio</span>
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Enhanced Features Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-medium mb-4">
               <Zap className="h-4 w-4" />
-              Phase 2 Features
+              Enhanced Features
             </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-gray-100">
               Next-Generation SVG Morphing
@@ -165,17 +264,6 @@ export const Home: React.FC = () => {
                 </p>
               </div>
             ))}
-          </div>
-
-          <div className="text-center">
-            <Link
-              to="/playground-enhanced"
-              className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg"
-            >
-              <Zap className="h-5 w-5" />
-              <span>Try Enhanced Studio</span>
-              <ArrowRight className="h-5 w-5" />
-            </Link>
           </div>
         </div>
       </section>
