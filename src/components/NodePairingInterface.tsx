@@ -34,6 +34,28 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
   sourcePoints,
   targetPoints,
 }) => {
+  // Add CSS animation for shining effect
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes shine-pulse {
+        0%, 100% {
+          filter: drop-shadow(0 0 4px rgba(55, 65, 81, 0.8)) drop-shadow(0 0 8px rgba(55, 65, 81, 0.6));
+        }
+        50% {
+          filter: drop-shadow(0 0 8px rgba(55, 65, 81, 1)) drop-shadow(0 0 16px rgba(55, 65, 81, 0.8)) drop-shadow(0 0 24px rgba(55, 65, 81, 0.6));
+        }
+      }
+      .unmatched-shine {
+        animation: shine-pulse 2s ease-in-out infinite;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   const { 
     nodePairs, 
     addNodePair, 
@@ -124,17 +146,6 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
     }
   }, [selectedSourcePoint, selectedTargetPoint, nodePairs.length, addNodePair, addToHistory]);
 
-  const _handlePairRemove = useCallback((pairId: string) => {
-    const pairToRemove = nodePairs.find(p => p.sourceId === pairId);
-    if (pairToRemove) {
-      removeNodePair(pairId);
-      addToHistory({
-        type: 'remove',
-        pairId,
-        pair: pairToRemove,
-      });
-    }
-  }, [nodePairs, removeNodePair, addToHistory]);
 
   const handleClearAll = useCallback(() => {
     if (nodePairs.length > 0) {
@@ -230,8 +241,15 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
       return '#fbbf24';
     }
     if (hoveredPoint?.id === point.id) return '#94a3b8';
-    return showUnmatched ? '#6b7280' : '#d1d5db';
+    return showUnmatched ? '#374151' : '#d1d5db'; // Darker gray (#374151) for unmatched points
   }, [nodePairs, selectedSourcePoint, selectedTargetPoint, hoveredPoint, showUnmatched]);
+
+  const isUnmatchedPoint = useCallback((point: Point, isSource: boolean) => {
+    const pair = nodePairs.find(p => 
+      isSource ? p.sourceId === point.id : p.targetId === point.id
+    );
+    return !pair && showUnmatched;
+  }, [nodePairs, showUnmatched]);
 
   const getPointRadius = useCallback((point: Point, isSource: boolean) => {
     const pair = nodePairs.find(p => 
@@ -453,7 +471,9 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
                   fill={getPointColor(point, true)}
                   stroke="#fff"
                   strokeWidth="2"
-                  className="cursor-pointer hover:stroke-gray-400 transition-all"
+                  className={`cursor-pointer hover:stroke-gray-400 transition-all ${
+                    isUnmatchedPoint(point, true) ? 'unmatched-shine' : ''
+                  }`}
                   onClick={() => handlePointClick(point, true)}
                   onMouseEnter={() => setHoveredPoint(point)}
                   onMouseLeave={() => setHoveredPoint(null)}
@@ -475,7 +495,9 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
                   fill={getPointColor(point, false)}
                   stroke="#fff"
                   strokeWidth="2"
-                  className="cursor-pointer hover:stroke-gray-400 transition-all"
+                  className={`cursor-pointer hover:stroke-gray-400 transition-all ${
+                    isUnmatchedPoint(point, false) ? 'unmatched-shine' : ''
+                  }`}
                   onClick={() => handlePointClick(point, false)}
                   onMouseEnter={() => setHoveredPoint(point)}
                   onMouseLeave={() => setHoveredPoint(null)}
