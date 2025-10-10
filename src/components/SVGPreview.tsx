@@ -6,7 +6,7 @@ interface SVGPreviewProps {
   targetSVG: string | null;
   viewMode: 'split' | 'overlay';
   currentProgress: number;
-  animationSettings: any;
+  animationSettings: { duration: number; easing: string; };
 }
 
 export const SVGPreview: React.FC<SVGPreviewProps> = ({
@@ -14,7 +14,6 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
   targetSVG,
   viewMode,
   currentProgress,
-  animationSettings,
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { interpolatedSVG } = useMorphStore();

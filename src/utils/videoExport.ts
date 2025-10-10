@@ -307,7 +307,7 @@ export class VideoExporter {
   private async createGIFFromFrames(
     frames: VideoFrame[],
     options: VideoExportOptions,
-    onProgress?: (progress: VideoExportProgress) => void
+    _onProgress?: (progress: VideoExportProgress) => void
   ): Promise<Blob> {
     // This is a placeholder for GIF creation
     // In a real implementation, you would use a library like gif.js
@@ -411,10 +411,11 @@ export class VideoExporter {
         return totalFrames * pixelsPerFrame * 2;
       
       case 'mp4':
-      case 'webm':
+      case 'webm': {
         // Video: depends on bitrate and duration
         const bitrate = this.getVideoBitrate(quality, width, height);
         return (bitrate * duration) / 8; // Convert bits to bytes
+      }
       
       default:
         return 0;

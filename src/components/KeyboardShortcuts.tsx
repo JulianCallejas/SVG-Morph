@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Keyboard, X, Command, Zap, Upload, Play, Pause, RotateCcw, Download, Settings, HelpCircle } from 'lucide-react';
+import { Keyboard, Play, Upload, Download, RotateCcw, Settings, Eye, X } from 'lucide-react';
 
 interface ShortcutAction {
   id: string;

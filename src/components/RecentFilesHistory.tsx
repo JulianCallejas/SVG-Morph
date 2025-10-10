@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Trash2, Star, StarOff, Search, Filter, Download, Eye } from 'lucide-react';
+import { Clock, Trash2, Star, StarOff, Search, Eye } from 'lucide-react';
 import { formatFileSize } from '../utils/fileValidator';
 
 export interface RecentFile {
@@ -44,7 +44,7 @@ export const RecentFilesHistory: React.FC<RecentFilesHistoryProps> = ({
       const saved = localStorage.getItem('svg-morph-recent-files');
       if (saved) {
         const parsed = JSON.parse(saved);
-        const files = parsed.map((file: any) => ({
+        const files = parsed.map((file: RecentFile & { lastUsed: string }) => ({
           ...file,
           lastUsed: new Date(file.lastUsed)
         }));
@@ -65,7 +65,7 @@ export const RecentFilesHistory: React.FC<RecentFilesHistoryProps> = ({
   };
 
   // Add file to recent history
-  const addRecentFile = (file: Omit<RecentFile, 'id' | 'lastUsed' | 'isFavorite'>) => {
+  const _addRecentFile = (file: Omit<RecentFile, 'id' | 'lastUsed' | 'isFavorite'>) => {
     const newFile: RecentFile = {
       ...file,
       id: `recent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -237,7 +237,7 @@ export const RecentFilesHistory: React.FC<RecentFilesHistoryProps> = ({
           <div className="flex space-x-2">
             <select
               value={filterBy}
-              onChange={(e) => setFilterBy(e.target.value as any)}
+              onChange={(e) => setFilterBy(e.target.value as 'all' | 'favorites' | 'recent')}
               className="px-3 py-1 text-sm border border-gray-300 rounded-md"
             >
               <option value="all">All Files</option>
@@ -247,7 +247,7 @@ export const RecentFilesHistory: React.FC<RecentFilesHistoryProps> = ({
             
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as 'lastUsed' | 'name' | 'size')}
               className="px-3 py-1 text-sm border border-gray-300 rounded-md"
             >
               <option value="lastUsed">Last Used</option>
@@ -473,7 +473,7 @@ export const useRecentFiles = () => {
       const saved = localStorage.getItem('svg-morph-recent-files');
       if (saved) {
         const parsed = JSON.parse(saved);
-        const files = parsed.map((file: any) => ({
+        const files = parsed.map((file: RecentFile & { lastUsed: string }) => ({
           ...file,
           lastUsed: new Date(file.lastUsed)
         }));

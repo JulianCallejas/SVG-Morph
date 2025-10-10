@@ -141,7 +141,7 @@ export const usePhase3Features = () => {
   }, [store, recentFiles, handleError]);
 
   // Animation preset utilities
-  const applyAnimationPreset = useCallback((preset: any) => {
+  const applyAnimationPreset = useCallback((preset: { settings: unknown; customEasing?: unknown; name: string }) => {
     try {
       store.updateAnimationSettings(preset.settings);
       
@@ -199,7 +199,7 @@ export const usePhase3Features = () => {
   }, [store, handleError]);
 
   // Export utilities
-  const exportAnimation = useCallback(async (format: string, options: any = {}) => {
+  const exportAnimation = useCallback(async (format: string, options: Record<string, unknown> = {}) => {
     try {
       // This would integrate with the existing export system from Phase 2
       console.log(`Exporting animation as ${format}`, options);

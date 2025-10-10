@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMorphStore } from '../store/morphStore';
 import { InteractiveTutorial, useTutorial } from '../components/InteractiveTutorial';
-import { ErrorBoundary, PageErrorBoundary } from '../components/ErrorBoundary';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { PerformanceMonitor, usePerformanceMonitor } from '../components/PerformanceMonitor';
 import { KeyboardShortcuts, useKeyboardShortcuts, createDefaultShortcuts } from '../components/KeyboardShortcuts';
 import { EnhancedFileUploadZone } from '../components/EnhancedFileUploadZone';
@@ -11,7 +11,7 @@ import { KeyframeTimeline } from '../components/KeyframeTimeline';
 import { RealTimeAdjustment } from '../components/RealTimeAdjustment';
 import { RecentFilesHistory } from '../components/RecentFilesHistory';
 import { LoadingOverlay } from '../components/LoadingStates';
-import { Settings, HelpCircle, Zap, Upload, Play, Pause, RotateCcw, Download, Eye, EyeOff } from 'lucide-react';
+import { Settings, HelpCircle, Zap, Upload, Download, Play, Pause, RotateCcw, Eye, Monitor } from 'lucide-react';
 
 export const PlaygroundPhase3: React.FC = () => {
   const {
@@ -22,10 +22,9 @@ export const PlaygroundPhase3: React.FC = () => {
     currentProgress,
     processingState,
     keyframes,
-    showTutorial,
-    showPerformanceMonitor,
-    realTimeAdjustmentEnabled,
-    customEasingCurves,
+    // showTutorial, // Unused but kept for potential future use
+    // showPerformanceMonitor, // Unused but kept for potential future use
+    // customEasingCurves, // Unused but kept for potential future use
     setSourceSVG,
     setTargetSVG,
     updateAnimationSettings,
@@ -34,9 +33,9 @@ export const PlaygroundPhase3: React.FC = () => {
     resetAnimation,
     setProgress,
     setKeyframes,
-    addKeyframe,
-    toggleTutorial,
-    togglePerformanceMonitor,
+    // addKeyframe, // Unused but kept for potential future use
+    // toggleTutorial, // Unused but kept for potential future use
+    // togglePerformanceMonitor, // Unused but kept for potential future use
     toggleRealTimeAdjustment,
     setCustomEasingCurve,
     addRecentFile
@@ -108,7 +107,7 @@ export const PlaygroundPhase3: React.FC = () => {
   };
 
   // Handle preset selection
-  const handlePresetSelect = (preset: any) => {
+  const handlePresetSelect = (preset: { settings: unknown; customEasing?: unknown; name: string }) => {
     updateAnimationSettings(preset.settings);
     if (preset.customEasing) {
       setCustomEasingCurve(preset.name, preset.customEasing);
@@ -117,13 +116,13 @@ export const PlaygroundPhase3: React.FC = () => {
   };
 
   // Handle custom easing change
-  const handleEasingChange = (curve: any) => {
+  const handleEasingChange = (curve: unknown) => {
     updateAnimationSettings({ easing: 'custom', customEasing: curve });
     setCustomEasingCurve('custom', curve);
   };
 
   // Handle keyframe changes
-  const handleKeyframesChange = (newKeyframes: any[]) => {
+  const handleKeyframesChange = (newKeyframes: unknown[]) => {
     setKeyframes(newKeyframes);
   };
 

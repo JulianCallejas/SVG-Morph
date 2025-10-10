@@ -106,7 +106,7 @@ export const EnhancedExportPanel: React.FC = () => {
     }
   }, [sourceSVG, targetSVG, selectedFormats, exportOptions]);
 
-  const handleHistoryDownload = useCallback((historyItem: any) => {
+  const handleHistoryDownload = useCallback((..._args: unknown[]) => {
     // In a real implementation, you'd re-export or store the content
     alert('Re-export functionality would be implemented here.');
   }, []);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Save, Heart, Zap, RotateCcw, Waves, TrendingUp, Sparkles, Eye, Download } from 'lucide-react';
+import { Play, Heart, Zap, RotateCcw, Waves, TrendingUp, Sparkles, Eye } from 'lucide-react';
 import { AnimationSettings } from '../store/morphStore';
 import { BezierCurve } from './BezierEasingEditor';
 
@@ -229,7 +229,6 @@ interface AnimationPresetsProps {
 export const AnimationPresets: React.FC<AnimationPresetsProps> = ({
   onPresetSelect,
   onPreview,
-  currentSettings,
   className = ''
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');

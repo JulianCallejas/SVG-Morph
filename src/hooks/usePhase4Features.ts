@@ -28,7 +28,7 @@ export interface Phase4Features {
   exportAsVideo: (format: 'gif' | 'mp4' | 'webm') => Promise<Blob>;
   
   // Social sharing
-  shareToSocial: (platform: string, options?: any) => Promise<void>;
+  shareToSocial: (platform: string, options?: Record<string, unknown>) => Promise<void>;
   
   // Canvas rendering
   renderToCanvas: (canvas: HTMLCanvasElement, svgContent: string) => Promise<void>;
@@ -44,18 +44,18 @@ export interface Phase4Features {
   enableDebouncedUpdates: (enabled: boolean) => void;
   
   // Utility functions
-  getMemoryStats: () => any;
-  getPerformanceStats: () => any;
-  getLoadingStats: () => any;
+  getMemoryStats: () => Record<string, unknown>;
+  getPerformanceStats: () => Record<string, unknown>;
+  getLoadingStats: () => Record<string, unknown>;
 }
 
 export function usePhase4Features(): Phase4Features {
   const {
     sourceSVG,
     targetSVG,
-    gradientMorphOptions,
-    textMorphOptions,
-    multiPathMorphOptions,
+    // gradientMorphOptions, // Unused but kept for potential future use
+    // textMorphOptions, // Unused but kept for potential future use
+    // multiPathMorphOptions, // Unused but kept for potential future use
     physicsOptions,
     videoExportOptions,
     shareOptions,
@@ -264,7 +264,7 @@ export function usePhase4Features(): Phase4Features {
   }, [sourceSVG, targetSVG, videoExportOptions]);
 
   // Share to social media
-  const shareToSocial = useCallback(async (platform: string, options?: any): Promise<void> => {
+  const shareToSocial = useCallback(async (platform: string, options?: Record<string, unknown>): Promise<void> => {
     try {
       const shareOptions = { ...shareOptions, platform, ...options };
       
@@ -286,7 +286,7 @@ export function usePhase4Features(): Phase4Features {
       console.error('Social sharing failed:', error);
       throw error;
     }
-  }, [sourceSVG, targetSVG, shareOptions, animationType]);
+  }, [sourceSVG, targetSVG, animationType]);
 
   // Render to canvas
   const renderToCanvas = useCallback(async (canvas: HTMLCanvasElement, svgContent: string): Promise<void> => {
@@ -340,7 +340,7 @@ export function usePhase4Features(): Phase4Features {
     } catch (error) {
       console.error('Performance optimization failed:', error);
     }
-  }, [debouncedUpdatesEnabled]);
+  }, [debouncedUpdatesEnabled, optimizeMemory]);
 
   // Preload components
   const preloadComponents = useCallback(async (components: string[]): Promise<void> => {
@@ -449,8 +449,8 @@ export function usePhase4Performance() {
   const { getMemoryStats, getPerformanceStats } = usePhase4Features();
   
   const [stats, setStats] = React.useState<{
-    memory: any;
-    performance: any;
+    memory: Record<string, unknown> | null;
+    performance: Record<string, unknown> | null;
     lastUpdate: number;
   }>({
     memory: null,

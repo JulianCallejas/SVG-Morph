@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { KDTree, Point, euclideanDistance } from '../utils/kdTree';
 import { NodeMatcher } from '../utils/nodeMatching';
 import { exportSystem, createExportOptions } from '../utils/exportSystem';
-import { TestTube, Play, Download, CheckCircle } from 'lucide-react';
+import { Play, TestTube, CheckCircle } from 'lucide-react';
 
 export const Phase2Test: React.FC = () => {
   const [testResults, setTestResults] = useState<Record<string, boolean>>({});
   const [isRunning, setIsRunning] = useState(false);
-
+  
   const runTests = async () => {
     setIsRunning(true);
     const results: Record<string, boolean> = {};

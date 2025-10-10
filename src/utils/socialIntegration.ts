@@ -434,7 +434,7 @@ export class SocialIntegrator {
           success: true,
           platform: platform.id,
         };
-      } catch (error) {
+      } catch (_error) {
         return {
           success: false,
           platform: platform.id,

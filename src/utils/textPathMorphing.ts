@@ -103,9 +103,9 @@ export class TextPathMorpher {
         wordSpacing: parseFloat(parentText.getAttribute('word-spacing') || '0') || undefined,
         startOffset: parseFloat(textPath.getAttribute('startOffset') || '0') || undefined,
         textLength: parseFloat(textPath.getAttribute('textLength') || '0') || undefined,
-        lengthAdjust: (textPath.getAttribute('lengthAdjust') as any) || undefined,
-        method: (textPath.getAttribute('method') as any) || undefined,
-        spacing: (textPath.getAttribute('spacing') as any) || undefined,
+        lengthAdjust: (textPath.getAttribute('lengthAdjust') as 'spacing' | 'spacingAndGlyphs' | null) || undefined,
+        method: (textPath.getAttribute('method') as 'align' | 'stretch' | null) || undefined,
+        spacing: (textPath.getAttribute('spacing') as 'auto' | 'exact' | null) || undefined,
       });
     });
 
@@ -544,7 +544,7 @@ ${textElements}`;
           return targetText.substring(0, chars);
         }
       
-      case 'slide':
+      case 'slide': {
         // Simple character-by-character transition
         const maxLength = Math.max(sourceText.length, targetText.length);
         let result = '';
@@ -554,9 +554,10 @@ ${textElements}`;
           result += progress < 0.5 ? sourceChar : targetChar;
         }
         return result;
+      }
       
       case 'morph':
-      default:
+      default: {
         // Character-by-character morphing with smooth transition
         const minLength = Math.min(sourceText.length, targetText.length);
         const maxLength = Math.max(sourceText.length, targetText.length);
@@ -582,6 +583,7 @@ ${textElements}`;
         }
         
         return result;
+      }
     }
   }
 }

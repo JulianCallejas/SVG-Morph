@@ -32,8 +32,8 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
   
   const [history, setHistory] = useState<PerformanceMetrics[]>([]);
   const [isMinimized, setIsMinimized] = useState(compact);
-  const frameCount = useRef(0);
-  const lastTime = useRef(performance.now());
+  // const frameCount = useRef(0); // Unused but kept for potential future use
+  // const lastTime = useRef(performance.now()); // Unused but kept for potential future use
   const renderTimes = useRef<number[]>([]);
   const animationFrame = useRef<number>();
 
@@ -54,7 +54,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
         lastFrameTime = now;
 
         // Get memory usage
-        const memory = (performance as any).memory;
+        const memory = (performance as Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
         const memoryUsage = memory ? Math.round(memory.usedJSHeapSize / 1024 / 1024) : 0;
         const memoryLimit = memory ? Math.round(memory.jsHeapSizeLimit / 1024 / 1024) : 0;
 

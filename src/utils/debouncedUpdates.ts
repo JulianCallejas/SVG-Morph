@@ -44,7 +44,7 @@ export function debounce<T extends (...args: any[]) => any>(
     const args = lastArgs!;
     lastArgs = undefined;
     lastInvokeTime = time;
-    result = func.apply(null, args);
+    result = func(...args);
     return result;
   }
 
@@ -153,7 +153,7 @@ export function throttle<T extends (...args: any[]) => any>(
   func: T,
   options: ThrottleOptions
 ): ThrottledFunction<T> {
-  const { delay, leading = true, trailing = true } = options;
+  const { delay, leading = true, trailing: _trailing = true } = options;
   
   return debounce(func, {
     delay,
@@ -183,7 +183,7 @@ export function debounceAnimationFrame<T extends (...args: any[]) => any>(
     if (lastArgs) {
       const args = lastArgs;
       cancel();
-      return func.apply(null, args);
+      return func(...args);
     }
     return undefined;
   }
@@ -200,7 +200,7 @@ export function debounceAnimationFrame<T extends (...args: any[]) => any>(
         const currentArgs = lastArgs;
         cancel();
         if (currentArgs) {
-          func.apply(null, currentArgs);
+          func(...currentArgs);
         }
       });
     }
@@ -461,7 +461,7 @@ export class DebouncePerformanceMonitor {
       
       this.updateMetrics(key, callCount, executionCount, totalDelay);
       
-      return func.apply(null, args);
+      return func(...args);
     };
 
     const debouncedFunc = debounce(trackedFunc, options);

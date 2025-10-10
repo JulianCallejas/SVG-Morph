@@ -565,7 +565,7 @@ export function createComponentConfig(
 
 export function withProgressiveLoading<P extends object>(
   componentName: string,
-  fallback?: ComponentType<any>
+  _fallback?: ComponentType<any>
 ) {
   return function (WrappedComponent: ComponentType<P>) {
     const loader = progressiveLoader.get(componentName);

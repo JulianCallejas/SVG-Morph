@@ -19,13 +19,13 @@ export interface SVGData {
 export interface WorkerMessage {
   type: 'PARSE_SVG' | 'INTERPOLATE_PATHS' | 'CREATE_INTERPOLATED_SVG' | 'NORMALIZE_PATH';
   id: string;
-  payload: any;
+  payload: unknown;
 }
 
 export interface WorkerResponse {
   type: 'SUCCESS' | 'ERROR' | 'PROGRESS';
   id: string;
-  payload?: any;
+  payload?: unknown;
   error?: string;
   progress?: number;
 }
@@ -37,19 +37,19 @@ self.onmessage = function(event: MessageEvent<WorkerMessage>) {
   try {
     switch (type) {
       case 'PARSE_SVG':
-        handleParseSVG(id, payload.svgString);
+        handleParseSVG(id, (payload as { svgString: string }).svgString);
         break;
       
       case 'NORMALIZE_PATH':
-        handleNormalizePath(id, payload.pathData, payload.targetPoints);
+        handleNormalizePath(id, (payload as { pathData: string; targetPoints: number }).pathData, (payload as { pathData: string; targetPoints: number }).targetPoints);
         break;
       
       case 'INTERPOLATE_PATHS':
-        handleInterpolatePaths(id, payload.sourcePath, payload.targetPath, payload.progress);
+        handleInterpolatePaths(id, (payload as { sourcePath: string; targetPath: string; progress: number }).sourcePath, (payload as { sourcePath: string; targetPath: string; progress: number }).targetPath, (payload as { sourcePath: string; targetPath: string; progress: number }).progress);
         break;
       
       case 'CREATE_INTERPOLATED_SVG':
-        handleCreateInterpolatedSVG(id, payload.sourceSVG, payload.targetSVG, payload.progress);
+        handleCreateInterpolatedSVG(id, (payload as { sourceSVG: string; targetSVG: string; progress: number }).sourceSVG, (payload as { sourceSVG: string; targetSVG: string; progress: number }).targetSVG, (payload as { sourceSVG: string; targetSVG: string; progress: number }).progress);
         break;
       
       default:
@@ -229,22 +229,52 @@ function handleCreateInterpolatedSVG(id: string, sourceSVG: string, targetSVG: s
       if (!sourcePath || !targetPath) continue;
       
       const interpolatedD = interpolatePaths(sourcePath.d, targetPath.d, progress);
-      const interpolatedFill = interpolateColor(sourcePath.fill || '#000000', targetPath.fill || '#000000', progress);
+      
+      // Enhanced fill interpolation that preserves 'none' and undefined values
+      let interpolatedFill: string;
+      const sourceFill = sourcePath.fill;
+      const targetFill = targetPath.fill;
+      
+      if (sourceFill === undefined && targetFill === undefined) {
+        // Both undefined - don't add fill attribute
+        interpolatedFill = '';
+      } else if (sourceFill === 'none' && targetFill === 'none') {
+        // Both none - keep none
+        interpolatedFill = 'none';
+      } else if ((sourceFill === 'none' || sourceFill === undefined) && targetFill && targetFill !== 'none') {
+        // Transitioning from none/undefined to color
+        interpolatedFill = progress < 0.5 ? 'none' : targetFill;
+      } else if ((targetFill === 'none' || targetFill === undefined) && sourceFill && sourceFill !== 'none') {
+        // Transitioning from color to none/undefined
+        interpolatedFill = progress < 0.5 ? sourceFill : 'none';
+      } else if (sourceFill && targetFill && sourceFill !== 'none' && targetFill !== 'none') {
+        // Both have valid colors - interpolate
+        interpolatedFill = interpolateColor(sourceFill, targetFill, progress);
+      } else {
+        // Fallback - use source or target
+        interpolatedFill = progress < 0.5 ? (sourceFill || 'none') : (targetFill || 'none');
+      }
+      
       const interpolatedStroke = sourcePath.stroke === 'none' || targetPath.stroke === 'none' 
         ? (progress < 0.5 ? sourcePath.stroke : targetPath.stroke)
         : interpolateColor(sourcePath.stroke || '#000000', targetPath.stroke || '#000000', progress);
       const interpolatedStrokeWidth = lerp(sourcePath.strokeWidth || 1, targetPath.strokeWidth || 1, progress);
       const interpolatedOpacity = lerp(sourcePath.opacity || 1, targetPath.opacity || 1, progress);
       
-      interpolatedPaths.push(`
-        <path 
-          d="${interpolatedD}" 
-          fill="${interpolatedFill}"
-          stroke="${interpolatedStroke}"
-          stroke-width="${interpolatedStrokeWidth}"
-          opacity="${interpolatedOpacity}"
-        />
-      `);
+      // Build path element with conditional fill attribute
+      let pathElement = `<path d="${interpolatedD}"`;
+      
+      // Only add fill attribute if we have a value
+      if (interpolatedFill && interpolatedFill !== '') {
+        pathElement += ` fill="${interpolatedFill}"`;
+      }
+      
+      pathElement += ` stroke="${interpolatedStroke}"`;
+      pathElement += ` stroke-width="${interpolatedStrokeWidth}"`;
+      pathElement += ` opacity="${interpolatedOpacity}"`;
+      pathElement += ` />`;
+      
+      interpolatedPaths.push(pathElement);
       
       // Report progress for each path
       const pathProgress = 50 + ((i + 1) / maxPaths) * 40;
@@ -253,6 +283,10 @@ function handleCreateInterpolatedSVG(id: string, sourceSVG: string, targetSVG: s
     
     const result = `
       <svg width="${width}" height="${height}" viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg">
+        <style>
+          path:not([fill]) { fill: none !important; }
+          path[fill=""] { fill: none !important; }
+        </style>
         ${interpolatedPaths.join('')}
       </svg>
     `;
@@ -341,10 +375,26 @@ function parseSVGString(svgString: string): SVGData {
     const strokeWidthMatch = pathTag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
     const opacityMatch = pathTag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
     
+    // Enhanced fill attribute parsing
+    let fillValue: string | undefined;
+    if (fillMatch) {
+      fillValue = fillMatch[1];
+    } else {
+      // Check for fill in style attribute
+      const styleMatch = pathTag.match(/style\s*=\s*["']([^"']*)["']/i);
+      if (styleMatch) {
+        const styleContent = styleMatch[1];
+        const styleFillMatch = styleContent.match(/fill\s*:\s*([^;]+)/i);
+        if (styleFillMatch) {
+          fillValue = styleFillMatch[1].trim();
+        }
+      }
+    }
+    
     if (dMatch) {
       paths.push({
         d: dMatch[1],
-        fill: fillMatch ? fillMatch[1] : '#000000',
+        fill: fillValue, // Preserve original fill value including undefined
         stroke: strokeMatch ? strokeMatch[1] : 'none',
         strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
         opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
@@ -367,9 +417,25 @@ function parseSVGString(svgString: string): SVGData {
         const strokeWidthMatch = circleTag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
         const opacityMatch = circleTag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
         
+        // Enhanced fill attribute parsing for circles
+        let fillValue: string | undefined;
+        if (fillMatch) {
+          fillValue = fillMatch[1];
+        } else {
+          // Check for fill in style attribute
+          const styleMatch = circleTag.match(/style\s*=\s*["']([^"']*)["']/i);
+          if (styleMatch) {
+            const styleContent = styleMatch[1];
+            const styleFillMatch = styleContent.match(/fill\s*:\s*([^;]+)/i);
+            if (styleFillMatch) {
+              fillValue = styleFillMatch[1].trim();
+            }
+          }
+        }
+        
         paths.push({
           d: pathData,
-          fill: fillMatch ? fillMatch[1] : '#000000',
+          fill: fillValue, // Preserve original fill value including undefined
           stroke: strokeMatch ? strokeMatch[1] : 'none',
           strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
           opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
@@ -390,9 +456,25 @@ function parseSVGString(svgString: string): SVGData {
         const strokeWidthMatch = rectTag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
         const opacityMatch = rectTag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
         
+        // Enhanced fill attribute parsing for rectangles
+        let fillValue: string | undefined;
+        if (fillMatch) {
+          fillValue = fillMatch[1];
+        } else {
+          // Check for fill in style attribute
+          const styleMatch = rectTag.match(/style\s*=\s*["']([^"']*)["']/i);
+          if (styleMatch) {
+            const styleContent = styleMatch[1];
+            const styleFillMatch = styleContent.match(/fill\s*:\s*([^;]+)/i);
+            if (styleFillMatch) {
+              fillValue = styleFillMatch[1].trim();
+            }
+          }
+        }
+        
         paths.push({
           d: pathData,
-          fill: fillMatch ? fillMatch[1] : '#000000',
+          fill: fillValue, // Preserve original fill value including undefined
           stroke: strokeMatch ? strokeMatch[1] : 'none',
           strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
           opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
@@ -583,6 +665,7 @@ function interpolateColor(sourceColor: string, targetColor: string, progress: nu
     const interpolator = interpolate(sourceColor, targetColor);
     return interpolator(progress);
   } catch (error) {
+    console.warn('Color interpolation failed:', error);
     return progress < 0.5 ? sourceColor : targetColor;
   }
 }

@@ -211,7 +211,7 @@ const convertAI = async (
     // If no SVG found, create a placeholder or use alternative method
     throw new Error('Could not extract vector data from AI file');
     
-  } catch (error) {
+  } catch (_error) {
     // Fallback: suggest using a conversion service
     return {
       success: false,
@@ -266,7 +266,7 @@ const convertEPS = async (
       originalFormat: 'eps',
       fileName: file.name
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       success: false,
       error: 'EPS conversion requires server-side processing. Please convert to SVG using a graphics editor or online converter.',

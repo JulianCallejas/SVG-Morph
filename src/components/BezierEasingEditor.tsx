@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { RotateCcw, Copy, Save, Play, Pause } from 'lucide-react';
+import { RotateCcw, Copy, Play, Pause } from 'lucide-react';
 
 export interface BezierPoint {
   x: number;
@@ -44,7 +44,7 @@ export const BezierEasingEditor: React.FC<BezierEasingEditorProps> = ({
 
   const CANVAS_SIZE = 300;
   const PADDING = 40;
-  const GRID_SIZE = 20;
+  // const GRID_SIZE = 20; // Unused but kept for potential future use
 
   // Convert curve coordinates to SVG coordinates
   const toSVG = useCallback((point: BezierPoint) => ({

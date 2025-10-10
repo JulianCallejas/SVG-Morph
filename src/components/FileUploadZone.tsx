@@ -77,7 +77,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       const content = await validateSVG(file);
       await onUpload(file, content);
     } catch (err) {
-      setError(err as string);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsValidating(false);
     }

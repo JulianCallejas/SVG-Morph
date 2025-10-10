@@ -119,7 +119,7 @@ export default function PlaygroundPhase4({ className = '' }: Phase4PlaygroundPro
     return () => {
       svgUpdateManager.cancelAll();
     };
-  }, [debouncedUpdatesEnabled]);
+  }, [debouncedUpdatesEnabled, setProgress, updatePhysicsOptions]);
 
   // Memory monitoring
   useEffect(() => {
@@ -234,7 +234,7 @@ export default function PlaygroundPhase4({ className = '' }: Phase4PlaygroundPro
   // Update preview when progress changes
   useEffect(() => {
     renderPreview();
-  }, [currentProgress, activeTab, sourceSVG, targetSVG]);
+  }, [currentProgress, activeTab, sourceSVG, targetSVG, renderPreview]);
 
   const tabs = [
     { id: 'gradient', label: 'Gradients', icon: Palette },

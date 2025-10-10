@@ -254,7 +254,7 @@ export function interpolateColor(sourceColor: string, targetColor: string, progr
   try {
     const interpolator = interpolate(sourceColor, targetColor);
     return interpolator(progress);
-  } catch (error) {
+  } catch (_error) {
     return progress < 0.5 ? sourceColor : targetColor;
   }
 }

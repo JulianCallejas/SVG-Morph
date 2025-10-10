@@ -33,9 +33,15 @@ const PAIR_COLORS = [
 export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
   sourcePoints,
   targetPoints,
-  onPointsUpdate,
 }) => {
-  const { nodePairs, addNodePair, removeNodePair, clearNodePairs } = useMorphStore();
+  const { 
+    nodePairs, 
+    addNodePair, 
+    removeNodePair, 
+    clearNodePairs,
+    sourceSVG,
+    targetSVG 
+  } = useMorphStore();
   const [selectedSourcePoint, setSelectedSourcePoint] = useState<Point | null>(null);
   const [selectedTargetPoint, setSelectedTargetPoint] = useState<Point | null>(null);
   const [hoveredPoint, setHoveredPoint] = useState<Point | null>(null);
@@ -118,7 +124,7 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
     }
   }, [selectedSourcePoint, selectedTargetPoint, nodePairs.length, addNodePair, addToHistory]);
 
-  const handlePairRemove = useCallback((pairId: string) => {
+  const _handlePairRemove = useCallback((pairId: string) => {
     const pairToRemove = nodePairs.find(p => p.sourceId === pairId);
     if (pairToRemove) {
       removeNodePair(pairId);
@@ -253,9 +259,9 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
         <line
           key={`${pair.sourceId}-${pair.targetId}`}
           x1={sourcePoint.x}
-          y1={sourcePoint.y}
+          y1={sourcePoint.y + 30}
           x2={targetPoint.x + 300} // Offset for target SVG
-          y2={targetPoint.y}
+          y2={targetPoint.y + 30}
           stroke={pair.color}
           strokeWidth="2"
           strokeDasharray="5,5"
@@ -268,10 +274,10 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <div className="flex flex-wrap items-center gap-2 p-4 bg-gray-50 rounded-lg">
+      <div className="flex flex-wrap items-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
         <button
           onClick={handleAutoMatch}
-          className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
         >
           <Zap size={16} />
           Auto Match
@@ -280,7 +286,7 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
         <button
           onClick={handleUndo}
           disabled={historyIndex < 0}
-          className="flex items-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/90 text-primary rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
         >
           <Undo2 size={16} />
           Undo
@@ -289,7 +295,7 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
         <button
           onClick={handleRedo}
           disabled={historyIndex >= actionHistory.length - 1}
-          className="flex items-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/90 text-primary rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
         >
           <Redo2 size={16} />
           Redo
@@ -298,7 +304,7 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
         <button
           onClick={handleClearAll}
           disabled={nodePairs.length === 0}
-          className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
         >
           <Trash2 size={16} />
           Clear All
@@ -307,44 +313,44 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
         <div className="flex items-center gap-2 ml-4">
           <button
             onClick={() => setShowConnections(!showConnections)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow-md ${
               showConnections 
-                ? 'bg-green-600 text-white hover:bg-green-700' 
-                : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                ? 'bg-accent text-white hover:bg-accent/90' 
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             {showConnections ? <Eye size={16} /> : <EyeOff size={16} />}
             Connections
           </button>
-          
           <button
             onClick={() => setShowUnmatched(!showUnmatched)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow-md ${
               showUnmatched 
-                ? 'bg-green-600 text-white hover:bg-green-700' 
-                : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                ? 'bg-accent text-white hover:bg-accent/90' 
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             {showUnmatched ? <Eye size={16} /> : <EyeOff size={16} />}
             Unmatched
           </button>
-        </div>
-
-        <div className="ml-auto text-sm text-gray-600">
-          {nodePairs.length} pairs • {sourcePoints.length - nodePairs.length} unmatched source • {targetPoints.length - nodePairs.length} unmatched target
+          <div className="ml-auto text-sm text-gray-600 dark:text-gray-400 font-medium">
+            {nodePairs.length} pairs • {sourcePoints.length - nodePairs.length} unmatched source • {targetPoints.length - nodePairs.length} unmatched target
+          </div>
         </div>
       </div>
 
       {/* Matching Options */}
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <div className="flex items-center gap-2 mb-3">
-          <Settings size={16} />
-          <span className="font-medium">Matching Options</span>
+      <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
+            <Settings size={16} className="text-white" />
+          </div>
+          <span className="font-semibold text-gray-900 dark:text-gray-100">Matching Options</span>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Distance Metric
             </label>
             <select
@@ -353,7 +359,7 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
                 ...prev,
                 distanceMetric: e.target.value as 'euclidean' | 'manhattan'
               }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
             >
               <option value="euclidean">Euclidean</option>
               <option value="manhattan">Manhattan</option>
@@ -361,7 +367,7 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Max Distance
             </label>
             <input
@@ -371,14 +377,14 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
                 ...prev,
                 maxDistance: Number(e.target.value)
               }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
               min="1"
               max="500"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Confidence Threshold
             </label>
             <input
@@ -388,7 +394,7 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
                 ...prev,
                 confidenceThreshold: Number(e.target.value)
               }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
               min="0"
               max="1"
               step="0.1"
@@ -398,99 +404,144 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
       </div>
 
       {/* SVG Visualization */}
-      <div className="border border-gray-300 rounded-lg overflow-hidden">
-        <svg
-          ref={svgRef}
-          width="100%"
-          height="400"
-          viewBox="0 0 600 400"
-          className="bg-white"
-        >
-          {/* Connection lines */}
-          {renderConnectionLines()}
-          
-          {/* Source points */}
-          <g>
-            <text x="150" y="20" textAnchor="middle" className="text-sm font-medium fill-gray-700">
-              Source SVG
-            </text>
-            {sourcePoints.map(point => (
+      <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-md bg-white dark:bg-gray-800">
+        <div className="relative">
+          <svg
+            ref={svgRef}
+            width="100%"
+            height="400"
+            viewBox="0 0 600 400"
+            className="bg-gray-50 dark:bg-gray-900"
+          >
+            {/* Background SVG Images */}
+            {sourceSVG && (
+              <g transform="translate(20, 30) scale(0.8)">
+                <foreignObject x="0" y="0" width="260" height="340">
+                  <div 
+                    className="w-full h-full flex items-center justify-center opacity-30"
+                    dangerouslySetInnerHTML={{ __html: sourceSVG }}
+                  />
+                </foreignObject>
+              </g>
+            )}
+            
+            {targetSVG && (
+              <g transform="translate(320, 30) scale(0.8)">
+                <foreignObject x="0" y="0" width="260" height="340">
+                  <div 
+                    className="w-full h-full flex items-center justify-center opacity-30"
+                    dangerouslySetInnerHTML={{ __html: targetSVG }}
+                  />
+                </foreignObject>
+              </g>
+            )}
+            
+            {/* Connection lines */}
+            {renderConnectionLines()}
+            
+            {/* Source points */}
+            <g>
+              <text x="150" y="20" textAnchor="middle" className="text-sm font-semibold fill-gray-800 dark:fill-gray-200">
+                Source SVG ({sourcePoints.length} points)
+              </text>
+              {sourcePoints.map(point => (
+                <circle
+                  key={`source-${point.id}`}
+                  cx={point.x}
+                  cy={point.y + 30}
+                  r={getPointRadius(point, true)}
+                  fill={getPointColor(point, true)}
+                  stroke="#fff"
+                  strokeWidth="2"
+                  className="cursor-pointer hover:stroke-gray-400 transition-all"
+                  onClick={() => handlePointClick(point, true)}
+                  onMouseEnter={() => setHoveredPoint(point)}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                />
+              ))}
+            </g>
+            
+            {/* Target points */}
+            <g>
+              <text x="450" y="20" textAnchor="middle" className="text-sm font-semibold fill-gray-800 dark:fill-gray-200">
+                Target SVG ({targetPoints.length} points)
+              </text>
+              {targetPoints.map(point => (
+                <circle
+                  key={`target-${point.id}`}
+                  cx={point.x + 300}
+                  cy={point.y + 30}
+                  r={getPointRadius(point, false)}
+                  fill={getPointColor(point, false)}
+                  stroke="#fff"
+                  strokeWidth="2"
+                  className="cursor-pointer hover:stroke-gray-400 transition-all"
+                  onClick={() => handlePointClick(point, false)}
+                  onMouseEnter={() => setHoveredPoint(point)}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                />
+              ))}
+            </g>
+            
+            {/* Selection indicators */}
+            {selectedSourcePoint && (
               <circle
-                key={`source-${point.id}`}
-                cx={point.x}
-                cy={point.y}
-                r={getPointRadius(point, true)}
-                fill={getPointColor(point, true)}
-                stroke="#fff"
-                strokeWidth="2"
-                className="cursor-pointer hover:stroke-gray-400 transition-all"
-                onClick={() => handlePointClick(point, true)}
-                onMouseEnter={() => setHoveredPoint(point)}
-                onMouseLeave={() => setHoveredPoint(null)}
+                cx={selectedSourcePoint.x}
+                cy={selectedSourcePoint.y + 30}
+                r="12"
+                fill="none"
+                stroke="#fbbf24"
+                strokeWidth="3"
+                strokeDasharray="4,4"
+                className="animate-pulse"
               />
-            ))}
-          </g>
-          
-          {/* Target points */}
-          <g>
-            <text x="450" y="20" textAnchor="middle" className="text-sm font-medium fill-gray-700">
-              Target SVG
-            </text>
-            {targetPoints.map(point => (
+            )}
+            
+            {selectedTargetPoint && (
               <circle
-                key={`target-${point.id}`}
-                cx={point.x + 300}
-                cy={point.y}
-                r={getPointRadius(point, false)}
-                fill={getPointColor(point, false)}
-                stroke="#fff"
-                strokeWidth="2"
-                className="cursor-pointer hover:stroke-gray-400 transition-all"
-                onClick={() => handlePointClick(point, false)}
-                onMouseEnter={() => setHoveredPoint(point)}
-                onMouseLeave={() => setHoveredPoint(null)}
+                cx={selectedTargetPoint.x + 300}
+                cy={selectedTargetPoint.y + 30}
+                r="12"
+                fill="none"
+                stroke="#fbbf24"
+                strokeWidth="3"
+                strokeDasharray="4,4"
+                className="animate-pulse"
               />
-            ))}
-          </g>
-          
-          {/* Selection indicators */}
-          {selectedSourcePoint && (
-            <circle
-              cx={selectedSourcePoint.x}
-              cy={selectedSourcePoint.y}
-              r="12"
-              fill="none"
-              stroke="#fbbf24"
-              strokeWidth="3"
-              strokeDasharray="4,4"
-              className="animate-pulse"
-            />
-          )}
-          
-          {selectedTargetPoint && (
-            <circle
-              cx={selectedTargetPoint.x + 300}
-              cy={selectedTargetPoint.y}
-              r="12"
-              fill="none"
-              stroke="#fbbf24"
-              strokeWidth="3"
-              strokeDasharray="4,4"
-              className="animate-pulse"
-            />
-          )}
-        </svg>
+            )}
+          </svg>
+        </div>
       </div>
 
       {/* Instructions */}
-      <div className="p-4 bg-blue-50 rounded-lg">
-        <h4 className="font-medium text-blue-900 mb-2">Instructions</h4>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Click on a source point (left) and then a target point (right) to create a pair</li>
-          <li>• Use "Auto Match" to automatically pair points using k-NN algorithm</li>
-          <li>• Adjust matching options to fine-tune automatic pairing</li>
-          <li>• Use Undo/Redo to manage your pairing history</li>
-          <li>• Toggle visibility of connections and unmatched points</li>
+      <div className="p-6 bg-accent/5 border border-accent/20 rounded-xl">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-6 h-6 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
+            <span className="text-white text-xs font-bold">i</span>
+          </div>
+          <h4 className="font-semibold text-gray-900 dark:text-gray-100">Instructions</h4>
+        </div>
+        <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+          <li className="flex items-start gap-2">
+            <span className="text-accent font-bold">•</span>
+            <span>Click on a source point (left) and then a target point (right) to create a pair</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-accent font-bold">•</span>
+            <span>Use "Auto Match" to automatically pair points using k-NN algorithm</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-accent font-bold">•</span>
+            <span>Adjust matching options to fine-tune automatic pairing</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-accent font-bold">•</span>
+            <span>Use Undo/Redo to manage your pairing history</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-accent font-bold">•</span>
+            <span>Toggle visibility of connections and unmatched points</span>
+          </li>
         </ul>
       </div>
     </div>

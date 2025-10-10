@@ -615,7 +615,7 @@ ${pathElements}
     try {
       const sourceInterpolator = interpolate(sourceTransform, targetTransform);
       return sourceInterpolator(progress);
-    } catch (error) {
+    } catch (_error) {
       return progress < 0.5 ? sourceTransform : targetTransform;
     }
   }

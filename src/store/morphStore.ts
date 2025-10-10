@@ -9,7 +9,7 @@ import { RecentFile } from '../components/RecentFilesHistory';
 import { GradientMorphOptions } from '../utils/gradientMorphing';
 import { TextMorphOptions } from '../utils/textPathMorphing';
 import { MultiPathMorphOptions } from '../utils/multiPathSupport';
-import { PhysicsOptions, SpringConfig } from '../utils/physicsSimulation';
+import { PhysicsOptions } from '../utils/physicsSimulation';
 import { VideoExportOptions } from '../utils/videoExport';
 import { ShareOptions } from '../utils/socialIntegration';
 import { CanvasRenderOptions } from '../utils/canvasRenderer';
@@ -572,7 +572,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   
   removeCustomEasingCurve: (name) =>
     set((state) => {
-      const { [name]: removed, ...rest } = state.customEasingCurves;
+      const { [name]: _removed, ...rest } = state.customEasingCurves;
       return { customEasingCurves: rest };
     }),
   
@@ -697,7 +697,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   },
   
   shareToSocial: async (platform: string) => {
-    const state = get();
+    const _state = get();
     
     try {
       set({
@@ -743,7 +743,7 @@ function applyEasing(t: number, easing: AnimationSettings['easing'], customCurve
       return 1 - (1 - t) * (1 - t);
     case 'easeInOut':
       return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    case 'bounce':
+    case 'bounce': {
       const n1 = 7.5625;
       const d1 = 2.75;
       if (t < 1 / d1) {
@@ -755,13 +755,15 @@ function applyEasing(t: number, easing: AnimationSettings['easing'], customCurve
       } else {
         return n1 * (t -= 2.625 / d1) * t + 0.984375;
       }
-    case 'elastic':
+    }
+    case 'elastic': {
       const c4 = (2 * Math.PI) / 3;
       return t === 0
         ? 0
         : t === 1
         ? 1
         : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+    }
     case 'custom':
       if (customCurve) {
         return evaluateBezierCurve(t, customCurve);

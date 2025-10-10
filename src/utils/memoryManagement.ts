@@ -249,7 +249,7 @@ export class MemoryManager {
     const initialEntries = this.cache.size;
     
     // Clean up expired and least used entries
-    const removed = this.evictExpiredEntries();
+    const _removed = this.evictExpiredEntries();
     
     // Clean up weak references
     const weakRefsCleared = this.cleanupWeakRefs();

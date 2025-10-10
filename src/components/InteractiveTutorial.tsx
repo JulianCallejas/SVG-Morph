@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Play, Upload, Settings, Download } from 'lucide-react';
+import { Play, Pause, SkipForward, RotateCcw, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface TutorialStep {
   id: string;

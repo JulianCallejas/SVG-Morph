@@ -70,7 +70,7 @@ export const validateFile = async (
     if (file.type.includes('text') || file.name.endsWith('.svg')) {
       content = await file.text();
     }
-  } catch (error) {
+  } catch (_error) {
     // If we can't read as text, that's okay for binary formats
   }
 

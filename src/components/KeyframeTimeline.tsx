@@ -1,13 +1,10 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Plus, Trash2, Copy, Settings } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { Play, Pause, SkipBack, Plus, Trash2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 
 export interface Keyframe {
   id: string;
   time: number; // 0-1 (percentage of total duration)
   value: number; // 0-1 (morph progress)
-  easing: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'custom';
-  customEasing?: { p1: { x: number; y: number }; p2: { x: number; y: number } };
-  label?: string;
 }
 
 interface KeyframeTimelineProps {
@@ -15,10 +12,9 @@ interface KeyframeTimelineProps {
   keyframes: Keyframe[];
   currentTime: number; // Current playback time (0-1)
   isPlaying: boolean;
-  onKeyframesChange: (keyframes: Keyframe[]) => void;
-  onTimeChange: (time: number) => void;
-  onPlayPause: () => void;
-  onReset: () => void;
+  onKeyframeUpdate: (keyframe: Keyframe) => void;
+  onKeyframeDelete: (id: string) => void;
+  onTimelineSeek: (time: number) => void;
   className?: string;
 }
 
@@ -38,7 +34,7 @@ export const KeyframeTimeline: React.FC<KeyframeTimelineProps> = ({
   const [showSettings, setShowSettings] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [scrollOffset, setScrollOffset] = useState(0);
+  const [scrollOffset] = useState(0);
 
   const TIMELINE_HEIGHT = 120;
   const KEYFRAME_SIZE = 12;

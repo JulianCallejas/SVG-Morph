@@ -141,7 +141,7 @@ export const FileUploadLoading: React.FC<{
       {status !== 'complete' && status !== 'error' && (
         <ProgressBar 
           progress={progress} 
-          color={getStatusColor() as any}
+          color={getStatusColor() as 'blue' | 'green' | 'red' | 'yellow'}
           showPercentage={false}
           size="sm"
         />

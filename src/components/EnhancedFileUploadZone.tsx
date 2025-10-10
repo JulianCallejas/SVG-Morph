@@ -1,22 +1,27 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Upload, File, AlertCircle, CheckCircle, X, Eye, Settings, Zap } from 'lucide-react';
-import { convertToSVG, ConversionResult, ConversionProgress, detectFileType, getFormatDisplayName } from '../utils/fileConverter';
-import { validateFile, FileValidationResult, formatFileSize } from '../utils/fileValidator';
-import { FileUploadLoading, LoadingButton } from './LoadingStates';
+import { CheckCircle, X } from 'lucide-react';
+import { convertToSVG, type ConversionResult, type ConversionProgress } from '../utils/fileConverter';
+import { validateFile, type FileValidationResult } from '../utils/fileValidator';
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
 
 interface EnhancedFileUploadZoneProps {
   onFileSelect: (svgContent: string, fileName: string) => void;
-  accept?: string;
   maxFiles?: number;
-  title?: string;
-  description?: string;
-  className?: string;
   disabled?: boolean;
 }
 
+type FileStatus = 'validating' | 'converting' | 'complete' | 'error';
+
 interface FileProcessingState {
   file: File;
-  status: 'validating' | 'converting' | 'complete' | 'error';
+  status: FileStatus;
   validation?: FileValidationResult;
   conversion?: ConversionResult;
   progress: number;
@@ -25,17 +30,126 @@ interface FileProcessingState {
 
 export const EnhancedFileUploadZone: React.FC<EnhancedFileUploadZoneProps> = ({
   onFileSelect,
-  accept = '.svg,.ai,.eps,.pdf,.png,.jpg,.jpeg',
   maxFiles = 1,
-  title = 'Upload SVG or Vector File',
-  description = 'Drag and drop your file here, or click to browse',
-  className = '',
   disabled = false
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [processingFiles, setProcessingFiles] = useState<FileProcessingState[]>([]);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const processFiles = useCallback(async (files: File[]) => {
+    const initialStates: FileProcessingState[] = files.map(file => ({
+      file,
+      status: 'validating' as const,
+      progress: 0
+    }));
+
+    setProcessingFiles(initialStates);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      try {
+        // Update status to validating
+        setProcessingFiles((prev: FileProcessingState[]) => 
+          prev.map((state: FileProcessingState, index: number) => 
+            index === i ? { ...state, status: 'validating', progress: 10, currentStage: 'Validating file...' } : state
+          )
+        );
+
+        // Validate file
+        const validation = await validateFile(file);
+        
+        setProcessingFiles((prev: FileProcessingState[]) => 
+          prev.map((state: FileProcessingState, index: number) => 
+            index === i ? { ...state, validation, progress: 30 } : state
+          )
+        );
+
+        // If validation failed with errors, mark as error
+        if (!validation.isValid) {
+          setProcessingFiles((prev: FileProcessingState[]) => 
+            prev.map((state: FileProcessingState, index: number) => 
+              index === i ? { 
+                ...state, 
+                status: 'error', 
+                progress: 100,
+                currentStage: 'Validation failed'
+              } : state
+            )
+          );
+          continue;
+        }
+
+        // Update status to converting
+        setProcessingFiles((prev: FileProcessingState[]) => 
+          prev.map((state: FileProcessingState, index: number) => 
+            index === i ? { ...state, status: 'converting', progress: 40, currentStage: 'Converting to SVG...' } : state
+          )
+        );
+
+        // Convert to SVG
+        const conversion = await convertToSVG(file, (progress: ConversionProgress) => {
+          setProcessingFiles((prev: FileProcessingState[]) => 
+            prev.map((state: FileProcessingState, idx: number) => 
+              idx === i ? { 
+                ...state, 
+                progress: 40 + (progress.progress * 0.5), // 40-90% for conversion
+                currentStage: progress.message
+              } : state
+            )
+          );
+        });
+
+        setProcessingFiles((prev: FileProcessingState[]) => 
+          prev.map((state: FileProcessingState, idx: number) => 
+            idx === i ? { ...state, conversion, progress: 90 } : state
+          )
+        );
+
+        if (conversion.success && conversion.svgContent) {
+          // Success!
+          setProcessingFiles((prev: FileProcessingState[]) => 
+            prev.map((state: FileProcessingState, idx: number) => 
+              idx === i ? { 
+                ...state, 
+                status: 'complete', 
+                progress: 100,
+                currentStage: 'Complete!'
+              } : state
+            )
+          );
+
+          // Call the callback with the SVG content
+          onFileSelect(conversion.svgContent, file.name);
+        } else {
+          // Conversion failed
+          setProcessingFiles((prev: FileProcessingState[]) => 
+            prev.map((state: FileProcessingState, idx: number) => 
+              idx === i ? { 
+                ...state, 
+                status: 'error', 
+                progress: 100,
+                currentStage: 'Conversion failed'
+              } : state
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Error processing file:', error);
+        setProcessingFiles((prev: FileProcessingState[]) => 
+          prev.map((state: FileProcessingState, idx: number) => 
+            idx === i ? { 
+              ...state, 
+              status: 'error', 
+              progress: 100,
+              currentStage: 'Processing failed'
+            } : state
+          )
+        );
+      }
+    }
+  }, [onFileSelect]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -59,27 +173,111 @@ export const EnhancedFileUploadZone: React.FC<EnhancedFileUploadZoneProps> = ({
     if (files.length > 0) {
       processFiles(files);
     }
-  }, [disabled, maxFiles]);
+  }, [disabled, maxFiles, processFiles]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).slice(0, maxFiles);
-    if (files.length > 0) {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files).slice(0, maxFiles);
       processFiles(files);
     }
-    // Reset input value to allow selecting the same file again
-    e.target.value = '';
-  }, [maxFiles]);
+  }, [maxFiles, processFiles]);
 
-  const processFiles = async (files: File[]) => {
-    const initialStates: FileProcessingState[] = files.map(file => ({
-      file,
-      status: 'validating',
-      progress: 0
-    }));
+  const removeProcessingFile = useCallback((index: number) => {
+    setProcessingFiles((prev: FileProcessingState[]) => prev.filter((_, i) => i !== index));
+  }, []);
 
-    setProcessingFiles(initialStates);
+  const retryProcessing = useCallback((index: number) => {
+    const file = processingFiles[index]?.file;
+    if (file) {
+      processFiles([file]);
+    }
+  }, [processFiles, processingFiles]);
 
-    for (let i = 0; i < files.length; i++) {
+  // Render the component
+  return (
+    <div className="space-y-4">
+      <div 
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          isDragOver && !disabled ? 'border-primary-500 bg-primary-50' : 'border-gray-300'
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-primary-400'}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => !disabled && fileInputRef.current?.click()}
+      >
+        <div className="flex flex-col items-center justify-center space-y-2">
+          <div className="p-3 rounded-full bg-primary-100">
+            <CheckCircle className="w-6 h-6 text-primary-600" />
+          </div>
+          <p className="text-sm text-gray-600">
+            <span className="font-medium text-primary-600">Click to upload</span> or drag and drop
+          </p>
+          <p className="text-xs text-gray-500">SVG, AI, EPS, or PDF (max 10MB)</p>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".svg,.ai,.eps,.pdf"
+          multiple={maxFiles > 1}
+          onChange={handleFileSelect}
+          disabled={disabled}
+        />
+      </div>
+
+      {processingFiles.length > 0 && (
+        <div className="space-y-2">
+          {processingFiles.map((state: FileProcessingState, index: number) => (
+            <div key={index} className="p-3 border rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {state.file.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {formatFileSize(state.file.size)} • {state.currentStage}
+                  </p>
+                </div>
+                <div className="ml-4 flex-shrink-0">
+                  {state.status === 'complete' ? (
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : state.status === 'error' ? (
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => retryProcessing(index)}
+                        className="text-xs text-primary-600 hover:text-primary-800"
+                      >
+                        Retry
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeProcessingFile(index)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                  )}
+                </div>
+              </div>
+              {state.progress > 0 && state.status !== 'complete' && state.status !== 'error' && (
+                <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
+                  <div
+                    className="bg-primary-600 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${state.progress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
       const file = files[i];
       
       try {
@@ -115,8 +313,8 @@ export const EnhancedFileUploadZone: React.FC<EnhancedFileUploadZoneProps> = ({
 
         // Convert to SVG
         const conversion = await convertToSVG(file, (progress: ConversionProgress) => {
-          setProcessingFiles(prev => prev.map((state, index) => 
-            index === i ? { 
+          setProcessingFiles(prev => prev.map((state, idx) => 
+            idx === i ? { 
               ...state, 
               progress: 40 + (progress.progress * 0.5), // 40-90% for conversion
               currentStage: progress.message
@@ -124,14 +322,14 @@ export const EnhancedFileUploadZone: React.FC<EnhancedFileUploadZoneProps> = ({
           ));
         });
 
-        setProcessingFiles(prev => prev.map((state, index) => 
-          index === i ? { ...state, conversion, progress: 90 } : state
+        setProcessingFiles(prev => prev.map((state, idx) => 
+          idx === i ? { ...state, conversion, progress: 90 } : state
         ));
 
         if (conversion.success && conversion.svgContent) {
           // Success!
-          setProcessingFiles(prev => prev.map((state, index) => 
-            index === i ? { 
+          setProcessingFiles(prev => prev.map((state, idx) => 
+            idx === i ? { 
               ...state, 
               status: 'complete', 
               progress: 100,
@@ -143,8 +341,8 @@ export const EnhancedFileUploadZone: React.FC<EnhancedFileUploadZoneProps> = ({
           onFileSelect(conversion.svgContent, file.name);
         } else {
           // Conversion failed
-          setProcessingFiles(prev => prev.map((state, index) => 
-            index === i ? { 
+          setProcessingFiles(prev => prev.map((state, idx) => 
+            idx === i ? { 
               ...state, 
               status: 'error', 
               progress: 100,
@@ -154,8 +352,9 @@ export const EnhancedFileUploadZone: React.FC<EnhancedFileUploadZoneProps> = ({
         }
 
       } catch (error) {
-        setProcessingFiles(prev => prev.map((state, index) => 
-          index === i ? { 
+        console.error('Error processing file:', error);
+        setProcessingFiles(prev => prev.map((state, idx) => 
+          idx === i ? { 
             ...state, 
             status: 'error', 
             progress: 100,
@@ -164,6 +363,17 @@ export const EnhancedFileUploadZone: React.FC<EnhancedFileUploadZoneProps> = ({
         ));
       }
     }
+  }, [onFileSelect]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).slice(0, maxFiles);
+    if (files.length > 0) {
+      processFiles(files);
+    }
+    // Reset input value to allow selecting the same file again
+    e.target.value = '';
+  }, [maxFiles, processFiles]);
+
   };
 
   const removeProcessingFile = (index: number) => {

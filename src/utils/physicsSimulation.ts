@@ -329,7 +329,7 @@ export class PhysicsSimulator {
     const normalized: PhysicsPoint[] = [];
     
     for (let i = 0; i < maxLength; i++) {
-      const sourcePoint = sourcePoints[i] || sourcePoints[sourcePoints.length - 1];
+      const _sourcePoint = sourcePoints[i] || sourcePoints[sourcePoints.length - 1];
       const targetPoint = targetPoints[i] || targetPoints[targetPoints.length - 1];
       
       normalized.push({
@@ -343,7 +343,7 @@ export class PhysicsSimulator {
     return normalized;
   }
 
-  private elasticEaseOut(t: number, bounces: number): number {
+  private elasticEaseOut(t: number, _bounces: number): number {
     if (t === 0) return 0;
     if (t === 1) return 1;
     

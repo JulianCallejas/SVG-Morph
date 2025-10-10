@@ -9,10 +9,7 @@ interface ExportPanelProps {
   animationSettings: AnimationSettings;
 }
 
-export const ExportPanel: React.FC<ExportPanelProps> = ({
-  canExport,
-  animationSettings,
-}) => {
+export const ExportPanel: React.FC<ExportPanelProps> = () => {
   // Use the enhanced export panel with all new features
   return <EnhancedExportPanel />;
 };

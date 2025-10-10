@@ -6,7 +6,7 @@ import { AnimationControls } from '../components/AnimationControls';
 import { NodePairingInterface } from '../components/NodePairingInterface';
 import { EnhancedExportPanel } from '../components/EnhancedExportPanel';
 import { ProcessingIndicator } from '../components/ProcessingIndicator';
-import { Point } from '../utils/kdTree';
+import { extractPointsFromSVGData, scalePointsToFit } from '../utils/pointExtraction';
 import { Settings, Zap, Eye, Download, Play } from 'lucide-react';
 
 export const PlaygroundEnhanced: React.FC = () => {
@@ -23,41 +23,55 @@ export const PlaygroundEnhanced: React.FC = () => {
     setSourcePoints,
     setTargetPoints,
     autoMatchNodes,
+    setSourceSVG,
+    setTargetSVG,
+    animationSettings,
+    updateAnimationSettings,
+    isAnimating,
+    currentProgress,
+    startAnimation,
+    pauseAnimation,
+    resetAnimation,
   } = useMorphStore();
 
   const [activeTab, setActiveTab] = useState<'upload' | 'match' | 'animate' | 'export'>('upload');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [viewMode, setViewMode] = useState<'split' | 'overlay'>('overlay');
 
   // Extract points from SVG data when available
   useEffect(() => {
     if (sourceSVGData?.paths) {
-      const points: Point[] = [];
-      sourceSVGData.paths.forEach((path, pathIndex) => {
-        path.points?.forEach((point, pointIndex) => {
-          points.push({
-            x: point.x,
-            y: point.y,
-            id: `source-${pathIndex}-${pointIndex}`,
-          });
+      try {
+        const extractedPoints = extractPointsFromSVGData(sourceSVGData, {
+          pointsPerPath: 30,
+          normalizeCoordinates: true,
         });
-      });
-      setSourcePoints(points);
+        
+        // Scale points to fit in the visualization area (300x400)
+        const scaledPoints = scalePointsToFit(extractedPoints, 300, 400, 20);
+        setSourcePoints(scaledPoints);
+      } catch (error) {
+        console.error('Failed to extract source points:', error);
+        setSourcePoints([]);
+      }
     }
   }, [sourceSVGData, setSourcePoints]);
 
   useEffect(() => {
     if (targetSVGData?.paths) {
-      const points: Point[] = [];
-      targetSVGData.paths.forEach((path, pathIndex) => {
-        path.points?.forEach((point, pointIndex) => {
-          points.push({
-            x: point.x,
-            y: point.y,
-            id: `target-${pathIndex}-${pointIndex}`,
-          });
+      try {
+        const extractedPoints = extractPointsFromSVGData(targetSVGData, {
+          pointsPerPath: 30,
+          normalizeCoordinates: true,
         });
-      });
-      setTargetPoints(points);
+        
+        // Scale points to fit in the visualization area (300x400)
+        const scaledPoints = scalePointsToFit(extractedPoints, 300, 400, 20);
+        setTargetPoints(scaledPoints);
+      } catch (error) {
+        console.error('Failed to extract target points:', error);
+        setTargetPoints([]);
+      }
     }
   }, [targetSVGData, setTargetPoints]);
 
@@ -71,7 +85,7 @@ export const PlaygroundEnhanced: React.FC = () => {
   };
 
   const getTabClassName = (tab: string, isActive: boolean, canAccess: boolean) => {
-    let baseClass = "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ";
+    const baseClass = "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ";
     
     if (!canAccess) {
       return baseClass + "text-gray-400 dark:text-gray-500 cursor-not-allowed bg-gray-100 dark:bg-gray-700";
@@ -195,13 +209,23 @@ export const PlaygroundEnhanced: React.FC = () => {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Source SVG</h3>
                 <FileUploadZone
-                  onFileUpload={(content) => useMorphStore.getState().setSourceSVG(content)}
-                  accept=".svg"
+                  onUpload={async (_, content) => {
+                    await setSourceSVG(content);
+                  }}
                   label="Drop your source SVG here"
+                  hasFile={!!sourceSVG}
                 />
                 {sourceSVG && (
                   <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                    <SVGPreview svg={sourceSVG} title="Source Preview" />
+                    <div className="text-center">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Source Preview</h4>
+                      <div className="w-full h-48 bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-center overflow-hidden">
+                        <div 
+                          className="max-w-full max-h-full"
+                          dangerouslySetInnerHTML={{ __html: sourceSVG }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -209,13 +233,23 @@ export const PlaygroundEnhanced: React.FC = () => {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Target SVG</h3>
                 <FileUploadZone
-                  onFileUpload={(content) => useMorphStore.getState().setTargetSVG(content)}
-                  accept=".svg"
+                  onUpload={async (_, content) => {
+                    await setTargetSVG(content);
+                  }}
                   label="Drop your target SVG here"
+                  hasFile={!!targetSVG}
                 />
                 {targetSVG && (
                   <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                    <SVGPreview svg={targetSVG} title="Target Preview" />
+                    <div className="text-center">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Target Preview</h4>
+                      <div className="w-full h-48 bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-center overflow-hidden">
+                        <div 
+                          className="max-w-full max-h-full"
+                          dangerouslySetInnerHTML={{ __html: targetSVG }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -273,16 +307,51 @@ export const PlaygroundEnhanced: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2">
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Animation Preview</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setViewMode('split')}
+                        className={`px-3 py-1 text-sm rounded-lg transition-all duration-200 ${
+                          viewMode === 'split'
+                            ? 'bg-accent text-white shadow-sm'
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        Split
+                      </button>
+                      <button
+                        onClick={() => setViewMode('overlay')}
+                        className={`px-3 py-1 text-sm rounded-lg transition-all duration-200 ${
+                          viewMode === 'overlay'
+                            ? 'bg-accent text-white shadow-sm'
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        Overlay
+                      </button>
+                    </div>
+                  </div>
+                  
                   <SVGPreview 
-                    svg={sourceSVG} 
-                    title="Animation Preview" 
-                    showInterpolated={true}
+                    sourceSVG={sourceSVG}
+                    targetSVG={targetSVG}
+                    viewMode={viewMode}
+                    currentProgress={currentProgress}
+                    animationSettings={animationSettings}
                   />
                 </div>
               </div>
 
               <div>
-                <AnimationControls />
+                <AnimationControls 
+                  settings={animationSettings}
+                  onUpdateSettings={updateAnimationSettings}
+                  isAnimating={isAnimating}
+                  onStart={startAnimation}
+                  onPause={pauseAnimation}
+                  onReset={resetAnimation}
+                />
               </div>
             </div>
 
