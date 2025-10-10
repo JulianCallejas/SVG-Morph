@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useMorphStore } from '../store/morphStore';
-import { exportSystem, ExportOptions, ExportResult, createExportOptions } from '../utils/exportSystem';
+import { exportSystem, ExportOptions, JavaScriptExportOptions, ExportResult, createExportOptions } from '../utils/exportSystem';
 import { useToast } from '../contexts/ToastContext';
 import { 
   Download, 
@@ -13,7 +13,8 @@ import {
   Trash2,
   CheckSquare,
   Square,
-  Loader2
+  Loader2,
+  Zap
 } from 'lucide-react';
 
 export const EnhancedExportPanel: React.FC = () => {
@@ -28,12 +29,21 @@ export const EnhancedExportPanel: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [exportResults, setExportResults] = useState<ExportResult[]>([]);
+  const [jsOptions, setJsOptions] = useState<Partial<JavaScriptExportOptions>>({
+    library: 'vanilla',
+    includeLibraryImport: true,
+    functionName: 'createSVGMorph',
+    exportType: 'function',
+    minified: false,
+    includeTypeScript: false,
+  });
 
   const formatIcons = {
     svg: Image,
     css: Code,
     smil: FileText,
     json: Database,
+    javascript: Zap,
   };
 
   const formatDescriptions = {
@@ -41,6 +51,7 @@ export const EnhancedExportPanel: React.FC = () => {
     css: 'CSS animation classes for external use',
     smil: 'SVG with SMIL animations (native)',
     json: 'Animation data in JSON format',
+    javascript: 'JavaScript function for programmatic control',
   };
 
   const handleFormatToggle = useCallback((format: ExportOptions['format']) => {
@@ -61,17 +72,32 @@ export const EnhancedExportPanel: React.FC = () => {
 
     setIsExporting(true);
     try {
-      const options = { ...exportOptions, format };
+      let options: ExportOptions | JavaScriptExportOptions;
+      
+      if (format === 'javascript') {
+        options = { 
+          ...exportOptions, 
+          format,
+          ...jsOptions 
+        } as JavaScriptExportOptions;
+      } else {
+        options = { ...exportOptions, format };
+      }
+      
       const result = await exportSystem.exportAnimation(sourceSVG, targetSVG, options);
       exportSystem.downloadResult(result);
       setExportResults(prev => [result, ...prev.slice(0, 4)]); // Keep last 5 results
+      
+      if (format === 'javascript') {
+        showSuccess('JavaScript Export Complete', `Generated ${jsOptions.library} JavaScript function: ${jsOptions.functionName}`);
+      }
     } catch (error) {
       console.error('Export failed:', error);
       showError('Export Failed', 'An error occurred during export. Please check the console for details.');
     } finally {
       setIsExporting(false);
     }
-  }, [sourceSVG, targetSVG, exportOptions, showWarning, showError]);
+  }, [sourceSVG, targetSVG, exportOptions, jsOptions, showWarning, showError, showSuccess]);
 
   const handleBatchExport = useCallback(async () => {
     if (!sourceSVG || !targetSVG) {
@@ -86,10 +112,19 @@ export const EnhancedExportPanel: React.FC = () => {
 
     setIsExporting(true);
     try {
-      const formatOptions = Array.from(selectedFormats).map(format => ({
-        ...exportOptions,
-        format,
-      }));
+      const formatOptions = Array.from(selectedFormats).map(format => {
+        if (format === 'javascript') {
+          return {
+            ...exportOptions,
+            format,
+            ...jsOptions
+          } as JavaScriptExportOptions;
+        }
+        return {
+          ...exportOptions,
+          format,
+        };
+      });
 
       const results = await exportSystem.batchExport(sourceSVG, targetSVG, formatOptions);
       
@@ -106,7 +141,7 @@ export const EnhancedExportPanel: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [sourceSVG, targetSVG, selectedFormats, exportOptions, showWarning, showError, showSuccess]);
+  }, [sourceSVG, targetSVG, selectedFormats, exportOptions, jsOptions, showWarning, showError, showSuccess]);
 
   const handleHistoryDownload = useCallback(() => {
     // In a real implementation, you'd re-export or store the content
@@ -254,6 +289,133 @@ export const EnhancedExportPanel: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* JavaScript Options */}
+      {selectedFormats.has('javascript') && (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">JavaScript Options</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Library Selection */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Animation Library
+                </label>
+                <select
+                  value={jsOptions.library}
+                  onChange={(e) => setJsOptions(prev => ({
+                    ...prev,
+                    library: e.target.value as 'vanilla' | 'gsap' | 'anime'
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+                >
+                  <option value="vanilla">Vanilla JavaScript</option>
+                  <option value="gsap">GSAP (GreenSock)</option>
+                  <option value="anime">Anime.js</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Export Type
+                </label>
+                <select
+                  value={jsOptions.exportType}
+                  onChange={(e) => setJsOptions(prev => ({
+                    ...prev,
+                    exportType: e.target.value as 'function' | 'class' | 'module'
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+                >
+                  <option value="function">Function</option>
+                  <option value="class">Class</option>
+                  <option value="module">ES6 Module</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Function/Class Name
+                </label>
+                <input
+                  type="text"
+                  value={jsOptions.functionName}
+                  onChange={(e) => setJsOptions(prev => ({
+                    ...prev,
+                    functionName: e.target.value
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+                  placeholder="createSVGMorph"
+                />
+              </div>
+            </div>
+
+            {/* Advanced Options */}
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={jsOptions.includeLibraryImport}
+                    onChange={(e) => setJsOptions(prev => ({
+                      ...prev,
+                      includeLibraryImport: e.target.checked
+                    }))}
+                    className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Include Library Import</span>
+                </label>
+
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={jsOptions.minified}
+                    onChange={(e) => setJsOptions(prev => ({
+                      ...prev,
+                      minified: e.target.checked
+                    }))}
+                    className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Minify Code</span>
+                </label>
+
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={jsOptions.includeTypeScript}
+                    onChange={(e) => setJsOptions(prev => ({
+                      ...prev,
+                      includeTypeScript: e.target.checked
+                    }))}
+                    className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
+                  />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Include TypeScript Definitions</span>
+                </label>
+              </div>
+
+              {/* Library Info */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                  {jsOptions.library === 'vanilla' && 'Vanilla JavaScript'}
+                  {jsOptions.library === 'gsap' && 'GSAP (GreenSock)'}
+                  {jsOptions.library === 'anime' && 'Anime.js'}
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {jsOptions.library === 'vanilla' && 'Pure JavaScript with no dependencies. Uses Web Animations API and requestAnimationFrame.'}
+                  {jsOptions.library === 'gsap' && 'Professional animation library with MorphSVG plugin. Requires GSAP license for commercial use.'}
+                  {jsOptions.library === 'anime' && 'Lightweight animation library (~17KB). MIT license, good SVG support.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Format Selection */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">

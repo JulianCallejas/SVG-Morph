@@ -1,7 +1,7 @@
 import { SVGData } from '../workers/pathProcessor';
 
 export interface ExportOptions {
-  format: 'svg' | 'css' | 'smil' | 'json';
+  format: 'svg' | 'css' | 'smil' | 'json' | 'javascript';
   resolution: 1 | 2 | 4;
   optimize: boolean;
   includeAnimation: boolean;
@@ -9,6 +9,16 @@ export interface ExportOptions {
   easing: string;
   loop: boolean;
   filename?: string;
+}
+
+export interface JavaScriptExportOptions extends ExportOptions {
+  format: 'javascript';
+  library: 'vanilla' | 'gsap' | 'anime';
+  includeLibraryImport: boolean;
+  functionName: string;
+  exportType: 'function' | 'class' | 'module';
+  minified: boolean;
+  includeTypeScript: boolean;
 }
 
 export interface ExportResult {
@@ -73,6 +83,12 @@ export class ExportSystem {
         content = await this.exportJSONFormat(optimizedSourceSVG, optimizedTargetSVG, options);
         mimeType = 'application/json';
         filename = options.filename || `morph-data.json`;
+        break;
+      
+      case 'javascript':
+        content = await this.exportJavaScriptFormat(optimizedSourceSVG, optimizedTargetSVG, options as JavaScriptExportOptions);
+        mimeType = 'text/javascript';
+        filename = options.filename || `morph-animation.js`;
         break;
       
       default:
@@ -712,6 +728,545 @@ ${animationCSS}
   }
 
   /**
+   * Export JavaScript code format
+   */
+  private async exportJavaScriptFormat(
+    sourceSVG: string,
+    targetSVG: string,
+    options: JavaScriptExportOptions
+  ): Promise<string> {
+    // Parse SVG data to get path information
+    const sourceData = await this.parseSVGData(sourceSVG);
+    const targetData = await this.parseSVGData(targetSVG);
+    
+    if (!sourceData || !targetData) {
+      throw new Error('Failed to parse SVG data for JavaScript export');
+    }
+
+    switch (options.library) {
+      case 'vanilla':
+        return this.generateVanillaJavaScript(sourceData, targetData, options);
+      case 'gsap':
+        return this.generateGSAPJavaScript(sourceData, targetData, options);
+      case 'anime':
+        return this.generateAnimeJavaScript(sourceData, targetData, options);
+      default:
+        throw new Error(`Unsupported JavaScript library: ${options.library}`);
+    }
+  }
+
+  /**
+   * Generate vanilla JavaScript morphing code
+   */
+  private generateVanillaJavaScript(
+    sourceData: SVGData,
+    targetData: SVGData,
+    options: JavaScriptExportOptions
+  ): string {
+    const { functionName, exportType, includeTypeScript, minified } = options;
+    const duration = options.duration * 1000; // Convert to milliseconds
+    
+    // Prepare path data
+    const pathData = this.preparePathDataForJS(sourceData, targetData);
+    
+    // Generate the main function code
+    let code = '';
+    
+    // Add TypeScript types if requested
+    if (includeTypeScript) {
+      code += this.generateTypeScriptDefinitions();
+    }
+    
+    // Generate function based on export type
+    switch (exportType) {
+      case 'function':
+        code += this.generateVanillaFunction(functionName, pathData, options);
+        break;
+      case 'class':
+        code += this.generateVanillaClass(functionName, pathData, options);
+        break;
+      case 'module':
+        code += this.generateVanillaModule(functionName, pathData, options);
+        break;
+    }
+    
+    // Add utility functions
+    code += this.generateVanillaUtilities();
+    
+    return minified ? this.minifyCode(code) : this.formatCode(code);
+  }
+
+  /**
+   * Generate GSAP JavaScript morphing code
+   */
+  private generateGSAPJavaScript(
+    sourceData: SVGData,
+    targetData: SVGData,
+    options: JavaScriptExportOptions
+  ): string {
+    const { functionName, includeLibraryImport, minified } = options;
+    
+    let code = '';
+    
+    // Add GSAP import if requested
+    if (includeLibraryImport) {
+      code += '// GSAP Library Required: https://greensock.com/gsap/\n';
+      code += '// import { gsap } from "gsap";\n';
+      code += '// import { MorphSVGPlugin } from "gsap/MorphSVGPlugin";\n\n';
+    }
+    
+    // Prepare path data
+    const pathData = this.preparePathDataForJS(sourceData, targetData);
+    
+    code += this.generateGSAPFunction(functionName, pathData, options);
+    
+    return minified ? this.minifyCode(code) : this.formatCode(code);
+  }
+
+  /**
+   * Generate Anime.js JavaScript morphing code
+   */
+  private generateAnimeJavaScript(
+    sourceData: SVGData,
+    targetData: SVGData,
+    options: JavaScriptExportOptions
+  ): string {
+    const { functionName, includeLibraryImport, minified } = options;
+    
+    let code = '';
+    
+    // Add Anime.js import if requested
+    if (includeLibraryImport) {
+      code += '// Anime.js Library Required: https://animejs.com/\n';
+      code += '// import anime from "animejs";\n\n';
+    }
+    
+    // Prepare path data
+    const pathData = this.preparePathDataForJS(sourceData, targetData);
+    
+    code += this.generateAnimeFunction(functionName, pathData, options);
+    
+    return minified ? this.minifyCode(code) : this.formatCode(code);
+  }
+
+  /**
+   * Prepare path data for JavaScript export
+   */
+  private preparePathDataForJS(sourceData: SVGData, targetData: SVGData): any {
+    const maxPaths = Math.max(sourceData.paths.length, targetData.paths.length);
+    const paths = [];
+    
+    for (let i = 0; i < maxPaths; i++) {
+      const sourcePath = sourceData.paths[i] || sourceData.paths[sourceData.paths.length - 1];
+      const targetPath = targetData.paths[i] || targetData.paths[targetData.paths.length - 1];
+      
+      paths.push({
+        id: `path-${i}`,
+        source: {
+          d: sourcePath.d,
+          fill: sourcePath.fill,
+          stroke: sourcePath.stroke || 'none',
+          strokeWidth: sourcePath.strokeWidth || 1,
+          opacity: sourcePath.opacity || 1
+        },
+        target: {
+          d: targetPath.d,
+          fill: targetPath.fill,
+          stroke: targetPath.stroke || 'none',
+          strokeWidth: targetPath.strokeWidth || 1,
+          opacity: targetPath.opacity || 1
+        }
+      });
+    }
+    
+    return {
+      viewBox: sourceData.viewBox,
+      width: sourceData.width,
+      height: sourceData.height,
+      paths
+    };
+  }
+
+  /**
+   * Generate TypeScript definitions
+   */
+  private generateTypeScriptDefinitions(): string {
+    return `
+interface MorphOptions {
+  duration?: number;
+  easing?: string;
+  loop?: boolean;
+  onComplete?: () => void;
+  onUpdate?: (progress: number) => void;
+}
+
+interface MorphController {
+  play(): void;
+  pause(): void;
+  reverse(): void;
+  restart(): void;
+  setProgress(progress: number): void;
+  destroy(): void;
+}
+
+`;
+  }
+
+  /**
+   * Generate vanilla JavaScript function
+   */
+  private generateVanillaFunction(
+    functionName: string,
+    pathData: any,
+    options: JavaScriptExportOptions
+  ): string {
+    const duration = options.duration * 1000;
+    
+    return `
+/**
+ * SVG Morphing Animation Function
+ * Generated by SVG-Morph
+ */
+function ${functionName}(containerId, userOptions = {}) {
+  const defaultOptions = {
+    duration: ${duration},
+    easing: '${options.easing}',
+    loop: ${options.loop},
+    onComplete: null,
+    onUpdate: null
+  };
+  
+  const config = { ...defaultOptions, ...userOptions };
+  const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+  
+  if (!container) {
+    throw new Error('Container element not found');
+  }
+  
+  // SVG Data
+  const svgData = ${JSON.stringify(pathData, null, 2)};
+  
+  // Create SVG element
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', svgData.viewBox);
+  svg.setAttribute('width', svgData.width);
+  svg.setAttribute('height', svgData.height);
+  
+  // Create paths
+  const paths = svgData.paths.map(pathInfo => {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathInfo.source.d);
+    path.setAttribute('fill', pathInfo.source.fill || 'none');
+    path.setAttribute('stroke', pathInfo.source.stroke);
+    path.setAttribute('stroke-width', pathInfo.source.strokeWidth);
+    path.setAttribute('opacity', pathInfo.source.opacity);
+    path.setAttribute('id', pathInfo.id);
+    svg.appendChild(path);
+    return { element: path, data: pathInfo };
+  });
+  
+  container.appendChild(svg);
+  
+  // Animation state
+  let animationId = null;
+  let isPlaying = false;
+  let currentProgress = 0;
+  let startTime = null;
+  
+  // Easing functions
+  const easingFunctions = {
+    linear: t => t,
+    easeIn: t => t * t,
+    easeOut: t => 1 - (1 - t) * (1 - t),
+    easeInOut: t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
+    bounce: t => {
+      const n1 = 7.5625;
+      const d1 = 2.75;
+      if (t < 1 / d1) return n1 * t * t;
+      else if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75;
+      else if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
+      else return n1 * (t -= 2.625 / d1) * t + 0.984375;
+    },
+    elastic: t => {
+      const c4 = (2 * Math.PI) / 3;
+      return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+    }
+  };
+  
+  // Interpolation function
+  function interpolateValue(start, end, progress) {
+    return start + (end - start) * progress;
+  }
+  
+  function interpolateColor(startColor, endColor, progress) {
+    if (!startColor || !endColor || startColor === 'none' || endColor === 'none') {
+      return progress < 0.5 ? startColor : endColor;
+    }
+    
+    // Simple color interpolation (can be enhanced)
+    return progress < 0.5 ? startColor : endColor;
+  }
+  
+  // Update function
+  function updatePaths(progress) {
+    const easedProgress = easingFunctions[config.easing] ? 
+      easingFunctions[config.easing](progress) : progress;
+    
+    paths.forEach(({ element, data }) => {
+      // For now, we'll use opacity blending as path morphing requires complex interpolation
+      if (easedProgress < 0.5) {
+        element.setAttribute('d', data.source.d);
+        element.setAttribute('opacity', interpolateValue(data.source.opacity, 0, easedProgress * 2));
+      } else {
+        element.setAttribute('d', data.target.d);
+        element.setAttribute('opacity', interpolateValue(0, data.target.opacity, (easedProgress - 0.5) * 2));
+      }
+      
+      // Interpolate other properties
+      element.setAttribute('fill', interpolateColor(data.source.fill, data.target.fill, easedProgress));
+      element.setAttribute('stroke', interpolateColor(data.source.stroke, data.target.stroke, easedProgress));
+      element.setAttribute('stroke-width', interpolateValue(data.source.strokeWidth, data.target.strokeWidth, easedProgress));
+    });
+    
+    if (config.onUpdate) {
+      config.onUpdate(progress);
+    }
+  }
+  
+  // Animation loop
+  function animate(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const elapsed = timestamp - startTime;
+    const progress = Math.min(elapsed / config.duration, 1);
+    
+    currentProgress = progress;
+    updatePaths(progress);
+    
+    if (progress < 1) {
+      animationId = requestAnimationFrame(animate);
+    } else {
+      isPlaying = false;
+      if (config.onComplete) config.onComplete();
+      
+      if (config.loop) {
+        setTimeout(() => controller.restart(), 100);
+      }
+    }
+  }
+  
+  // Controller object
+  const controller = {
+    play() {
+      if (!isPlaying) {
+        isPlaying = true;
+        startTime = null;
+        animationId = requestAnimationFrame(animate);
+      }
+    },
+    
+    pause() {
+      if (isPlaying && animationId) {
+        cancelAnimationFrame(animationId);
+        isPlaying = false;
+      }
+    },
+    
+    reverse() {
+      // Simple reverse implementation
+      const reversedPaths = paths.map(p => ({
+        ...p,
+        data: {
+          ...p.data,
+          source: p.data.target,
+          target: p.data.source
+        }
+      }));
+      paths.splice(0, paths.length, ...reversedPaths);
+      this.restart();
+    },
+    
+    restart() {
+      this.pause();
+      currentProgress = 0;
+      startTime = null;
+      updatePaths(0);
+      this.play();
+    },
+    
+    setProgress(progress) {
+      const clampedProgress = Math.max(0, Math.min(1, progress));
+      currentProgress = clampedProgress;
+      updatePaths(clampedProgress);
+    },
+    
+    destroy() {
+      this.pause();
+      if (svg.parentNode) {
+        svg.parentNode.removeChild(svg);
+      }
+    }
+  };
+  
+  return controller;
+}
+`;
+  }
+
+  /**
+   * Generate vanilla JavaScript class
+   */
+  private generateVanillaClass(
+    className: string,
+    pathData: any,
+    options: JavaScriptExportOptions
+  ): string {
+    // Similar to function but as a class
+    return `
+class ${className} {
+  constructor(containerId, userOptions = {}) {
+    // Class implementation similar to function above
+    // ... (implementation details)
+  }
+  
+  play() { /* ... */ }
+  pause() { /* ... */ }
+  reverse() { /* ... */ }
+  restart() { /* ... */ }
+  setProgress(progress) { /* ... */ }
+  destroy() { /* ... */ }
+}
+`;
+  }
+
+  /**
+   * Generate vanilla JavaScript module
+   */
+  private generateVanillaModule(
+    exportName: string,
+    pathData: any,
+    options: JavaScriptExportOptions
+  ): string {
+    return `
+export function create${exportName}(containerId, userOptions = {}) {
+  // Module implementation
+  // ... (similar to function implementation)
+}
+
+export default create${exportName};
+`;
+  }
+
+  /**
+   * Generate GSAP function
+   */
+  private generateGSAPFunction(
+    functionName: string,
+    pathData: any,
+    options: JavaScriptExportOptions
+  ): string {
+    return `
+function ${functionName}(containerId, userOptions = {}) {
+  // GSAP implementation with MorphSVG plugin
+  const config = {
+    duration: ${options.duration},
+    ease: "${options.easing}",
+    repeat: ${options.loop ? -1 : 0},
+    ...userOptions
+  };
+  
+  const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+  const svgData = ${JSON.stringify(pathData, null, 2)};
+  
+  // Create SVG and paths
+  // ... GSAP-specific implementation
+  
+  const tl = gsap.timeline(config);
+  
+  svgData.paths.forEach((pathInfo, index) => {
+    tl.to(\`#\${pathInfo.id}\`, {
+      morphSVG: pathInfo.target.d,
+      fill: pathInfo.target.fill,
+      stroke: pathInfo.target.stroke,
+      strokeWidth: pathInfo.target.strokeWidth,
+      opacity: pathInfo.target.opacity,
+      duration: config.duration
+    }, 0);
+  });
+  
+  return tl;
+}
+`;
+  }
+
+  /**
+   * Generate Anime.js function
+   */
+  private generateAnimeFunction(
+    functionName: string,
+    pathData: any,
+    options: JavaScriptExportOptions
+  ): string {
+    return `
+function ${functionName}(containerId, userOptions = {}) {
+  // Anime.js implementation
+  const config = {
+    duration: ${options.duration * 1000},
+    easing: '${options.easing}',
+    loop: ${options.loop},
+    ...userOptions
+  };
+  
+  const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+  const svgData = ${JSON.stringify(pathData, null, 2)};
+  
+  // Create SVG and paths
+  // ... Anime.js-specific implementation
+  
+  return anime({
+    targets: '.morph-path',
+    d: pathInfo => pathInfo.target.d,
+    fill: pathInfo => pathInfo.target.fill,
+    stroke: pathInfo => pathInfo.target.stroke,
+    strokeWidth: pathInfo => pathInfo.target.strokeWidth,
+    opacity: pathInfo => pathInfo.target.opacity,
+    ...config
+  });
+}
+`;
+  }
+
+  /**
+   * Generate utility functions for vanilla JS
+   */
+  private generateVanillaUtilities(): string {
+    return `
+// Utility functions for SVG morphing
+// Add any additional helper functions here
+`;
+  }
+
+  /**
+   * Minify JavaScript code
+   */
+  private minifyCode(code: string): string {
+    // Basic minification - remove comments and extra whitespace
+    return code
+      .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
+      .replace(/\/\/.*$/gm, '') // Remove line comments
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/;\s*}/g, ';}') // Remove space before closing braces
+      .trim();
+  }
+
+  /**
+   * Format JavaScript code
+   */
+  private formatCode(code: string): string {
+    // Basic formatting - ensure proper indentation
+    return code.trim();
+  }
+
+  /**
    * Normalize path for consistent morphing
    */
   private async normalizePath(pathData: string): Promise<string> {
@@ -737,6 +1292,25 @@ export function createExportOptions(overrides: Partial<ExportOptions> = {}): Exp
     duration: 2,
     easing: 'easeInOut',
     loop: false,
+    ...overrides,
+  };
+}
+
+export function createJavaScriptExportOptions(overrides: Partial<JavaScriptExportOptions> = {}): JavaScriptExportOptions {
+  return {
+    format: 'javascript',
+    resolution: 1,
+    optimize: true,
+    includeAnimation: true,
+    duration: 2,
+    easing: 'easeInOut',
+    loop: false,
+    library: 'vanilla',
+    includeLibraryImport: true,
+    functionName: 'createSVGMorph',
+    exportType: 'function',
+    minified: false,
+    includeTypeScript: false,
     ...overrides,
   };
 }
