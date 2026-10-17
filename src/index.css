@@ -1,3 +1,110 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Semantic color roles as RGB channels so Tailwind can apply alpha.
+ * Every text pair below was measured against WCAG AA (text 4.5:1, lines and focus 3:1).
+ * Dark theme is activated by the `dark` class on <html> (tailwind darkMode: 'class').
+ */
+@layer base {
+  :root {
+    --color-canvas: 250 250 250; /* ash-50 */
+    --color-surface: 242 242 242; /* ash-100 */
+    --color-raised: 227 227 227; /* ash-200 */
+    --color-content: 20 20 20; /* ash-900 */
+    --color-muted: 89 89 89; /* ash-700 */
+    --color-action: 255 222 58; /* sun-400 (brand yellow) */
+    --color-on-action: 20 20 20; /* ash-900 */
+    --color-link: 86 76 30; /* gold-800 */
+    --color-line: 108 108 108; /* ash-600 */
+    --color-focus: 124 108 36; /* gold-700 */
+  }
+
+  :root {
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-focus));
+    outline-offset: 3px;
+  }
+
+  .dark {
+    --color-canvas: 20 20 20; /* ash-900 */
+    --color-surface: 43 43 43; /* ash-800 */
+    --color-raised: 89 89 89; /* ash-700 (brand gray) */
+    --color-content: 250 250 250; /* ash-50 */
+    --color-muted: 227 227 227; /* ash-200 */
+    --color-action: 255 222 58; /* sun-400 (brand yellow) */
+    --color-on-action: 20 20 20; /* ash-900 */
+    --color-link: 255 222 58; /* sun-400 */
+    --color-line: 174 174 174; /* ash-400 */
+    --color-focus: 255 222 58; /* sun-400 */
+  }
+}
+
+/*
+ * Motion layer. Everything is gated on `.js` (set in index.html) and on
+ * no-preference, so without script or with reduced motion the finished state shows.
+ * Only transform and opacity move.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .js [data-reveal] {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 700ms var(--ease-out), transform 900ms var(--ease-out);
+    transition-delay: calc(var(--i, 0) * 80ms);
+  }
+
+  .js [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  .lines .line {
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.1em;
+    margin-bottom: -0.1em;
+  }
+
+  .js .lines [data-line] {
+    display: block;
+    transform: translateY(105%);
+    animation: line-up 900ms var(--ease-out) forwards;
+    animation-delay: calc(var(--i, 0) * 110ms + 150ms);
+  }
+
+  .js .rise {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: rise 700ms var(--ease-out) forwards;
+    animation-delay: calc(var(--i, 0) * 80ms + 500ms);
+  }
+
+  .press {
+    transition: transform 150ms var(--ease-out), background-color 150ms var(--ease-out);
+  }
+
+  .press:hover {
+    transform: translateY(-2px);
+  }
+
+  .press:active {
+    transform: translateY(0) scale(0.98);
+  }
+}
+
+@keyframes line-up {
+  to {
+    transform: none;
+  }
+}
+
+@keyframes rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
