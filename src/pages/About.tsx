@@ -69,26 +69,40 @@ const SKILLS = [
   { title: 'Testing and docs', items: ['Postman', 'Jest', 'JUnit', 'Swagger'] },
 ];
 
-const AI_APPROACHES = [
+const AI_GROUPS = [
   {
-    title: 'AI-first development',
-    text: 'AI assistants take part in every stage, from design to review. A person directs the work and verifies the result.',
+    title: 'In the development workflow',
+    items: [
+      {
+        title: 'AI-first development',
+        text: 'AI assistants work through design, code, tests and review. A person sets the direction, reads the changes and signs off on the result.',
+      },
+      {
+        title: 'Spec-driven development',
+        text: 'Each feature starts as a written specification. Code, tests and checks are built against it, so the result is verified, not just trusted.',
+      },
+    ],
   },
   {
-    title: 'Spec-driven development (SDD)',
-    text: 'The specification comes first. The code, the tests and the checks are built against it.',
-  },
-  {
-    title: 'Organic Driven Development (ODD)',
-    text: 'Work is split into small tracked units, each with its own commit and its own verification.',
-  },
-  {
-    title: 'RAG',
-    text: 'Retrieval-augmented generation, so models answer from the project and domain data instead of guessing.',
-  },
-  {
-    title: 'Custom AI agents',
-    text: 'Agents tailored to different areas and projects, built with skills, harnesses and tools with clear limits, and a human in the loop when the risk calls for it.',
+    title: 'For your company',
+    items: [
+      {
+        title: 'RAG',
+        text: 'Assistants that answer from your documents, tickets and data, with sources you can check instead of the memory of the model.',
+      },
+      {
+        title: 'Agents and subagents',
+        text: 'Agents with a defined job in an area of your business, splitting the work between specialized subagents when one prompt is not enough.',
+      },
+      {
+        title: 'Skills',
+        text: 'Reusable instructions that package your procedures and conventions, so every agent works the way your team does.',
+      },
+      {
+        title: 'Harnesses',
+        text: 'The layer around the model: tools with clear limits, input validation, evaluations, logs and approval steps, so agents stay observable and governable.',
+      },
+    ],
   },
 ];
 
@@ -291,17 +305,39 @@ export const About: React.FC = () => {
                   Building with AI
                 </h3>
                 <p data-reveal style={delay(1)} className="mt-4 max-w-[40ch] text-lg">
-                  AI is part of how these apps are designed, built and checked, with people accountable for the result.
+                  AI is part of how these apps are designed, built and checked, and the same practice can be brought
+                  into your company. This app was redesigned with Claude Code, project skills and written specs.
                 </p>
               </div>
-              <dl className="grid gap-1 lg:col-span-7">
-                {AI_APPROACHES.map(({ title, text }, i) => (
-                  <div key={title} data-reveal style={delay(i)} className="bg-raised p-6">
-                    <dt className="text-xl font-medium">{title}</dt>
-                    <dd className="mt-2 max-w-[60ch] text-muted">{text}</dd>
+              <div className="flex flex-col gap-10 lg:col-span-7">
+                {AI_GROUPS.map(({ title, items }) => (
+                  <div key={title}>
+                    <h4 data-reveal className="mb-3 font-medium text-muted">
+                      {title}
+                    </h4>
+                    <dl className="grid gap-1">
+                      {items.map(({ title: term, text }, i) => (
+                        <div key={term} data-reveal style={delay(i)} className="bg-raised p-6">
+                          <dt className="text-xl font-medium">{term}</dt>
+                          <dd className="mt-2 max-w-[60ch] text-muted">{text}</dd>
+                        </div>
+                      ))}
+                    </dl>
                   </div>
                 ))}
-              </dl>
+                <div data-reveal>
+                  <p className="max-w-[52ch] text-lg">
+                    Looking to bring AI into your team or product? Describe the process you want to improve.
+                  </p>
+                  <a
+                    href={`mailto:${CONTACT_EMAIL}?subject=AI%20project`}
+                    className="press mt-6 inline-flex h-12 items-center gap-2 bg-action px-6 font-semibold text-on-action hover:bg-sun-300"
+                  >
+                    <Mail aria-hidden="true" className="h-5 w-5" />
+                    Discuss an AI project
+                  </a>
+                </div>
+              </div>
             </div>
 
             <div className="mt-16 grid gap-8 lg:mt-24 lg:grid-cols-12 lg:gap-12">
