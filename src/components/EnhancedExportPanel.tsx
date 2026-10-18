@@ -4,7 +4,6 @@ import { exportSystem, ExportOptions, JavaScriptExportOptions, ExportResult, cre
 import { useToast } from '../contexts/ToastContext';
 import { 
   Download, 
-  Settings, 
   FileText, 
   Image, 
   Code, 
@@ -17,6 +16,11 @@ import {
   Zap,
   Video
 } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Panel } from './ui/Panel';
+import { Field, Select, CheckRow } from './ui/Fields';
+
+const INPUT_CLASS = 'h-11 w-full bg-raised px-3 text-content placeholder:text-muted';
 
 export const EnhancedExportPanel: React.FC = () => {
   const { sourceSVG, targetSVG, animationSettings, nodeMatches, manualModeEnabled } = useMorphStore();
@@ -219,39 +223,25 @@ export const EnhancedExportPanel: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Export Options */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
-            <Settings className="w-4 h-4 text-white" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Export Options</h3>
-        </div>
-
+      <Panel title="Export Options">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Basic Settings */}
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Resolution Scale
-              </label>
-              <select
+            <Field label="Resolution Scale">
+              <Select
                 value={exportOptions.resolution}
                 onChange={(e) => setExportOptions(prev => ({
                   ...prev,
                   resolution: Number(e.target.value) as 1 | 2 | 4
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
               >
                 <option value={1}>1x (Standard)</option>
                 <option value={2}>2x (High DPI)</option>
                 <option value={4}>4x (Ultra High DPI)</option>
-              </select>
-            </div>
+              </Select>
+            </Field>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Duration (seconds)
-              </label>
+            <Field label="Duration (seconds)">
               <input
                 type="number"
                 value={exportOptions.duration}
@@ -259,24 +249,20 @@ export const EnhancedExportPanel: React.FC = () => {
                   ...prev,
                   duration: Number(e.target.value)
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+                className={INPUT_CLASS}
                 min="0.1"
                 max="10"
                 step="0.1"
               />
-            </div>
+            </Field>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Easing Function
-              </label>
-              <select
+            <Field label="Easing Function">
+              <Select
                 value={exportOptions.easing}
                 onChange={(e) => setExportOptions(prev => ({
                   ...prev,
                   easing: e.target.value
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
               >
                 <option value="linear">Linear</option>
                 <option value="easeIn">Ease In</option>
@@ -284,16 +270,13 @@ export const EnhancedExportPanel: React.FC = () => {
                 <option value="easeInOut">Ease In Out</option>
                 <option value="bounce">Bounce</option>
                 <option value="elastic">Elastic</option>
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
 
           {/* Advanced Settings */}
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Filename (optional)
-              </label>
+            <Field label="Filename (optional)">
               <input
                 type="text"
                 value={exportOptions.filename || ''}
@@ -302,107 +285,77 @@ export const EnhancedExportPanel: React.FC = () => {
                   filename: e.target.value || undefined
                 }))}
                 placeholder="Auto-generated if empty"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors placeholder-gray-400 dark:placeholder-gray-500"
+                className={INPUT_CLASS}
               />
-            </div>
+            </Field>
 
             <div className="space-y-3">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={exportOptions.includeAnimation}
-                  onChange={(e) => setExportOptions(prev => ({
-                    ...prev,
-                    includeAnimation: e.target.checked
-                  }))}
-                  className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Include Animation</span>
-              </label>
+              <CheckRow
+                label="Include Animation"
+                checked={exportOptions.includeAnimation}
+                onChange={(e) => setExportOptions(prev => ({
+                  ...prev,
+                  includeAnimation: e.target.checked
+                }))}
+              />
 
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={exportOptions.loop}
-                  onChange={(e) => setExportOptions(prev => ({
-                    ...prev,
-                    loop: e.target.checked
-                  }))}
-                  className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Loop Animation</span>
-              </label>
+              <CheckRow
+                label="Loop Animation"
+                checked={exportOptions.loop}
+                onChange={(e) => setExportOptions(prev => ({
+                  ...prev,
+                  loop: e.target.checked
+                }))}
+              />
 
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={exportOptions.optimize}
-                  onChange={(e) => setExportOptions(prev => ({
-                    ...prev,
-                    optimize: e.target.checked
-                  }))}
-                  className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Optimize SVG</span>
-              </label>
+              <CheckRow
+                label="Optimize SVG"
+                checked={exportOptions.optimize}
+                onChange={(e) => setExportOptions(prev => ({
+                  ...prev,
+                  optimize: e.target.checked
+                }))}
+              />
             </div>
           </div>
         </div>
-      </div>
+      </Panel>
 
       {/* JavaScript Options */}
       {selectedFormats.has('javascript') && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">JavaScript Options</h3>
-          </div>
-
+        <Panel title="JavaScript Options">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Library Selection */}
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Animation Library
-                </label>
-                <select
+              <Field label="Animation Library">
+                <Select
                   value={jsOptions.library}
                   onChange={(e) => setJsOptions(prev => ({
                     ...prev,
                     library: e.target.value as 'vanilla' | 'gsap' | 'anime'
                   }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
                 >
                   <option value="vanilla">Vanilla JavaScript</option>
                   <option value="gsap">GSAP (GreenSock)</option>
                   <option value="anime">Anime.js</option>
-                </select>
-              </div>
+                </Select>
+              </Field>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Export Type
-                </label>
-                <select
+              <Field label="Export Type">
+                <Select
                   value={jsOptions.exportType}
                   onChange={(e) => setJsOptions(prev => ({
                     ...prev,
                     exportType: e.target.value as 'function' | 'class' | 'module'
                   }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
                 >
                   <option value="function">Function</option>
                   <option value="class">Class</option>
                   <option value="module">ES6 Module</option>
-                </select>
-              </div>
+                </Select>
+              </Field>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Function/Class Name
-                </label>
+              <Field label="Function/Class Name">
                 <input
                   type="text"
                   value={jsOptions.functionName}
@@ -410,63 +363,51 @@ export const EnhancedExportPanel: React.FC = () => {
                     ...prev,
                     functionName: e.target.value
                   }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+                  className={INPUT_CLASS}
                   placeholder="createSVGMorph"
                 />
-              </div>
+              </Field>
             </div>
 
             {/* Advanced Options */}
             <div className="space-y-4">
               <div className="space-y-3">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={jsOptions.includeLibraryImport}
-                    onChange={(e) => setJsOptions(prev => ({
-                      ...prev,
-                      includeLibraryImport: e.target.checked
-                    }))}
-                    className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Include Library Import</span>
-                </label>
+                <CheckRow
+                  label="Include Library Import"
+                  checked={jsOptions.includeLibraryImport}
+                  onChange={(e) => setJsOptions(prev => ({
+                    ...prev,
+                    includeLibraryImport: e.target.checked
+                  }))}
+                />
 
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={jsOptions.minified}
-                    onChange={(e) => setJsOptions(prev => ({
-                      ...prev,
-                      minified: e.target.checked
-                    }))}
-                    className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Minify Code</span>
-                </label>
+                <CheckRow
+                  label="Minify Code"
+                  checked={jsOptions.minified}
+                  onChange={(e) => setJsOptions(prev => ({
+                    ...prev,
+                    minified: e.target.checked
+                  }))}
+                />
 
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={jsOptions.includeTypeScript}
-                    onChange={(e) => setJsOptions(prev => ({
-                      ...prev,
-                      includeTypeScript: e.target.checked
-                    }))}
-                    className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Include TypeScript Definitions</span>
-                </label>
+                <CheckRow
+                  label="Include TypeScript Definitions"
+                  checked={jsOptions.includeTypeScript}
+                  onChange={(e) => setJsOptions(prev => ({
+                    ...prev,
+                    includeTypeScript: e.target.checked
+                  }))}
+                />
               </div>
 
               {/* Library Info */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+              <div className="p-4 bg-raised">
+                <h4 className="font-medium mb-2">
                   {jsOptions.library === 'vanilla' && 'Vanilla JavaScript'}
                   {jsOptions.library === 'gsap' && 'GSAP (GreenSock)'}
                   {jsOptions.library === 'anime' && 'Anime.js'}
                 </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted">
                   {jsOptions.library === 'vanilla' && 'Pure JavaScript with no dependencies. Uses Web Animations API and requestAnimationFrame.'}
                   {jsOptions.library === 'gsap' && 'Professional animation library with MorphSVG plugin. Requires GSAP license for commercial use.'}
                   {jsOptions.library === 'anime' && 'Lightweight animation library (~17KB). MIT license, good SVG support.'}
@@ -474,171 +415,151 @@ export const EnhancedExportPanel: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </Panel>
       )}
 
       {/* Format Selection */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 bg-gradient-to-br from-secondary to-accent rounded-lg flex items-center justify-center">
-            <Download className="w-4 h-4 text-white" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Export Formats</h3>
-        </div>
-        
+      <Panel title="Export Formats">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {Object.entries(formatIcons).map(([format, Icon]) => (
-            <div
-              key={format}
-              className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                selectedFormats.has(format as ExportOptions['format'])
-                  ? 'border-accent bg-accent/10 dark:bg-accent/20 shadow-md'
-                  : 'border-gray-200 dark:border-gray-600 hover:border-accent/50 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-              onClick={() => handleFormatToggle(format as ExportOptions['format'])}
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  {selectedFormats.has(format as ExportOptions['format']) ? (
-                    <CheckSquare className="w-5 h-5 text-accent" />
-                  ) : (
-                    <Square className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                    <span className="font-medium text-gray-900 dark:text-gray-100 uppercase">{format}</span>
+          {Object.entries(formatIcons).map(([format, Icon]) => {
+            const isSelected = selectedFormats.has(format as ExportOptions['format']);
+            return (
+              <div
+                key={format}
+                role="checkbox"
+                aria-checked={isSelected}
+                tabIndex={0}
+                className={`p-4 cursor-pointer transition-colors ${
+                  isSelected ? 'bg-sun-800' : 'bg-raised hover:bg-line/30'
+                }`}
+                onClick={() => handleFormatToggle(format as ExportOptions['format'])}
+                onKeyDown={(e) => {
+                  if (e.target === e.currentTarget && (e.key === ' ' || e.key === 'Enter')) {
+                    e.preventDefault();
+                    handleFormatToggle(format as ExportOptions['format']);
+                  }
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    {isSelected ? (
+                      <CheckSquare className="w-5 h-5 text-link" />
+                    ) : (
+                      <Square className="w-5 h-5 text-muted" />
+                    )}
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatDescriptions[format as keyof typeof formatDescriptions]}
-                  </p>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Icon className="w-4 h-4 text-muted" />
+                      <span className="font-medium uppercase">{format}</span>
+                    </div>
+                    <p className="text-sm text-muted">
+                      {formatDescriptions[format as keyof typeof formatDescriptions]}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSingleExport(format as ExportOptions['format']);
+                    }}
+                    disabled={isExporting || !sourceSVG || !targetSVG}
+                    variant={isSelected ? 'primary' : 'secondary'}
+                  >
+                    Export
+                  </Button>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSingleExport(format as ExportOptions['format']);
-                  }}
-                  disabled={isExporting || !sourceSVG || !targetSVG}
-                  className="px-3 py-1 text-sm bg-accent/10 text-accent rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  Export
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Export Actions */}
         <div className="flex flex-wrap gap-3">
-          <button
+          <Button
+            variant="primary"
             onClick={handleBatchExport}
             disabled={isExporting || selectedFormats.size === 0 || !sourceSVG || !targetSVG}
-            className="flex items-center gap-2 px-6 py-3 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-md hover:shadow-lg"
           >
             {isExporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" />
             ) : (
               <Download className="w-4 h-4" />
             )}
             Export Selected ({selectedFormats.size})
-          </button>
+          </Button>
 
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-all duration-200 font-medium shadow-md hover:shadow-lg"
-          >
+          <Button onClick={() => setShowHistory(!showHistory)}>
             <History className="w-4 h-4" />
             Export History
-          </button>
+          </Button>
         </div>
-      </div>
+      </Panel>
 
       {/* Recent Exports */}
       {exportResults.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
-              <History className="w-4 h-4 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Exports</h3>
-          </div>
+        <Panel title="Recent Exports">
           <div className="space-y-2">
             {exportResults.map((result, index) => (
-              <div key={index} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
-                    <Download className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{result.filename}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{formatFileSize(result.size)}</p>
+              <div key={index} className="flex items-center justify-between gap-3 p-4 bg-raised">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Download className="w-5 h-5 flex-shrink-0 text-link" />
+                  <div className="min-w-0">
+                    <p className="font-medium break-all">{result.filename}</p>
+                    <p className="text-sm text-muted">{formatFileSize(result.size)}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => exportSystem.downloadResult(result)}
-                  className="px-4 py-2 text-sm bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-colors font-medium"
-                >
+                <Button onClick={() => exportSystem.downloadResult(result)}>
                   Download Again
-                </button>
+                </Button>
               </div>
             ))}
           </div>
-        </div>
+        </Panel>
       )}
 
       {/* Export History */}
       {showHistory && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-secondary to-accent rounded-lg flex items-center justify-center">
-                <History className="w-4 h-4 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Export History</h3>
-            </div>
-            <button
+        <Panel
+          title="Export History"
+          actions={
+            <Button
+              variant="ghost"
               onClick={() => {
                 exportSystem.clearHistory();
                 setShowHistory(false);
               }}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              className="text-danger"
             >
               <Trash2 className="w-4 h-4" />
               Clear History
-            </button>
-          </div>
-
+            </Button>
+          }
+        >
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {exportSystem.getHistory().map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-secondary to-accent rounded-lg flex items-center justify-center">
-                    {React.createElement(formatIcons[item.options.format], {
-                      className: "w-4 h-4 text-white"
-                    })}
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{item.filename}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div key={item.id} className="flex items-center justify-between gap-3 p-4 bg-raised">
+                <div className="flex items-center gap-3 min-w-0">
+                  {React.createElement(formatIcons[item.options.format], {
+                    className: "w-5 h-5 flex-shrink-0 text-link"
+                  })}
+                  <div className="min-w-0">
+                    <p className="font-medium break-all">{item.filename}</p>
+                    <p className="text-sm text-muted">
                       {new Date(item.timestamp).toLocaleString()} • {formatFileSize(item.size)}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleHistoryDownload()}
-                  className="px-4 py-2 text-sm bg-secondary/10 text-secondary rounded-lg hover:bg-secondary/20 transition-colors font-medium"
-                >
+                <Button onClick={() => handleHistoryDownload()}>
                   Re-export
-                </button>
+                </Button>
               </div>
             ))}
-            
+
             {exportSystem.getHistory().length === 0 && (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-8">No export history available</p>
+              <p className="text-center text-muted py-8">No export history available</p>
             )}
           </div>
-        </div>
+        </Panel>
       )}
     </div>
   );
