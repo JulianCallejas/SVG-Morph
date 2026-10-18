@@ -15,8 +15,10 @@ const TOOLS: ToolLink[] = [
   { path: '/reverse-engineering', label: 'Reverse engineering', note: 'Read the parameters of an animated SVG' },
 ];
 
-const linkClass = (active: boolean): string =>
-  `inline-flex h-11 items-center font-medium underline-offset-8 decoration-2 hover:text-link ${
+const SCROLL_THRESHOLD = 80;
+
+const linkClass =(active: boolean): string =>
+  `inline-flex h-11 items-center font-medium underline-offset-8 decoration-2 ${
     active ? 'text-content underline decoration-action' : 'text-muted hover:text-content'
   }`;
 
@@ -24,10 +26,20 @@ export const Navigation: React.FC = () => {
   const { pathname } = useLocation();
   const [toolsOpen, setToolsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
   const toolsButtonRef = useRef<HTMLButtonElement>(null);
 
   const toolsActive = TOOLS.some((tool) => tool.path === pathname);
+  // The open mobile menu needs a solid ground to stay legible, so it never goes translucent.
+  const translucent = scrolled && !menuOpen;
+
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > SCROLL_THRESHOLD);
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
+  }, []);
 
   useEffect(() => {
     setToolsOpen(false);
@@ -58,7 +70,11 @@ export const Navigation: React.FC = () => {
   }, [toolsOpen, menuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 bg-canvas">
+    <header
+      className={`sticky top-0 z-50 transition-[background-color,backdrop-filter] duration-300 ${
+        translucent ? 'bg-raised/40 backdrop-blur' : 'bg-raised'
+      }`}
+    >
       <nav aria-label="Main" className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link to="/" className="text-lg font-semibold tracking-tight text-content">
           SVG Morph
@@ -85,7 +101,7 @@ export const Navigation: React.FC = () => {
               />
             </button>
             {toolsOpen && (
-              <ul id="tools-menu" className="absolute left-1/2 top-full mt-2 w-80 -translate-x-1/2 bg-raised p-2">
+              <ul id="tools-menu" className="absolute left-1/2 top-full mt-4 w-80 -translate-x-1/2 bg-raised p-2">
                 {TOOLS.map((tool) => (
                   <li key={tool.path}>
                     <Link
@@ -128,7 +144,7 @@ export const Navigation: React.FC = () => {
       </nav>
 
       {menuOpen && (
-        <div id="mobile-menu" className="bg-surface px-4 pb-6 pt-2 md:hidden">
+        <div id="mobile-menu" className="px-4 pb-6 pt-2 md:hidden">
           <Link to="/playground" className="flex h-12 items-center text-lg font-medium text-content">
             Playground
           </Link>
