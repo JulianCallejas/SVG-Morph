@@ -56,6 +56,7 @@ export default {
         link: 'rgb(var(--color-link) / <alpha-value>)',
         line: 'rgb(var(--color-line) / <alpha-value>)',
         focus: 'rgb(var(--color-focus) / <alpha-value>)',
+        danger: 'rgb(var(--color-danger) / <alpha-value>)',
         primary: '#262a23',
         secondary: '#d6b77c',
         accent: '#5cbe2c',

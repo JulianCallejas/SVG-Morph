@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Segmented } from '../ui/Segmented';
 import { CodeSnippet } from './CodeSnippet';
 import {
   DEMO_SHAPES,
@@ -20,35 +21,6 @@ const EASINGS: { id: DemoEasing; label: string }[] = [
   { id: 'ease-in-out', label: 'Ease in-out' },
   { id: 'linear', label: 'Linear' },
 ];
-
-interface SegmentedProps<T extends string> {
-  label: string;
-  value: T;
-  options: { id: T; label: string }[];
-  onChange: (id: T) => void;
-}
-
-const Segmented = <T extends string>({ label, value, options, onChange }: SegmentedProps<T>) => (
-  <div role="radiogroup" aria-label={label} className="flex flex-col gap-2">
-    <span className="text-sm text-muted">{label}</span>
-    <div className="flex">
-      {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          role="radio"
-          aria-checked={option.id === value}
-          onClick={() => onChange(option.id)}
-          className={`h-11 flex-1 px-3 text-sm font-medium transition-colors duration-150 ${
-            option.id === value ? 'bg-action text-on-action' : 'bg-raised text-content hover:bg-line/40'
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  </div>
-);
 
 export const HeroMorph: React.FC = () => {
   const [fromId, setFromId] = useState<DemoShapeId>('circle');
