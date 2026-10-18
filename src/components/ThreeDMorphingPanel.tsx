@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Settings, Play, Pause, RotateCcw, Download, Maximize, Minimize } from 'lucide-react';
-import { threeDMorphing, ThreeDMorphingOptions } from '../utils/threeDMorphing';
+import { threeDMorphing, ThreeDMorphingOptions, DEFAULT_MATERIAL_COLOR } from '../utils/threeDMorphing';
 import { SVGData } from '../types/svg';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from './ui/Button';
@@ -36,7 +36,7 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
       position: { x: 10, y: 10, z: 10 }
     },
     material: {
-      color: '#5cbe2c',
+      color: DEFAULT_MATERIAL_COLOR,
       metalness: 0.3,
       roughness: 0.4,
       opacity: 1.0
@@ -369,7 +369,7 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
                   position: { x: 10, y: 10, z: 10 }
                 },
                 material: {
-                  color: '#5cbe2c',
+                  color: DEFAULT_MATERIAL_COLOR,
                   metalness: 0.3,
                   roughness: 0.4,
                   opacity: 1.0
