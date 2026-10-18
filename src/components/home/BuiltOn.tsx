@@ -10,7 +10,7 @@ export const BuiltOn: React.FC = () => (
       className="mx-auto flex max-w-[1600px] flex-col gap-6 lg:flex-row lg:items-center lg:justify-between"
     >
       <p className="text-lg">Built on</p>
-      <ul className="grid grid-cols-2 gap-x-6 gap-y-8 text-[22px] font-light lg:flex lg:flex-1 lg:justify-between lg:pl-16">
+      <ul className="grid gap-y-5 text-[22px] font-light sm:grid-cols-3 sm:gap-x-6 lg:flex lg:flex-1 lg:justify-between lg:pl-16">
         {LIBRARIES.map((name) => (
           <li key={name}>{name}</li>
         ))}

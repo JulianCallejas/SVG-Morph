@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 export const Closing: React.FC = () => (
   <>
-    <section aria-labelledby="cta-title" className="bg-action px-4 py-24 text-on-action sm:px-6 lg:px-8 lg:py-32">
+    <section aria-labelledby="cta-title" className="bg-sun-800 px-4 py-16 text-content sm:px-6 lg:px-8 lg:py-32">
       <div className="mx-auto max-w-[1600px]">
         <h2
           id="cta-title"
@@ -16,13 +16,13 @@ export const Closing: React.FC = () => (
         <div data-reveal style={{ '--i': 1 } as React.CSSProperties} className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
           <Link
             to="/playground-enhanced"
-            className="press inline-flex h-14 items-center bg-on-action px-8 text-lg font-semibold text-action hover:bg-ash-800"
+            className="press inline-flex h-14 items-center bg-action px-8 text-lg font-semibold text-on-action hover:bg-sun-300"
           >
             Open the studio
           </Link>
           <Link
             to="/playground"
-            className="inline-flex h-11 items-center text-lg font-medium underline decoration-2 underline-offset-8 hover:no-underline"
+            className="inline-flex h-11 items-center text-lg font-medium underline decoration-action decoration-2 underline-offset-8 hover:no-underline"
           >
             or start in the playground
           </Link>
