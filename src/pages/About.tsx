@@ -56,17 +56,40 @@ const FACTS = [
 
 const SKILLS = [
   { title: 'Languages', items: ['Python', 'Java', 'JavaScript', 'TypeScript'] },
-  { title: 'Back-end', items: ['Node.js', 'Express', 'NestJS', 'FastAPI', 'Flask', 'Laravel', 'Spring', 'AWS'] },
+  { title: 'Back-end', items: ['Node.js', 'Express', 'NestJS', 'FastAPI', 'Flask', 'Laravel', 'Spring', 'AWS', 'GCP', 'Cloudflare', 'Firebase'] },
   {
     title: 'Front-end',
     items: ['React', 'Next.js', 'Angular', 'HTML', 'CSS', 'Sass', 'Tailwind CSS', 'Bootstrap', 'Material UI', 'PWA'],
   },
   {
     title: 'Databases',
-    items: ['PostgreSQL', 'MySQL', 'SQLite', 'SQL Server', 'MS Access', 'MongoDB', 'DynamoDB'],
+    items: ['PostgreSQL', 'MySQL', 'SQLite', 'SQL Server', 'MS Access', 'MongoDB', 'DynamoDB', 'Firestore'],
   },
-  { title: 'Tools', items: ['Git', 'GitHub', 'Docker', 'VS Code', 'IntelliJ', 'NetBeans'] },
+  { title: 'Tools', items: ['Git', 'GitHub', 'Docker', 'VS Code', 'Cursor', 'Claude Code', 'OpenCode', 'IntelliJ', 'NetBeans'] },
   { title: 'Testing and docs', items: ['Postman', 'Jest', 'JUnit', 'Swagger'] },
+];
+
+const AI_APPROACHES = [
+  {
+    title: 'AI-first development',
+    text: 'AI assistants take part in every stage, from design to review. A person directs the work and verifies the result.',
+  },
+  {
+    title: 'Spec-driven development (SDD)',
+    text: 'The specification comes first. The code, the tests and the checks are built against it.',
+  },
+  {
+    title: 'Organic Driven Development (ODD)',
+    text: 'Work is split into small tracked units, each with its own commit and its own verification.',
+  },
+  {
+    title: 'RAG',
+    text: 'Retrieval-augmented generation, so models answer from the project and domain data instead of guessing.',
+  },
+  {
+    title: 'Custom AI agents',
+    text: 'Agents tailored to different areas and projects, built with skills, harnesses and tools with clear limits, and a human in the loop when the risk calls for it.',
+  },
 ];
 
 const PROJECTS = [
@@ -260,6 +283,25 @@ export const About: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-16 grid gap-8 lg:mt-24 lg:grid-cols-12 lg:gap-12">
+              <div className="lg:col-span-5">
+                <h3 data-reveal className="text-2xl font-medium">
+                  Building with AI
+                </h3>
+                <p data-reveal style={delay(1)} className="mt-4 max-w-[40ch] text-lg">
+                  AI is part of how these apps are designed, built and checked, with people accountable for the result.
+                </p>
+              </div>
+              <dl className="grid gap-1 lg:col-span-7">
+                {AI_APPROACHES.map(({ title, text }, i) => (
+                  <div key={title} data-reveal style={delay(i)} className="bg-raised p-6">
+                    <dt className="text-xl font-medium">{title}</dt>
+                    <dd className="mt-2 max-w-[60ch] text-muted">{text}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
 
             <div className="mt-16 grid gap-8 lg:mt-24 lg:grid-cols-12 lg:gap-12">
