@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { CodeSnippet } from './CodeSnippet';
 import {
   DEMO_SHAPES,
   applyEasing,
@@ -11,6 +12,10 @@ import {
 } from '../../utils/homeDemo';
 
 const CYCLE_SECONDS = 2.4;
+
+// The demo paints with the accent variable directly, so it never depends on a generated utility class.
+const ACTION = 'rgb(var(--color-action))';
+const STAGE = 'rgb(var(--color-action) / 0.16)';
 const EASINGS: { id: DemoEasing; label: string }[] = [
   { id: 'ease-in-out', label: 'Ease in-out' },
   { id: 'linear', label: 'Linear' },
@@ -52,7 +57,6 @@ export const HeroMorph: React.FC = () => {
   const [progress, setProgress] = useState(0.5);
   const [playing, setPlaying] = useState(false);
   const [visible, setVisible] = useState(true);
-  const [copied, setCopied] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const directionRef = useRef<1 | -1>(1);
 
@@ -99,20 +103,10 @@ export const HeroMorph: React.FC = () => {
     return () => cancelAnimationFrame(frame);
   }, [playing, visible]);
 
-  const copySnippet = async () => {
-    try {
-      await navigator.clipboard.writeText(snippet);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  };
-
   const shapeOptions = DEMO_SHAPES.map(({ id, label }) => ({ id, label }));
 
   return (
-    <section aria-labelledby="hero-title" className="px-4 pb-24 pt-8 sm:px-6 lg:px-8 lg:pb-32 lg:pt-10">
+    <section aria-labelledby="hero-title" className="px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pb-32 lg:pt-10">
       <div className="mx-auto max-w-[1600px]">
         <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
           <h1
@@ -150,11 +144,11 @@ export const HeroMorph: React.FC = () => {
           style={{ '--i': 2 } as React.CSSProperties}
         >
           <div className="flex flex-col gap-6 bg-surface p-4 sm:p-6 lg:col-span-7">
-            <div ref={stageRef} className="flex items-center justify-center bg-canvas py-3">
-              <svg viewBox="0 0 300 300" role="img" aria-label={`${from.label} morphing into ${to.label}`} className="h-[min(60vw,250px)] w-[min(60vw,250px)]">
-                <path d={from.d} fill="none" className="stroke-muted" strokeWidth="1.5" strokeDasharray="4 6" />
-                <path d={to.d} fill="none" className="stroke-muted" strokeWidth="1.5" strokeDasharray="4 6" />
-                <path d={shapeD} className="fill-action" />
+            <div ref={stageRef} className="flex items-center justify-center py-4" style={{ backgroundColor: STAGE }}>
+              <svg viewBox="0 0 300 300" role="img" aria-label={`${from.label} morphing into ${to.label}`} className="h-[min(72vw,280px)] w-[min(72vw,280px)]">
+                <path d={from.d} fill="none" stroke="none" strokeWidth="2" strokeDasharray="5 7" />
+                <path d={to.d} fill="none" stroke="none" strokeWidth="2" strokeDasharray="5 7" />
+                <path d={shapeD} fill={ACTION} />
               </svg>
             </div>
 
@@ -191,24 +185,7 @@ export const HeroMorph: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-col bg-surface p-4 sm:p-6 lg:col-span-5">
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <p className="text-sm text-muted">SMIL for this morph</p>
-              <button
-                type="button"
-                onClick={copySnippet}
-                className="h-11 bg-raised px-4 text-sm font-medium text-content hover:bg-line/40"
-              >
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-            <pre className="min-h-0 flex-1 overflow-auto bg-canvas p-4 text-sm leading-relaxed text-content" tabIndex={0}>
-              <code>{snippet}</code>
-            </pre>
-            <p className="sr-only" aria-live="polite">
-              {copied ? 'SMIL copied to the clipboard' : ''}
-            </p>
-          </div>
+          <CodeSnippet label="SMIL for this morph" code={snippet} className="bg-surface p-4 sm:p-6 lg:col-span-5" />
         </div>
       </div>
     </section>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { DEMO_SHAPES, buildSmilSnippet } from '../../utils/homeDemo';
+import { CodeSnippet } from './CodeSnippet';
 
 const [circle, star] = DEMO_SHAPES;
 const delay = (i: number) => ({ '--i': i }) as React.CSSProperties;
@@ -83,7 +84,7 @@ export const HowItWorks: React.FC = () => {
   });
 
   return (
-    <section aria-labelledby="how-title" className="px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+    <section aria-labelledby="how-title" className="px-4 py-16 sm:px-6 lg:px-8 lg:py-32">
       <div className="mx-auto max-w-[1600px] lg:grid lg:grid-cols-12 lg:gap-8">
         <div className="lg:col-span-5">
           <h2
@@ -96,7 +97,7 @@ export const HowItWorks: React.FC = () => {
           </h2>
         </div>
 
-        <div className="mt-14 flex min-w-0 flex-col gap-24 lg:col-span-7 lg:mt-0">
+        <div className="mt-10 flex min-w-0 flex-col gap-16 lg:col-span-7 lg:mt-0 lg:gap-24">
           <div data-reveal>
             <p className="text-2xl font-medium">First, drop in two SVG files.</p>
             <Call label="Source and target" value="circle.svg, star.svg" />
@@ -118,10 +119,7 @@ export const HowItWorks: React.FC = () => {
             <p className="text-2xl font-medium">Finally, export the animation.</p>
             <Call label="Export as" value="SVG with SMIL" />
             <div data-ui style={delay(1)} className="mt-4 bg-surface p-5">
-              <p className="mb-3 text-sm text-muted">Example output</p>
-              <pre className="overflow-x-auto bg-canvas p-4 text-sm leading-relaxed text-content" tabIndex={0}>
-                <code>{exportSnippet}</code>
-              </pre>
+              <CodeSnippet label="Example output" code={exportSnippet} />
             </div>
           </div>
         </div>
