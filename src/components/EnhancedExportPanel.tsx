@@ -10,8 +10,6 @@ import {
   Database,
   History,
   Trash2,
-  CheckSquare,
-  Square,
   Loader2,
   Zap,
   Video
@@ -24,13 +22,13 @@ const INPUT_CLASS = 'h-11 w-full bg-raised px-3 text-content placeholder:text-mu
 
 export const EnhancedExportPanel: React.FC = () => {
   const { sourceSVG, targetSVG, animationSettings, nodeMatches, manualModeEnabled } = useMorphStore();
+  const canExport = !!sourceSVG && !!targetSVG;
   const { showSuccess, showError, showWarning, showInfo } = useToast();
   const [exportOptions, setExportOptions] = useState<ExportOptions>(createExportOptions({
     duration: animationSettings.duration,
     easing: animationSettings.easing,
     loop: animationSettings.loop,
   }));
-  const [selectedFormats, setSelectedFormats] = useState<Set<ExportOptions['format']>>(new Set(['svg']));
   const [isExporting, setIsExporting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [exportResults, setExportResults] = useState<ExportResult[]>([]);
@@ -68,16 +66,6 @@ export const EnhancedExportPanel: React.FC = () => {
     javascript: 'JavaScript function for programmatic control',
     video: 'Video animation (MP4, WebM, GIF)',
   };
-
-  const handleFormatToggle = useCallback((format: ExportOptions['format']) => {
-    const newSelected = new Set(selectedFormats);
-    if (newSelected.has(format)) {
-      newSelected.delete(format);
-    } else {
-      newSelected.add(format);
-    }
-    setSelectedFormats(newSelected);
-  }, [selectedFormats]);
 
   const handleSingleExport = useCallback(async (format: ExportOptions['format']) => {
     if (!sourceSVG || !targetSVG) {
@@ -158,54 +146,6 @@ export const EnhancedExportPanel: React.FC = () => {
       setIsExporting(false);
     }
   }, [sourceSVG, targetSVG, exportOptions, jsOptions, videoOptions, nodeMatches, manualModeEnabled, showWarning, showError, showSuccess]);
-
-  const handleBatchExport = useCallback(async () => {
-    if (!sourceSVG || !targetSVG) {
-      showWarning('Missing SVG Files', 'Please load both source and target SVG files first.');
-      return;
-    }
-
-    if (selectedFormats.size === 0) {
-      showWarning('No Format Selected', 'Please select at least one format to export.');
-      return;
-    }
-
-    setIsExporting(true);
-    try {
-      const formatOptions = Array.from(selectedFormats).map(format => {
-        const shouldUseManualMatches = manualModeEnabled && nodeMatches.length > 0;
-        const baseOptions = {
-          ...exportOptions,
-          format,
-          nodeMatches: shouldUseManualMatches ? nodeMatches : undefined,
-          useManualMatching: shouldUseManualMatches
-        };
-        
-        if (format === 'javascript') {
-          return {
-            ...baseOptions,
-            ...jsOptions
-          } as JavaScriptExportOptions;
-        }
-        return baseOptions;
-      });
-
-      const results = await exportSystem.batchExport(sourceSVG, targetSVG, formatOptions);
-      
-      // Download all results
-      results.forEach(result => {
-        setTimeout(() => exportSystem.downloadResult(result), 100);
-      });
-
-      setExportResults(prev => [...results, ...prev].slice(0, 10)); // Keep last 10 results
-      showSuccess('Export Complete', `Successfully exported ${results.length} format(s)!`);
-    } catch (error) {
-      console.error('Batch export failed:', error);
-      showError('Batch Export Failed', 'An error occurred during batch export. Please check the console for details.');
-    } finally {
-      setIsExporting(false);
-    }
-  }, [sourceSVG, targetSVG, selectedFormats, exportOptions, jsOptions, nodeMatches, manualModeEnabled, showWarning, showError, showSuccess]);
 
   const handleHistoryDownload = useCallback(() => {
     // In a real implementation, you'd re-export or store the content
@@ -322,177 +262,136 @@ export const EnhancedExportPanel: React.FC = () => {
       </Panel>
 
       {/* JavaScript Options */}
-      {selectedFormats.has('javascript') && (
-        <Panel title="JavaScript Options">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Library Selection */}
-            <div className="space-y-4">
-              <Field label="Animation Library">
-                <Select
-                  value={jsOptions.library}
-                  onChange={(e) => setJsOptions(prev => ({
-                    ...prev,
-                    library: e.target.value as 'vanilla' | 'gsap' | 'anime'
-                  }))}
-                >
-                  <option value="vanilla">Vanilla JavaScript</option>
-                  <option value="gsap">GSAP (GreenSock)</option>
-                  <option value="anime">Anime.js</option>
-                </Select>
-              </Field>
+      <Panel title="JavaScript Options">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Library Selection */}
+          <div className="space-y-4">
+            <Field label="Animation Library">
+              <Select
+                value={jsOptions.library}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  library: e.target.value as 'vanilla' | 'gsap' | 'anime'
+                }))}
+              >
+                <option value="vanilla">Vanilla JavaScript</option>
+                <option value="gsap">GSAP (GreenSock)</option>
+                <option value="anime">Anime.js</option>
+              </Select>
+            </Field>
 
-              <Field label="Export Type">
-                <Select
-                  value={jsOptions.exportType}
-                  onChange={(e) => setJsOptions(prev => ({
-                    ...prev,
-                    exportType: e.target.value as 'function' | 'class' | 'module'
-                  }))}
-                >
-                  <option value="function">Function</option>
-                  <option value="class">Class</option>
-                  <option value="module">ES6 Module</option>
-                </Select>
-              </Field>
+            <Field label="Export Type">
+              <Select
+                value={jsOptions.exportType}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  exportType: e.target.value as 'function' | 'class' | 'module'
+                }))}
+              >
+                <option value="function">Function</option>
+                <option value="class">Class</option>
+                <option value="module">ES6 Module</option>
+              </Select>
+            </Field>
 
-              <Field label="Function/Class Name">
-                <input
-                  type="text"
-                  value={jsOptions.functionName}
-                  onChange={(e) => setJsOptions(prev => ({
-                    ...prev,
-                    functionName: e.target.value
-                  }))}
-                  className={INPUT_CLASS}
-                  placeholder="createSVGMorph"
-                />
-              </Field>
+            <Field label="Function/Class Name">
+              <input
+                type="text"
+                value={jsOptions.functionName}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  functionName: e.target.value
+                }))}
+                className={INPUT_CLASS}
+                placeholder="createSVGMorph"
+              />
+            </Field>
+          </div>
+
+          {/* Advanced Options */}
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <CheckRow
+                label="Include Library Import"
+                checked={jsOptions.includeLibraryImport}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  includeLibraryImport: e.target.checked
+                }))}
+              />
+
+              <CheckRow
+                label="Minify Code"
+                checked={jsOptions.minified}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  minified: e.target.checked
+                }))}
+              />
+
+              <CheckRow
+                label="Include TypeScript Definitions"
+                checked={jsOptions.includeTypeScript}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  includeTypeScript: e.target.checked
+                }))}
+              />
             </div>
 
-            {/* Advanced Options */}
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <CheckRow
-                  label="Include Library Import"
-                  checked={jsOptions.includeLibraryImport}
-                  onChange={(e) => setJsOptions(prev => ({
-                    ...prev,
-                    includeLibraryImport: e.target.checked
-                  }))}
-                />
-
-                <CheckRow
-                  label="Minify Code"
-                  checked={jsOptions.minified}
-                  onChange={(e) => setJsOptions(prev => ({
-                    ...prev,
-                    minified: e.target.checked
-                  }))}
-                />
-
-                <CheckRow
-                  label="Include TypeScript Definitions"
-                  checked={jsOptions.includeTypeScript}
-                  onChange={(e) => setJsOptions(prev => ({
-                    ...prev,
-                    includeTypeScript: e.target.checked
-                  }))}
-                />
-              </div>
-
-              {/* Library Info */}
-              <div className="p-4 bg-raised">
-                <h4 className="font-medium mb-2">
-                  {jsOptions.library === 'vanilla' && 'Vanilla JavaScript'}
-                  {jsOptions.library === 'gsap' && 'GSAP (GreenSock)'}
-                  {jsOptions.library === 'anime' && 'Anime.js'}
-                </h4>
-                <p className="text-sm text-muted">
-                  {jsOptions.library === 'vanilla' && 'Pure JavaScript with no dependencies. Uses Web Animations API and requestAnimationFrame.'}
-                  {jsOptions.library === 'gsap' && 'Professional animation library with MorphSVG plugin. Requires GSAP license for commercial use.'}
-                  {jsOptions.library === 'anime' && 'Lightweight animation library (~17KB). MIT license, good SVG support.'}
-                </p>
-              </div>
+            {/* Library Info */}
+            <div className="p-4 bg-raised">
+              <h4 className="font-medium mb-2">
+                {jsOptions.library === 'vanilla' && 'Vanilla JavaScript'}
+                {jsOptions.library === 'gsap' && 'GSAP (GreenSock)'}
+                {jsOptions.library === 'anime' && 'Anime.js'}
+              </h4>
+              <p className="text-sm text-muted">
+                {jsOptions.library === 'vanilla' && 'Pure JavaScript with no dependencies. Uses Web Animations API and requestAnimationFrame.'}
+                {jsOptions.library === 'gsap' && 'Professional animation library with MorphSVG plugin. Requires GSAP license for commercial use.'}
+                {jsOptions.library === 'anime' && 'Lightweight animation library (~17KB). MIT license, good SVG support.'}
+              </p>
             </div>
           </div>
-        </Panel>
-      )}
+        </div>
+      </Panel>
 
       {/* Format Selection */}
       <Panel title="Export Formats">
+        {!canExport && (
+          <p className="mb-4 text-sm text-muted">Load both SVG files to enable exporting.</p>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {Object.entries(formatIcons).map(([format, Icon]) => {
-            const isSelected = selectedFormats.has(format as ExportOptions['format']);
-            return (
-              <div
-                key={format}
-                role="checkbox"
-                aria-checked={isSelected}
-                tabIndex={0}
-                className={`p-4 cursor-pointer transition-colors ${
-                  isSelected ? 'bg-sun-800' : 'bg-raised hover:bg-line/30'
-                }`}
-                onClick={() => handleFormatToggle(format as ExportOptions['format'])}
-                onKeyDown={(e) => {
-                  if (e.target === e.currentTarget && (e.key === ' ' || e.key === 'Enter')) {
-                    e.preventDefault();
-                    handleFormatToggle(format as ExportOptions['format']);
-                  }
-                }}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0">
-                    {isSelected ? (
-                      <CheckSquare className="w-5 h-5 text-link" />
-                    ) : (
-                      <Square className="w-5 h-5 text-muted" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Icon className="w-4 h-4 text-muted" />
-                      <span className="font-medium uppercase">{format}</span>
-                    </div>
-                    <p className="text-sm text-muted">
-                      {formatDescriptions[format as keyof typeof formatDescriptions]}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSingleExport(format as ExportOptions['format']);
-                    }}
-                    disabled={isExporting || !sourceSVG || !targetSVG}
-                    variant={isSelected ? 'primary' : 'secondary'}
-                  >
-                    Export
-                  </Button>
-                </div>
+          {Object.entries(formatIcons).map(([format, Icon]) => (
+            <div key={format} className="flex flex-col bg-raised p-4">
+              <div className="mb-1 flex items-center gap-2">
+                <Icon className="w-4 h-4 text-muted" />
+                <span className="font-medium uppercase">{format}</span>
               </div>
-            );
-          })}
+              <p className="mb-4 flex-1 text-sm text-muted">
+                {formatDescriptions[format as keyof typeof formatDescriptions]}
+              </p>
+              <Button
+                variant="primary"
+                className="w-full justify-center"
+                onClick={() => handleSingleExport(format as ExportOptions['format'])}
+                disabled={isExporting || !canExport}
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Export {format.toUpperCase()}
+              </Button>
+            </div>
+          ))}
         </div>
 
-        {/* Export Actions */}
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="primary"
-            onClick={handleBatchExport}
-            disabled={isExporting || selectedFormats.size === 0 || !sourceSVG || !targetSVG}
-          >
-            {isExporting ? (
-              <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            Export Selected ({selectedFormats.size})
-          </Button>
-
-          <Button onClick={() => setShowHistory(!showHistory)}>
-            <History className="w-4 h-4" />
-            Export History
-          </Button>
-        </div>
+        <Button onClick={() => setShowHistory(!showHistory)}>
+          <History className="w-4 h-4" />
+          Export History
+        </Button>
       </Panel>
 
       {/* Recent Exports */}
