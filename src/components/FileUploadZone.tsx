@@ -26,7 +26,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
-        
+
         // Basic SVG validation
         if (!content.includes('<svg')) {
           reject('Invalid SVG format');
@@ -102,19 +102,17 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {label}
-      </label>
-      
+      <p className="text-sm font-medium">{label}</p>
+
       <div
-        className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
+        className={`relative border-2 p-6 text-center transition-colors duration-200 ${
           isDragOver
-            ? 'border-accent bg-accent/5 scale-105'
+            ? 'border-dashed border-action bg-action/10'
             : hasFile
-            ? 'border-accent bg-accent/5'
+            ? 'border-solid border-action bg-action/10'
             : error
-            ? 'border-red-300 bg-red-50 dark:bg-red-900/20'
-            : 'border-gray-300 dark:border-gray-600 hover:border-accent hover:bg-accent/5'
+            ? 'border-dashed border-danger bg-canvas'
+            : 'border-dashed border-line bg-canvas hover:border-action hover:bg-action/5'
         }`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -126,40 +124,41 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         <input
           type="file"
           accept=".svg,image/svg+xml"
+          aria-label={label}
           onChange={handleFileSelect}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-        
+
         <div className="space-y-2">
           {isValidating ? (
-            <div className="animate-spin w-8 h-8 mx-auto border-2 border-accent border-t-transparent rounded-full"></div>
+            <div className="animate-spin w-8 h-8 mx-auto border-2 border-action border-t-transparent rounded-full"></div>
           ) : hasFile ? (
-            <CheckCircle className="w-8 h-8 mx-auto text-accent" />
+            <CheckCircle className="w-8 h-8 mx-auto text-action" />
           ) : error ? (
-            <AlertCircle className="w-8 h-8 mx-auto text-red-500" />
+            <AlertCircle className="w-8 h-8 mx-auto text-danger" />
           ) : (
-            <Upload className="w-8 h-8 mx-auto text-gray-400" />
+            <Upload className="w-8 h-8 mx-auto text-muted" />
           )}
-          
+
           <div>
             {isValidating ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-muted">
                 Validating SVG...
               </p>
             ) : hasFile ? (
-              <p className="text-sm text-accent font-medium">
+              <p className="text-sm text-link font-medium">
                 SVG uploaded successfully
               </p>
             ) : error ? (
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-danger">
                 {error}
               </p>
             ) : (
               <>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-content">
                   Drop your SVG here or click to browse
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">
+                <p className="text-sm text-muted">
                   Supports .svg files
                 </p>
               </>

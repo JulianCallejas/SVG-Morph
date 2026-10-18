@@ -30,28 +30,28 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
       container.className = 'grid grid-cols-2 gap-4 h-full';
 
       const sourceContainer = document.createElement('div');
-      sourceContainer.className = 'bg-gray-50 dark:bg-gray-900 rounded-lg p-4 flex items-center justify-center';
+      sourceContainer.className = 'bg-canvas p-4 flex items-center justify-center';
       sourceContainer.innerHTML = `
         <div class="text-center">
-          <div class="w-48 h-48 mx-auto mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm flex items-center justify-center overflow-hidden">
+          <div class="w-full max-w-48 aspect-square mx-auto mb-2 bg-surface flex items-center justify-center overflow-hidden">
             <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
               ${sourceSVG}
             </div>
           </div>
-          <p class="text-sm text-gray-500 dark:text-gray-400">Source SVG</p>
+          <p class="text-sm text-muted">Source SVG</p>
         </div>
       `;
 
       const targetContainer = document.createElement('div');
-      targetContainer.className = 'bg-gray-50 dark:bg-gray-900 rounded-lg p-4 flex items-center justify-center';
+      targetContainer.className = 'bg-canvas p-4 flex items-center justify-center';
       targetContainer.innerHTML = `
         <div class="text-center">
-          <div class="w-48 h-48 mx-auto mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm flex items-center justify-center overflow-hidden">
+          <div class="w-full max-w-48 aspect-square mx-auto mb-2 bg-surface flex items-center justify-center overflow-hidden">
             <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
               ${targetSVG}
             </div>
           </div>
-          <p class="text-sm text-gray-500 dark:text-gray-400">Target SVG</p>
+          <p class="text-sm text-muted">Target SVG</p>
         </div>
       `;
 
@@ -61,7 +61,7 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
     } else {
       // Overlay view - show morphing animation
       const container = document.createElement('div');
-      container.className = 'h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg';
+      container.className = 'h-full flex items-center justify-center bg-canvas';
 
       const morphContainer = document.createElement('div');
       morphContainer.className = 'text-center';
@@ -79,17 +79,17 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
       `;
       
       morphContainer.innerHTML = `
-        <div class="w-64 h-64 mx-auto mb-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm flex items-center justify-center overflow-hidden">
+        <div class="w-full max-w-64 aspect-square mx-auto mb-4 bg-surface flex items-center justify-center overflow-hidden">
           <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
             ${displaySVG}
           </div>
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400">
+        <p class="text-sm text-muted">
           Morphing Animation (${Math.round(currentProgress * 100)}%)
         </p>
-        <div class="w-64 h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-2 mx-auto">
+        <div class="w-full max-w-64 h-2 bg-raised mt-2 mx-auto">
           <div 
-            class="h-full bg-gradient-to-r from-accent to-secondary rounded-full transition-all duration-100"
+            class="h-full bg-action transition-all duration-100"
             style="width: ${currentProgress * 100}%"
           ></div>
         </div>
@@ -102,10 +102,9 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
 
   if (!sourceSVG && !targetSVG) {
     return (
-      <div className="h-96 flex items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+      <div className="h-96 flex items-center justify-center bg-canvas border-2 border-dashed border-line">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-accent to-secondary rounded-full opacity-20"></div>
-          <p className="text-gray-500 dark:text-gray-400">
+          <p className="text-muted">
             Upload SVG files to see the preview
           </p>
         </div>
