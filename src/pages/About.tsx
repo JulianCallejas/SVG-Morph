@@ -1,188 +1,190 @@
 import React from 'react';
-import { Github, Linkedin, Mail, Cpu, Zap, Code2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { EasingChart } from '../components/about/EasingChart';
+import { MorphLoop } from '../components/about/MorphLoop';
+import { PathSampler } from '../components/about/PathSampler';
+import { PairingFragment } from '../components/home/PairingFragment';
+import { SiteFooter } from '../components/SiteFooter';
 import { WorkerTest } from '../components/WorkerTest';
+import { useReveal } from '../hooks/useReveal';
+
+const STEPS = [
+  {
+    title: 'Path normalization',
+    text: 'Each path is sampled at 100 points spaced evenly along its length, so two shapes with a different number of curves end up with the same number of points. Drag the slider to see the sampling.',
+    fragment: <PathSampler />,
+    width: 'max-w-[520px]',
+  },
+  {
+    title: 'Node matching',
+    text: 'Every node of the source is paired with the nearest node of the target, found with a k-d tree and Euclidean distance. You can override any pair by hand, and the Studio has an optional thin-plate spline refinement that is off by default.',
+    fragment: <PairingFragment />,
+    width: 'max-w-[680px]',
+  },
+  {
+    title: 'Interpolation and animation',
+    text: 'Path data, colors and stroke width are interpolated with the easing you pick. Playback runs on requestAnimationFrame, and the same morph exports as SMIL or CSS keyframes.',
+    fragment: <EasingChart />,
+    width: 'max-w-[420px]',
+  },
+];
+
+const STACK = [
+  {
+    title: 'Frontend',
+    items: ['React 18 with TypeScript', 'Vite for fast development', 'Tailwind CSS for styling', 'Zustand for state management'],
+  },
+  {
+    title: 'SVG processing',
+    items: [
+      'SVG.js for SVG manipulation',
+      'D3-interpolate for smooth transitions',
+      'svg-path-commander for path operations',
+      'Web Workers for performance',
+    ],
+  },
+];
+
+const delay = (i: number) => ({ '--i': i }) as React.CSSProperties;
 
 export const About: React.FC = () => {
+  useReveal();
+
   return (
-    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-accent to-secondary bg-clip-text text-transparent">
-            About SVG Morph
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-400">
-            Advanced SVG morphing technology made accessible
-          </p>
-        </div>
-
-        {/* How It Works Section */}
-        <section className="mb-16">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center mb-6">
-              <Cpu className="h-8 w-8 text-accent mr-3" />
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                How It Works
-              </h2>
+    <>
+      <main>
+        <section aria-labelledby="about-title" className="px-4 pb-16 pt-12 sm:px-6 lg:px-8 lg:pb-24 lg:pt-20">
+          <div className="mx-auto grid max-w-[1600px] gap-12 lg:grid-cols-12 lg:items-center">
+            <div className="lg:col-span-8">
+              <h1
+                id="about-title"
+                className="lines text-[clamp(2.5rem,7vw,6.5rem)] font-light leading-[1] tracking-[-0.035em]"
+              >
+                <span className="line">
+                  <span data-line style={delay(0)}>
+                    SVG morphing,
+                  </span>
+                </span>
+                <span className="line">
+                  <span data-line style={delay(1)}>
+                    made accessible.
+                  </span>
+                </span>
+              </h1>
+              <p className="rise mt-8 max-w-[44ch] text-lg" style={delay(0)}>
+                How SVG Morph turns two shapes into one animation, and what it is built on.
+              </p>
+              <Link
+                to="/playground-enhanced"
+                className="rise press mt-6 inline-flex h-12 items-center bg-action px-6 font-semibold text-on-action hover:bg-sun-300"
+                style={delay(1)}
+              >
+                Open the studio
+              </Link>
             </div>
-            
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
-                  1. Path Normalization
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  SVG paths are converted to cubic Bézier curves and normalized to 100 points using 
-                  arc-length parameterization. This ensures consistent point distribution regardless 
-                  of path complexity.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
-                  2. Node Matching Algorithm
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Our k-Nearest Neighbors (k-NN) algorithm with k=1 automatically matches corresponding 
-                  nodes between source and target SVGs based on Euclidean distance after bounding box 
-                  normalization. For unmatched nodes, thin-plate spline interpolation fills the gaps.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
-                  3. Interpolation & Animation
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Path data, colors, and stroke properties are interpolated using advanced easing 
-                  functions. The animation engine uses requestAnimationFrame for smooth 60fps playback 
-                  with SMIL and CSS fallback support.
-                </p>
-              </div>
+            <div className="rise lg:col-span-4" style={delay(2)}>
+              <MorphLoop />
             </div>
           </div>
         </section>
 
-        {/* Web Worker Test Section */}
-        <section className="mb-16">
-          <WorkerTest />
-        </section>
+        <section aria-labelledby="how-title" className="px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+          <div className="mx-auto max-w-[1600px]">
+            <h2
+              id="how-title"
+              data-reveal
+              className="text-[clamp(2rem,4vw,3.75rem)] font-light leading-[1.05] tracking-[-0.035em]"
+            >
+              How it works
+            </h2>
 
-        {/* Tech Stack Section */}
-        <section className="mb-16">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center mb-6">
-              <Code2 className="h-8 w-8 text-secondary mr-3" />
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Tech Stack
-              </h2>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
-                  Frontend
-                </h3>
-                <ul className="space-y-2 text-gray-600 dark:text-gray-400">
-                  <li className="flex items-center">
-                    <div className="w-2 h-2 bg-accent rounded-full mr-3"></div>
-                    React 18 with TypeScript
-                  </li>
-                  <li className="flex items-center">
-                    <div className="w-2 h-2 bg-accent rounded-full mr-3"></div>
-                    Vite for fast development
-                  </li>
-                  <li className="flex items-center">
-                    <div className="w-2 h-2 bg-accent rounded-full mr-3"></div>
-                    Tailwind CSS for styling
-                  </li>
-                  <li className="flex items-center">
-                    <div className="w-2 h-2 bg-accent rounded-full mr-3"></div>
-                    Zustand for state management
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
-                  SVG Processing
-                </h3>
-                <ul className="space-y-2 text-gray-600 dark:text-gray-400">
-                  <li className="flex items-center">
-                    <div className="w-2 h-2 bg-secondary rounded-full mr-3"></div>
-                    SVG.js for SVG manipulation
-                  </li>
-                  <li className="flex items-center">
-                    <div className="w-2 h-2 bg-secondary rounded-full mr-3"></div>
-                    D3-interpolate for smooth transitions
-                  </li>
-                  <li className="flex items-center">
-                    <div className="w-2 h-2 bg-secondary rounded-full mr-3"></div>
-                    svg-path-commander for path operations
-                  </li>
-                  <li className="flex items-center">
-                    <div className="w-2 h-2 bg-secondary rounded-full mr-3"></div>
-                    Web Workers for performance
-                  </li>
-                </ul>
-              </div>
+            <div className="mt-12 flex flex-col gap-16 lg:mt-16 lg:gap-24">
+              {STEPS.map(({ title, text, fragment, width }) => (
+                <div key={title} className="grid gap-8 lg:grid-cols-12 lg:items-center lg:gap-12">
+                  <div className="lg:col-span-5">
+                    <h3 data-reveal className="text-2xl font-medium">
+                      {title}
+                    </h3>
+                    <p data-reveal style={delay(1)} className="mt-4 max-w-[46ch] text-lg">
+                      {text}
+                    </p>
+                  </div>
+                  <div data-reveal style={delay(2)} className={`w-full lg:col-span-7 ${width}`}>
+                    {fragment}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Developer Section */}
-        <section>
-          <div className="bg-gradient-to-r from-accent/10 to-secondary/10 rounded-2xl p-8 border border-accent/20">
-            <div className="flex items-center mb-6">
-              <Zap className="h-8 w-8 text-accent mr-3" />
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                About the Developer
-              </h2>
+        <section aria-label="Web Worker check" className="px-4 py-8 sm:px-6 lg:px-8 lg:py-16">
+          <div data-reveal className="mx-auto max-w-[1600px] lg:grid lg:grid-cols-12 lg:gap-12">
+            <div data-ui className="lg:col-span-7 lg:col-start-6">
+              <WorkerTest />
             </div>
+          </div>
+        </section>
 
-            <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
-              <div className="w-32 h-32 bg-gradient-to-r from-accent to-secondary rounded-full flex items-center justify-center text-white text-2xl font-bold">
+        <section aria-labelledby="stack-title" className="px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+          <div className="mx-auto max-w-[1600px]">
+            <h2
+              id="stack-title"
+              data-reveal
+              className="text-[clamp(2rem,4vw,3.75rem)] font-light leading-[1.05] tracking-[-0.035em]"
+            >
+              Tech stack
+            </h2>
+            <div className="mt-12 grid gap-12 lg:mt-16 lg:grid-cols-2 lg:gap-8">
+              {STACK.map(({ title, items }, group) => (
+                <div key={title} data-reveal style={delay(group)}>
+                  <h3 className="mb-4 text-2xl font-medium">{title}</h3>
+                  <ul className="flex flex-col gap-1">
+                    {items.map((item, i) => (
+                      <li
+                        key={item}
+                        data-reveal
+                        style={delay(i)}
+                        className={`px-5 py-5 text-lg ${i % 2 === 0 ? 'bg-surface' : 'bg-raised'}`}
+                      >
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="dev-title" className="bg-surface px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+          <div data-reveal className="mx-auto grid max-w-[1600px] gap-8 lg:grid-cols-12 lg:gap-12">
+            <h2
+              id="dev-title"
+              className="text-[clamp(2rem,4vw,3.75rem)] font-light leading-[1.05] tracking-[-0.035em] lg:col-span-5"
+            >
+              About the developer
+            </h2>
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-start lg:col-span-7">
+              <div
+                aria-hidden="true"
+                className="flex h-24 w-24 shrink-0 items-center justify-center bg-raised text-3xl font-light"
+              >
                 JC
               </div>
-
-              <div className="flex-1 text-center md:text-left">
-                <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-                  jc-develop
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
-                  Full-stack developer passionate about creating innovative tools for digital artists 
-                  and designers. Specializing in advanced web technologies, computer graphics, and 
-                  user experience design.
+              <div>
+                <h3 className="text-2xl font-medium">jc-develop</h3>
+                <p className="mt-4 max-w-[52ch] text-lg">
+                  Full-stack developer passionate about creating innovative tools for digital artists and designers.
+                  Specializing in advanced web technologies, computer graphics, and user experience design.
                 </p>
-
-                <div className="flex justify-center md:justify-start space-x-4">
-                  <a
-                    href="#"
-                    className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-accent transition-colors duration-200"
-                  >
-                    <Github className="h-5 w-5" />
-                    <span>GitHub</span>
-                  </a>
-                  <a
-                    href="#"
-                    className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-accent transition-colors duration-200"
-                  >
-                    <Linkedin className="h-5 w-5" />
-                    <span>LinkedIn</span>
-                  </a>
-                  <a
-                    href="#"
-                    className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-accent transition-colors duration-200"
-                  >
-                    <Mail className="h-5 w-5" />
-                    <span>Contact</span>
-                  </a>
-                </div>
               </div>
             </div>
           </div>
         </section>
-      </div>
-    </div>
+      </main>
+
+      <SiteFooter />
+    </>
   );
 };

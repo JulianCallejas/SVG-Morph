@@ -83,6 +83,15 @@ export const applyEasing = (easing: DemoEasing, t: number): number => {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 };
 
+// Points of an easing curve for charts: x is time, y is progress, both from 0 to 1.
+export const sampleEasing = (easing: DemoEasing, steps: number): [number, number][] => {
+  if (steps < 1) throw new Error('sampleEasing needs at least one step');
+  return Array.from({ length: steps + 1 }, (_, i) => {
+    const x = i / steps;
+    return [x, applyEasing(easing, x)] as [number, number];
+  });
+};
+
 export interface SmilSnippetOptions {
   from: string;
   to: string;

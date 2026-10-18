@@ -4,6 +4,7 @@ import {
   applyEasing,
   buildSmilSnippet,
   interpolatePath,
+  sampleEasing,
 } from './homeDemo';
 
 const numbersIn = (d: string): number[] => (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
@@ -82,5 +83,31 @@ describe('buildSmilSnippet', () => {
     const linear = buildSmilSnippet({ ...base, easing: 'linear' });
     expect(linear).not.toContain('calcMode');
     expect(linear).not.toContain('keySplines');
+  });
+});
+
+describe('sampleEasing', () => {
+  it('returns steps + 1 points from (0, 0) to (1, 1)', () => {
+    for (const easing of ['linear', 'ease-in-out'] as const) {
+      const points = sampleEasing(easing, 20);
+      expect(points).toHaveLength(21);
+      expect(points[0]).toEqual([0, 0]);
+      expect(points[20]).toEqual([1, 1]);
+    }
+  });
+
+  it('samples x evenly and y through applyEasing', () => {
+    const points = sampleEasing('ease-in-out', 4);
+    expect(points.map(([x]) => x)).toEqual([0, 0.25, 0.5, 0.75, 1]);
+    points.forEach(([x, y]) => expect(y).toBeCloseTo(applyEasing('ease-in-out', x), 10));
+  });
+
+  it('never goes backwards in y', () => {
+    const ys = sampleEasing('ease-in-out', 50).map(([, y]) => y);
+    ys.slice(1).forEach((y, i) => expect(y).toBeGreaterThanOrEqual(ys[i]));
+  });
+
+  it('rejects a step count below 1', () => {
+    expect(() => sampleEasing('linear', 0)).toThrow();
   });
 });
