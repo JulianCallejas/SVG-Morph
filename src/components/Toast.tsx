@@ -12,39 +12,13 @@ export interface ToastProps {
   onClose: (id: string) => void;
 }
 
+// The icon shape tells the types apart; color only reinforces it.
+// Text stays on the surface tone: the danger color is not AA on the raised tone.
 const toastConfig = {
-  success: {
-    icon: CheckCircle,
-    bgColor: 'bg-green-50 dark:bg-green-900/20',
-    borderColor: 'border-green-200 dark:border-green-800',
-    iconColor: 'text-green-600 dark:text-green-400',
-    titleColor: 'text-green-800 dark:text-green-200',
-    messageColor: 'text-green-700 dark:text-green-300',
-  },
-  error: {
-    icon: XCircle,
-    bgColor: 'bg-red-50 dark:bg-red-900/20',
-    borderColor: 'border-red-200 dark:border-red-800',
-    iconColor: 'text-red-600 dark:text-red-400',
-    titleColor: 'text-red-800 dark:text-red-200',
-    messageColor: 'text-red-700 dark:text-red-300',
-  },
-  warning: {
-    icon: AlertCircle,
-    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
-    borderColor: 'border-yellow-200 dark:border-yellow-800',
-    iconColor: 'text-yellow-600 dark:text-yellow-400',
-    titleColor: 'text-yellow-800 dark:text-yellow-200',
-    messageColor: 'text-yellow-700 dark:text-yellow-300',
-  },
-  info: {
-    icon: Info,
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-    borderColor: 'border-blue-200 dark:border-blue-800',
-    iconColor: 'text-blue-600 dark:text-blue-400',
-    titleColor: 'text-blue-800 dark:text-blue-200',
-    messageColor: 'text-blue-700 dark:text-blue-300',
-  },
+  success: { icon: CheckCircle, barColor: 'bg-action', iconColor: 'text-action' },
+  error: { icon: XCircle, barColor: 'bg-danger', iconColor: 'text-danger' },
+  warning: { icon: AlertCircle, barColor: 'bg-gold-400', iconColor: 'text-gold-400' },
+  info: { icon: Info, barColor: 'bg-line', iconColor: 'text-content' },
 };
 
 export const Toast: React.FC<ToastProps> = ({
@@ -71,7 +45,7 @@ export const Toast: React.FC<ToastProps> = ({
   useEffect(() => {
     // Trigger entrance animation
     const showTimer = setTimeout(() => setIsVisible(true), 10);
-    
+
     // Auto-close timer
     const closeTimer = setTimeout(() => {
       handleClose();
@@ -85,33 +59,29 @@ export const Toast: React.FC<ToastProps> = ({
 
   return (
     <div
+      role={type === 'error' ? 'alert' : 'status'}
       className={`
-        transform transition-all duration-300 ease-out
-        ${isVisible && !isExiting 
-          ? 'translate-x-0 opacity-100 scale-100' 
-          : 'translate-x-full opacity-0 scale-95'
+        relative mb-3 w-full max-w-md overflow-hidden bg-surface p-4 pl-5 text-content shadow-lg
+        transform transition-all duration-300 ease-out motion-reduce:transition-none
+        ${isVisible && !isExiting
+          ? 'translate-x-0 opacity-100'
+          : 'translate-x-full opacity-0'
         }
-        ${config.bgColor} ${config.borderColor}
-        border-2 rounded-xl shadow-lg hover:shadow-xl
-        p-4 mb-3 max-w-md w-full
-        backdrop-blur-sm
       `}
     >
+      <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${config.barColor}`} />
+
       <div className="flex items-start gap-3">
         {/* Icon */}
-        <div className="flex-shrink-0">
-          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-secondary flex items-center justify-center`}>
-            <Icon className={`w-4 h-4 text-white`} />
-          </div>
-        </div>
+        <Icon aria-hidden="true" className={`mt-0.5 h-5 w-5 flex-shrink-0 ${config.iconColor}`} />
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <h4 className={`font-semibold text-sm ${config.titleColor} mb-1`}>
+          <h4 className="font-semibold text-sm mb-1">
             {title}
           </h4>
           {message && (
-            <p className={`text-sm ${config.messageColor} leading-relaxed`}>
+            <p className="text-sm text-muted leading-relaxed">
               {message}
             </p>
           )}
@@ -120,11 +90,7 @@ export const Toast: React.FC<ToastProps> = ({
         {/* Close Button */}
         <button
           onClick={handleClose}
-          className={`
-            flex-shrink-0 p-1 rounded-lg transition-colors duration-200
-            hover:bg-gray-200 dark:hover:bg-gray-700
-            ${config.iconColor}
-          `}
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center text-muted transition-colors duration-200 hover:bg-raised hover:text-content"
           aria-label="Close notification"
         >
           <X className="w-4 h-4" />
@@ -132,9 +98,9 @@ export const Toast: React.FC<ToastProps> = ({
       </div>
 
       {/* Progress Bar */}
-      <div className="mt-3 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <div className="mt-3 h-1 bg-raised">
         <div
-          className={`h-full bg-gradient-to-r from-accent to-secondary rounded-full transition-all duration-${duration} ease-linear`}
+          className="h-full bg-action"
           style={{
             animation: `toast-progress ${duration}ms linear forwards`,
           }}
@@ -156,8 +122,9 @@ export const Toast: React.FC<ToastProps> = ({
 };
 
 export const ToastContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // top-20 keeps the stack below the sticky header; z-[60] keeps it above the header.
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col items-end space-y-2">
+    <div className="fixed top-20 right-4 z-[60] flex flex-col items-end space-y-2">
       {children}
     </div>
   );
