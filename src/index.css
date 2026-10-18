@@ -89,6 +89,14 @@
     animation-delay: calc(var(--i, 0) * 80ms + 500ms);
   }
 
+  /* For content that mounts after load (tab panels): it enters on mount, so no observer is needed. */
+  .js .enter {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: rise 500ms var(--ease-out) forwards;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+
   .press {
     transition: transform 150ms var(--ease-out), background-color 150ms var(--ease-out);
   }

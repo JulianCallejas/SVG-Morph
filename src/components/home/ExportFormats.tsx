@@ -49,7 +49,7 @@ export const ExportFormats: React.FC = () => {
   const group = GROUPS.find(({ id }) => id === activeId) ?? GROUPS[0];
 
   return (
-    <section aria-labelledby="export-title" className="px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+    <section aria-labelledby="export-title" className="px-4 py-16 sm:px-6 lg:px-8 lg:py-32">
       <div className="mx-auto max-w-[1600px]">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <h2
@@ -70,7 +70,7 @@ export const ExportFormats: React.FC = () => {
           </Link>
         </div>
 
-        <div className="mt-14 flex flex-col gap-6 lg:flex-row lg:gap-10">
+        <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:gap-10">
           <div role="tablist" aria-label="Export type" className="flex gap-2 lg:w-[150px] lg:shrink-0 lg:flex-col">
             {GROUPS.map(({ id, label }) => (
               <button
@@ -91,6 +91,7 @@ export const ExportFormats: React.FC = () => {
           </div>
 
           <ul
+            key={group.id}
             id="export-panel"
             role="tabpanel"
             aria-labelledby={`export-tab-${group.id}`}
@@ -99,9 +100,8 @@ export const ExportFormats: React.FC = () => {
             {group.formats.map(({ name, note }, i) => (
               <li
                 key={name}
-                data-reveal
                 style={{ '--i': i } as React.CSSProperties}
-                className={`grid gap-1 px-5 py-5 sm:grid-cols-[minmax(0,14rem)_1fr] sm:items-center sm:gap-6 ${
+                className={`enter grid gap-1 px-5 py-5 sm:grid-cols-[minmax(0,14rem)_1fr] sm:items-center sm:gap-6 ${
                   i % 2 === 0 ? 'bg-surface' : 'bg-raised'
                 }`}
               >
