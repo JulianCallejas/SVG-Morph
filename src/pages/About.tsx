@@ -54,7 +54,20 @@ const FACTS = [
   { term: 'Bogotá', detail: 'Based in Colombia' },
 ];
 
-const DEV_STACK = ['React', 'TypeScript', 'Node.js', 'FastAPI', 'PostgreSQL', 'Tailwind CSS', 'PWA'];
+const SKILLS = [
+  { title: 'Languages', items: ['Python', 'Java', 'JavaScript', 'TypeScript'] },
+  { title: 'Back-end', items: ['Node.js', 'Express', 'NestJS', 'FastAPI', 'Flask', 'Laravel', 'Spring', 'AWS'] },
+  {
+    title: 'Front-end',
+    items: ['React', 'Next.js', 'Angular', 'HTML', 'CSS', 'Sass', 'Tailwind CSS', 'Bootstrap', 'Material UI', 'PWA'],
+  },
+  {
+    title: 'Databases',
+    items: ['PostgreSQL', 'MySQL', 'SQLite', 'SQL Server', 'MS Access', 'MongoDB', 'DynamoDB'],
+  },
+  { title: 'Tools', items: ['Git', 'GitHub', 'Docker', 'VS Code', 'IntelliJ', 'NetBeans'] },
+  { title: 'Testing and docs', items: ['Postman', 'Jest', 'JUnit', 'Swagger'] },
+];
 
 const PROJECTS = [
   {
@@ -231,15 +244,22 @@ export const About: React.FC = () => {
 
             <div className="mt-16 grid gap-8 lg:mt-24 lg:grid-cols-12 lg:gap-12">
               <h3 data-reveal className="text-2xl font-medium lg:col-span-5">
-                Tools of the trade
+                Technical skills
               </h3>
-              <ul data-reveal style={delay(1)} className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:col-span-7">
-                {DEV_STACK.map((item) => (
-                  <li key={item} className="bg-raised px-5 py-4">
-                    {item}
-                  </li>
+              <div className="grid gap-8 sm:grid-cols-2 lg:col-span-7">
+                {SKILLS.map(({ title, items }, group) => (
+                  <div key={title} data-reveal style={delay(group)}>
+                    <h4 className="mb-3 font-medium text-muted">{title}</h4>
+                    <ul className="flex flex-wrap gap-1">
+                      {items.map((item) => (
+                        <li key={item} className="bg-raised px-4 py-2">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
 
             <div className="mt-16 grid gap-8 lg:mt-24 lg:grid-cols-12 lg:gap-12">
