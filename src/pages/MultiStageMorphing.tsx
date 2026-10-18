@@ -265,7 +265,7 @@ ${pathAnimations}
         </header>
 
         {/* One column on small screens (builder, preview, details, export, tips); on large screens the
-            preview stays in view on the right while the builder and details scroll on the left. */}
+            preview stays in view on the right, sized to fit the viewport height, while everything else scrolls on the left. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:items-start">
           {/* Control Panel */}
           <div className="lg:col-start-1">
@@ -276,7 +276,7 @@ ${pathAnimations}
           </div>
 
           {/* Preview Panel */}
-          <div className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+          <div className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-4 lg:row-start-1">
             <Panel
               title="Live Preview"
               actions={
@@ -287,7 +287,7 @@ ${pathAnimations}
                 )
               }
             >
-              <div className="aspect-square bg-canvas p-8">
+              <div className="mx-auto aspect-square w-[min(100%,max(16rem,calc(100vh-14rem)))] bg-canvas p-8">
                 {renderSVGPreview()}
               </div>
             </Panel>
@@ -346,7 +346,7 @@ ${pathAnimations}
           </Panel>
 
           {/* Tips & Help */}
-          <Panel title="Tips & Features" className="lg:col-start-2">
+          <Panel title="Tips & Features" className="lg:col-start-1">
             <ul className="list-disc space-y-3 pl-5 text-sm text-muted marker:text-link">
               <li>
                 <strong className="font-medium text-content">Multi-Stage Sequences:</strong> Create complex animations by chaining multiple SVG morphs together
