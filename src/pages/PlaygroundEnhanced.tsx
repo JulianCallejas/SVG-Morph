@@ -280,7 +280,7 @@ export const PlaygroundEnhanced: React.FC = () => {
         {activeTab === 'animate' && (
           <div role="tabpanel" className="space-y-8">
             <StepHeader
-              title="Animation Controls"
+              title="Tune Your Animation"
               text="Fine-tune your morphing animation settings and preview the result"
             />
 
@@ -339,8 +339,8 @@ export const PlaygroundEnhanced: React.FC = () => {
         {activeTab === 'export' && (
           <div role="tabpanel" className="space-y-8">
             <StepHeader
-              title="Preview Your Animation"
-              text="Watch your SVG morphing animation and adjust the settings as needed"
+              title="Export Your Animation"
+              text="Export your morphing animation in multiple formats with advanced options"
             >
               {manualModeEnabled && nodeMatches.length > 0 && (
                 <p className="mt-3 flex items-center gap-2 text-sm font-medium">
@@ -356,18 +356,13 @@ export const PlaygroundEnhanced: React.FC = () => {
               )}
             </StepHeader>
 
-            <StepHeader
-              title="Export Your Animation"
-              text="Export your morphing animation in multiple formats with advanced options"
-            />
-
             <EnhancedExportPanel />
           </div>
         )}
         {activeTab === 'react' && (
           <div role="tabpanel" className="space-y-8">
             <StepHeader
-              title="React Component Generator"
+              title="Export to React"
               text="Export your morphing animation as ready-to-use React components with TypeScript support"
             />
 
@@ -381,7 +376,7 @@ export const PlaygroundEnhanced: React.FC = () => {
         {activeTab === '3d' && (
           <div role="tabpanel" className="space-y-8">
             <StepHeader
-              title="3D Morphing Preview"
+              title="Preview in 3D"
               text="Visualize your morphing animation in 3D space with depth, lighting, and interactive controls"
             />
 

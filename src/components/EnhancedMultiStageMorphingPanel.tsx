@@ -277,7 +277,7 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
 
   return (
     <Panel
-      title="Multi-Stage Morphing"
+      title="Sequence Builder"
       className="space-y-6"
       actions={
         <div className="flex items-center gap-2">
