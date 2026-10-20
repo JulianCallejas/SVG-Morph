@@ -4,7 +4,7 @@ import { SiteFooter } from '../SiteFooter';
 
 export const Closing: React.FC = () => (
   <>
-    <section aria-labelledby="cta-title" className="bg-sun-800 px-4 py-16 text-content sm:px-6 lg:px-8 lg:py-32">
+    <section aria-labelledby="cta-title" className="bg-field-sun px-4 py-16 text-content sm:px-6 lg:px-8 lg:py-32">
       <div className="mx-auto max-w-[1600px]">
         <h2
           id="cta-title"

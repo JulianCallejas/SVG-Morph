@@ -143,7 +143,7 @@ export const ThreeDExportPanel: React.FC<ThreeDExportPanelProps> = ({
                       }
                     }}
                     className={`p-4 cursor-pointer transition-colors ${
-                      isSelected ? 'bg-sun-800' : 'bg-raised hover:bg-line/30'
+                      isSelected ? 'bg-selected' : 'bg-raised hover:bg-line/30'
                     }`}
                   >
                     <div className="flex items-start gap-3">

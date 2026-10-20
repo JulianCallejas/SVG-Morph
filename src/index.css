@@ -21,6 +21,9 @@
     --color-line: 174 174 174; /* ash-400 */
     --color-focus: 255 222 58; /* sun-400 */
     --color-danger: 255 138 128; /* red tuned for AA on canvas and surface, not on raised */
+    --color-selected: 89 77 22; /* sun-800, selected cards */
+    --color-field-sun: 53 46 13; /* sun-900, yellow tinted band */
+    --color-field-gold: 86 76 30; /* gold-800, gold tinted band */
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     color-scheme: dark;
   }
@@ -37,6 +40,9 @@
     --color-line: 108 108 108; /* ash-600 */
     --color-focus: 124 108 36; /* gold-700 */
     --color-danger: 180 35 24;
+    --color-selected: 254 237 162; /* sun-200, soft yellow so it never glares on the light canvas */
+    --color-field-sun: 254 244 200; /* sun-100 */
+    --color-field-gold: 241 234 201; /* gold-100 */
     color-scheme: light;
   }
 
