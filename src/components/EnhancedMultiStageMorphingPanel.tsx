@@ -378,7 +378,7 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                             onClick={() => fileInputRefs.current[stage.id]?.click()}
                             className={`w-full min-h-11 p-3 transition-colors ${
                               stage.svgData
-                                ? 'bg-sun-800 text-content'
+                                ? 'bg-selected text-content'
                                 : 'bg-raised hover:bg-line/30 text-muted'
                             }`}
                           >
@@ -480,7 +480,7 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                 key={sequence.id}
                 className={`p-4 transition-colors cursor-pointer ${
                   activeSequenceId === sequence.id
-                    ? 'bg-sun-800'
+                    ? 'bg-selected'
                     : 'bg-raised hover:bg-line/30'
                 }`}
                 onClick={() => handleSequenceSelect(sequence.id)}

@@ -115,7 +115,7 @@ const TOOLS: Tool[] = [
     name: 'Playground',
     summary: 'Two files and one slider. The quickest way to see a morph.',
     path: '/playground',
-    field: 'bg-sun-900',
+    field: 'bg-field-sun',
     Panel: PlaygroundPanel,
   },
   {
@@ -123,7 +123,7 @@ const TOOLS: Tool[] = [
     name: 'Studio',
     summary: 'Node matching, animation controls, preview and every export in one flow.',
     path: '/playground-enhanced',
-    field: 'bg-ash-800',
+    field: 'bg-surface',
     Panel: StudioPanel,
   },
   {
@@ -131,7 +131,7 @@ const TOOLS: Tool[] = [
     name: 'Multi-stage',
     summary: 'Chain several SVGs, A to B to C to D, with a transition between each.',
     path: '/multi-stage',
-    field: 'bg-gold-800',
+    field: 'bg-field-gold',
     Panel: MultiStagePanel,
   },
   {
@@ -139,7 +139,7 @@ const TOOLS: Tool[] = [
     name: '3D Studio',
     summary: 'Extrude the morph into 3D and export OBJ, STL, PLY or GLTF.',
     path: '/3d-morphing',
-    field: 'bg-ash-700',
+    field: 'bg-raised',
     Panel: ThreeDPanel,
   },
   {
@@ -147,7 +147,7 @@ const TOOLS: Tool[] = [
     name: 'Reverse engineering',
     summary: 'Upload an animated SVG and read back its SMIL, CSS or JavaScript.',
     path: '/reverse-engineering',
-    field: 'bg-sun-800',
+    field: 'bg-selected',
     Panel: ReversePanel,
   },
 ];

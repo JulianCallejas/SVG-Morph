@@ -259,7 +259,7 @@ export const ReverseEngineering: React.FC = () => {
                           aria-pressed={selectedAnimation === index}
                           onClick={() => setSelectedAnimation(index)}
                           className={`press block w-full p-4 text-left transition-colors ${
-                            selectedAnimation === index ? 'bg-sun-800' : 'bg-raised hover:bg-line/40'
+                            selectedAnimation === index ? 'bg-selected' : 'bg-raised hover:bg-line/40'
                           }`}
                         >
                           <span className="mb-2 flex flex-wrap items-center justify-between gap-2">
