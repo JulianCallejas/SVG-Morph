@@ -3,6 +3,8 @@ import { FileUploadZone } from '../components/FileUploadZone';
 import { SVGPreview } from '../components/SVGPreview';
 import { AnimationControls } from '../components/AnimationControls';
 import { ExportPanel } from '../components/ExportPanel';
+import { Button } from '../components/ui/Button';
+import { Panel } from '../components/ui/Panel';
 import { useMorphStore } from '../store/morphStore';
 
 export const Playground: React.FC = () => {
@@ -32,39 +34,69 @@ export const Playground: React.FC = () => {
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1600px] mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+        <header className="mb-10">
+          <h1 className="text-[clamp(2rem,4vw,3.5rem)] font-light leading-[1.05] tracking-[-0.035em]">
             SVG Morph Playground
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
+          <p className="mt-4 max-w-[60ch] text-lg text-muted">
             Upload your SVGs, customize the animation, and create stunning morphing effects
           </p>
-        </div>
+        </header>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Panel - File Upload */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
-                Upload SVGs
-              </h2>
-              <div className="space-y-4">
-                <FileUploadZone
-                  label="Source SVG"
-                  onUpload={handleSourceUpload}
-                  hasFile={!!sourceSVG}
-                />
-                <FileUploadZone
-                  label="Target SVG"
-                  onUpload={handleTargetUpload}
-                  hasFile={!!targetSVG}
-                />
-              </div>
+        {/* One column on small screens (upload, preview, controls, export); on large screens the
+            preview spans the right two columns and stays in view while the left column scrolls. */}
+        <div className="grid gap-8 lg:grid-cols-3 lg:items-start">
+          <Panel title="Upload SVGs" className="lg:col-start-1">
+            <div className="space-y-4">
+              <FileUploadZone
+                label="Source SVG"
+                onUpload={handleSourceUpload}
+                hasFile={!!sourceSVG}
+              />
+              <FileUploadZone
+                label="Target SVG"
+                onUpload={handleTargetUpload}
+                hasFile={!!targetSVG}
+              />
             </div>
+          </Panel>
 
-            {/* Animation Controls */}
+          <div className="lg:sticky lg:top-24 lg:col-span-2 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+            <Panel
+              title="Preview"
+              actions={
+                <div className="flex gap-2">
+                  <Button
+                    variant={viewMode === 'split' ? 'primary' : 'secondary'}
+                    aria-pressed={viewMode === 'split'}
+                    onClick={() => setViewMode('split')}
+                  >
+                    Split View
+                  </Button>
+                  <Button
+                    variant={viewMode === 'overlay' ? 'primary' : 'secondary'}
+                    aria-pressed={viewMode === 'overlay'}
+                    onClick={() => setViewMode('overlay')}
+                  >
+                    Overlay
+                  </Button>
+                </div>
+              }
+            >
+              <SVGPreview
+                sourceSVG={sourceSVG}
+                targetSVG={targetSVG}
+                viewMode={viewMode}
+                currentProgress={currentProgress}
+                animationSettings={animationSettings}
+              />
+            </Panel>
+          </div>
+
+          {/* Animation Controls */}
+          <div className="lg:col-start-1">
             <AnimationControls
               settings={animationSettings}
               onUpdateSettings={updateAnimationSettings}
@@ -73,53 +105,14 @@ export const Playground: React.FC = () => {
               onPause={pauseAnimation}
               onReset={resetAnimation}
             />
+          </div>
 
-            {/* Export Panel */}
+          {/* Export Panel */}
+          <div className="lg:col-start-1">
             <ExportPanel
               canExport={!!(sourceSVG && targetSVG)}
               animationSettings={animationSettings}
             />
-          </div>
-
-          {/* Right Panel - Preview */}
-          <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  Preview
-                </h2>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setViewMode('split')}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                      viewMode === 'split'
-                        ? 'bg-accent text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    Split View
-                  </button>
-                  <button
-                    onClick={() => setViewMode('overlay')}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                      viewMode === 'overlay'
-                        ? 'bg-accent text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    Overlay
-                  </button>
-                </div>
-              </div>
-
-              <SVGPreview
-                sourceSVG={sourceSVG}
-                targetSVG={targetSVG}
-                viewMode={viewMode}
-                currentProgress={currentProgress}
-                animationSettings={animationSettings}
-              />
-            </div>
           </div>
         </div>
       </div>

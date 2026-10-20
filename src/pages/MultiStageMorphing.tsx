@@ -1,11 +1,15 @@
 import React, { useState, useCallback } from 'react';
-import { ArrowLeft, Layers, Zap, Download, Video, FileText, Image, Settings, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Layers, Zap, Download, Video, FileText, Image, Settings, X } from 'lucide-react';
 import { EnhancedMultiStageMorphingPanel } from '../components/EnhancedMultiStageMorphingPanel';
 import { MultiStageSequence } from '../utils/multiStageMorphing';
 import { SVGData } from '../types/svg';
 import { exportSystem, VideoExportOptionsExtended, createVideoExportOptions } from '../utils/exportSystem';
 import { useToast } from '../contexts/ToastContext';
+import { Button } from '../components/ui/Button';
+import { Field, Select } from '../components/ui/Fields';
+import { Panel } from '../components/ui/Panel';
+
+const INPUT_CLASS = 'h-11 w-full bg-raised px-3 text-content';
 
 export const MultiStageMorphing: React.FC = () => {
   const [currentSequence, setCurrentSequence] = useState<MultiStageSequence | null>(null);
@@ -190,9 +194,9 @@ ${pathAnimations}
   const renderSVGPreview = () => {
     if (!previewSVG) {
       return (
-        <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
+        <div className="w-full h-full flex items-center justify-center text-muted">
           <div className="text-center">
-            <Layers className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <Layers className="w-16 h-16 mx-auto mb-4" />
             <p className="text-lg font-medium">No Preview Available</p>
             <p className="text-sm">Select a sequence to see the preview</p>
           </div>
@@ -203,9 +207,9 @@ ${pathAnimations}
     // Check if paths exist and is an array
     if (!previewSVG.paths || !Array.isArray(previewSVG.paths)) {
       return (
-        <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
+        <div className="w-full h-full flex items-center justify-center text-muted">
           <div className="text-center">
-            <Layers className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <Layers className="w-16 h-16 mx-auto mb-4" />
             <p className="text-lg font-medium">Invalid SVG Data</p>
             <p className="text-sm">SVG paths are missing or invalid</p>
           </div>
@@ -242,194 +246,146 @@ ${pathAnimations}
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Link
-                to="/"
-                className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-accent transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span>Back to Home</span>
-              </Link>
-              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
-                  <Layers className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">Multi-Stage Morphing</h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Create complex morphing sequences</p>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <header className="mb-10">
+          <h1 className="text-[clamp(2rem,4vw,3.5rem)] font-light leading-[1.05] tracking-[-0.035em]">
+            Multi-Stage Morphing
+          </h1>
+          <p className="mt-4 max-w-[70ch] text-lg text-muted">Create complex morphing sequences</p>
+          {currentSequence && (
+            <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted">
+              <Zap className="w-4 h-4" />
+              <span>{currentSequence.name}</span>
+              <span aria-hidden="true">•</span>
+              <span>{currentSequence.stages.length} stages</span>
+            </p>
+          )}
+        </header>
 
-            <div className="flex items-center space-x-3">
-              {currentSequence && (
-                <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-                  <Zap className="w-4 h-4" />
-                  <span>{currentSequence.name}</span>
-                  <span>•</span>
-                  <span>{currentSequence.stages.length} stages</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* One column on small screens (builder, preview, details, export, tips); on large screens the
+            preview stays in view on the right, sized to fit the viewport height, while everything else scrolls on the left. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:items-start">
           {/* Control Panel */}
-          <div className="space-y-6">
+          <div className="lg:col-start-1">
             <EnhancedMultiStageMorphingPanel
               onSequenceChange={handleSequenceChange}
               onPreviewUpdate={handlePreviewUpdate}
             />
-
-            {/* Sequence Information */}
-            {currentSequence && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Sequence Details</h3>
-                
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                    <div className="text-2xl font-bold text-accent">{currentSequence.stages.length}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Stages</div>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                    <div className="text-2xl font-bold text-secondary">{(currentSequence.totalDuration / 1000).toFixed(1)}s</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Duration</div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900 dark:text-white">Stage Timeline</h4>
-                  <div className="space-y-2">
-                    {currentSequence.stages.map((stage, index) => (
-                      <div key={stage.id} className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-accent/10 text-accent rounded-full flex items-center justify-center text-sm font-medium">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900 dark:text-white">{stage.name}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {stage.duration}ms • {stage.easing}
-                            {stage.delay > 0 && ` • ${stage.delay}ms delay`}
-                          </div>
-                        </div>
-                        {index < currentSequence.stages.length - 1 && (
-                          <div className="text-gray-400">→</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Quick Actions */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button 
-                  onClick={() => setShowExportPanel(true)}
-                  disabled={!currentSequence || isExporting}
-                  className="flex items-center justify-center space-x-2 p-3 bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Export Sequence</span>
-                </button>
-                <button 
-                  onClick={() => handleExport('svg')}
-                  disabled={!currentSequence || isExporting}
-                  className="flex items-center justify-center space-x-2 p-3 bg-secondary/10 text-secondary rounded-lg hover:bg-secondary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Image className="w-4 h-4" />
-                  <span>Quick SVG</span>
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Preview Panel */}
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Live Preview</h3>
-                  {previewSVG && (
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {previewSVG.width} × {previewSVG.height}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="aspect-square bg-gray-50 dark:bg-gray-700 p-8">
+          <div className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-4 lg:row-start-1">
+            <Panel
+              title="Live Preview"
+              actions={
+                previewSVG && (
+                  <div className="text-sm text-muted">
+                    {previewSVG.width} × {previewSVG.height}
+                  </div>
+                )
+              }
+            >
+              <div className="mx-auto aspect-square w-[min(100%,max(16rem,calc(100vh-14rem)))] bg-canvas p-8">
                 {renderSVGPreview()}
               </div>
-            </div>
+            </Panel>
+          </div>
 
-            {/* Tips & Help */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Tips & Features</h3>
-              
-              <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-accent rounded-full mt-2 flex-shrink-0"></div>
-                  <div>
-                    <strong className="text-gray-900 dark:text-white">Multi-Stage Sequences:</strong> Create complex animations by chaining multiple SVG morphs together
-                  </div>
+          {/* Sequence Information */}
+          {currentSequence && (
+            <Panel title="Sequence Details" className="lg:col-start-1">
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-raised p-4">
+                  <div className="text-3xl font-light text-link">{currentSequence.stages.length}</div>
+                  <div className="text-sm text-muted">Stages</div>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-secondary rounded-full mt-2 flex-shrink-0"></div>
-                  <div>
-                    <strong className="text-gray-900 dark:text-white">Custom Timing:</strong> Set individual durations, delays, and easing functions for each stage
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                  <div>
-                    <strong className="text-gray-900 dark:text-white">Loop & Reverse:</strong> Enable looping or auto-reverse for continuous animations
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-accent rounded-full mt-2 flex-shrink-0"></div>
-                  <div>
-                    <strong className="text-gray-900 dark:text-white">Export Options:</strong> Save sequences as JSON files or export as video/code
-                  </div>
+                <div className="bg-raised p-4">
+                  <div className="text-3xl font-light text-link">{(currentSequence.totalDuration / 1000).toFixed(1)}s</div>
+                  <div className="text-sm text-muted">Duration</div>
                 </div>
               </div>
+
+              <h3 className="mb-3 font-medium">Stage Timeline</h3>
+              <ol className="list-decimal space-y-3 pl-6 marker:text-muted">
+                {currentSequence.stages.map((stage) => (
+                  <li key={stage.id}>
+                    <div className="font-medium">{stage.name}</div>
+                    <div className="text-sm text-muted">
+                      {stage.duration}ms • {stage.easing}
+                      {stage.delay > 0 && ` • ${stage.delay}ms delay`}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </Panel>
+          )}
+
+          {/* Quick Actions */}
+          <Panel title="Export Options" className="lg:col-start-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button
+                variant="primary"
+                className="justify-center"
+                onClick={() => setShowExportPanel(true)}
+                disabled={!currentSequence || isExporting}
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Sequence</span>
+              </Button>
+              <Button
+                className="justify-center"
+                onClick={() => handleExport('svg')}
+                disabled={!currentSequence || isExporting}
+              >
+                <Image className="w-4 h-4" />
+                <span>Quick SVG</span>
+              </Button>
             </div>
-          </div>
+          </Panel>
+
+          {/* Tips & Help */}
+          <Panel title="Tips & Features" className="lg:col-start-1">
+            <ul className="list-disc space-y-3 pl-5 text-sm text-muted marker:text-link">
+              <li>
+                <strong className="font-medium text-content">Multi-Stage Sequences:</strong> Create complex animations by chaining multiple SVG morphs together
+              </li>
+              <li>
+                <strong className="font-medium text-content">Custom Timing:</strong> Set individual durations, delays, and easing functions for each stage
+              </li>
+              <li>
+                <strong className="font-medium text-content">Loop & Reverse:</strong> Enable looping or auto-reverse for continuous animations
+              </li>
+              <li>
+                <strong className="font-medium text-content">Export Options:</strong> Save sequences as JSON files or export as video/code
+              </li>
+            </ul>
+          </Panel>
         </div>
       </div>
 
       {/* Export Panel Modal */}
       {showExportPanel && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-sequence-title"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto bg-surface shadow-2xl"
+          >
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Export Sequence</h2>
-                <button
-                  onClick={() => setShowExportPanel(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                >
+                <h2 id="export-sequence-title" className="text-2xl font-medium">Export Sequence</h2>
+                <Button variant="ghost" size="icon" onClick={() => setShowExportPanel(false)} aria-label="Close export dialog">
                   <X className="w-5 h-5" />
-                </button>
+                </Button>
               </div>
 
               {currentSequence && (
-                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <h3 className="font-medium text-gray-900 dark:text-white mb-2">{currentSequence.name}</h3>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="mb-6 bg-raised p-4">
+                  <h3 className="font-medium mb-2">{currentSequence.name}</h3>
+                  <div className="text-sm text-muted">
                     {currentSequence.stages.length} stages • {(currentSequence.totalDuration / 1000).toFixed(1)}s duration
                     {currentSequence.loop && ' • Looping'}
                     {currentSequence.autoReverse && ' • Auto-reverse'}
@@ -437,147 +393,123 @@ ${pathAnimations}
                 </div>
               )}
 
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {/* Export Format Selection */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Format</h3>
+                  <h3 className="text-lg font-medium mb-4">Export Format</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <button
                       onClick={() => handleExport('svg')}
                       disabled={isExporting}
-                      className="flex flex-col items-center p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg hover:border-accent hover:bg-accent/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="press flex flex-col items-center bg-raised p-4 transition-colors hover:bg-line/40 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Image className="w-8 h-8 text-gray-600 dark:text-gray-400 mb-2" />
-                      <span className="font-medium text-gray-900 dark:text-white">Static SVG</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 text-center">First stage as SVG file</span>
+                      <Image className="w-8 h-8 text-link mb-2" />
+                      <span className="font-medium">Static SVG</span>
+                      <span className="text-sm text-muted text-center">First stage as SVG file</span>
                     </button>
-                    
+
                     <button
                       onClick={() => handleExport('smil')}
                       disabled={isExporting}
-                      className="flex flex-col items-center p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg hover:border-secondary hover:bg-secondary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="press flex flex-col items-center bg-raised p-4 transition-colors hover:bg-line/40 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <FileText className="w-8 h-8 text-gray-600 dark:text-gray-400 mb-2" />
-                      <span className="font-medium text-gray-900 dark:text-white">SMIL SVG</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Animated SVG with SMIL</span>
+                      <FileText className="w-8 h-8 text-link mb-2" />
+                      <span className="font-medium">SMIL SVG</span>
+                      <span className="text-sm text-muted text-center">Animated SVG with SMIL</span>
                     </button>
-                    
+
                     <button
                       onClick={() => handleExport('video')}
                       disabled={isExporting || !currentSequence || currentSequence.stages.length < 2}
-                      className="flex flex-col items-center p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg hover:border-accent hover:bg-accent/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="press flex flex-col items-center bg-raised p-4 transition-colors hover:bg-line/40 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Video className="w-8 h-8 text-gray-600 dark:text-gray-400 mb-2" />
-                      <span className="font-medium text-gray-900 dark:text-white">Video</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 text-center">MP4, WebM, or GIF</span>
+                      <Video className="w-8 h-8 text-link mb-2" />
+                      <span className="font-medium">Video</span>
+                      <span className="text-sm text-muted text-center">MP4, WebM, or GIF</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Video Export Options */}
-                <div className="border-t border-gray-200 dark:border-gray-600 pt-6">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Video Export Settings</h3>
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Settings className="w-5 h-5 text-link" />
+                    <h3 className="text-lg font-medium">Video Export Settings</h3>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Format
-                      </label>
-                      <select
+                    <Field label="Format">
+                      <Select
                         value={videoOptions.videoFormat}
                         onChange={(e) => setVideoOptions(prev => ({ ...prev, videoFormat: e.target.value as 'gif' | 'mp4' | 'webm' }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
                       >
                         <option value="mp4">MP4</option>
                         <option value="webm">WebM</option>
                         <option value="gif">GIF</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Quality
-                      </label>
-                      <select
+                      </Select>
+                    </Field>
+
+                    <Field label="Quality">
+                      <Select
                         value={videoOptions.quality}
                         onChange={(e) => setVideoOptions(prev => ({ ...prev, quality: e.target.value as 'low' | 'medium' | 'high' | 'ultra' }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
                       >
                         <option value="low">Low</option>
                         <option value="medium">Medium</option>
                         <option value="high">High</option>
                         <option value="ultra">Ultra</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Width
-                      </label>
+                      </Select>
+                    </Field>
+
+                    <Field label="Width">
                       <input
                         type="number"
                         value={videoOptions.width}
                         onChange={(e) => setVideoOptions(prev => ({ ...prev, width: parseInt(e.target.value) || 800 }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
+                        className={INPUT_CLASS}
                         min="100"
                         max="4096"
                       />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Height
-                      </label>
+                    </Field>
+
+                    <Field label="Height">
                       <input
                         type="number"
                         value={videoOptions.height}
                         onChange={(e) => setVideoOptions(prev => ({ ...prev, height: parseInt(e.target.value) || 600 }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
+                        className={INPUT_CLASS}
                         min="100"
                         max="4096"
                       />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Frame Rate (FPS)
-                      </label>
+                    </Field>
+
+                    <Field label="Frame Rate (FPS)">
                       <input
                         type="number"
                         value={videoOptions.fps}
                         onChange={(e) => setVideoOptions(prev => ({ ...prev, fps: parseInt(e.target.value) || 30 }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
+                        className={INPUT_CLASS}
                         min="1"
                         max="120"
                       />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Background Color
-                      </label>
+                    </Field>
+
+                    <Field label="Background Color">
                       <input
                         type="color"
                         value={videoOptions.backgroundColor}
                         onChange={(e) => setVideoOptions(prev => ({ ...prev, backgroundColor: e.target.value }))}
-                        className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-accent focus:border-transparent"
+                        className="h-11 w-full cursor-pointer bg-raised p-1"
                       />
-                    </div>
+                    </Field>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
-                <button
-                  onClick={() => setShowExportPanel(false)}
-                  disabled={isExporting}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+              <div className="flex justify-end gap-3 mt-8">
+                <Button variant="ghost" onClick={() => setShowExportPanel(false)} disabled={isExporting}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           </div>

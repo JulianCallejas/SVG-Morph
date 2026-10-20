@@ -1,5 +1,10 @@
 import { SVGData } from '../workers/pathProcessor';
 
+// Defaults for the 3D scene in the brand palette. three.js needs literal values, so they live here once:
+// the material is sun-400 and the scene background is the canvas token (ash-900).
+export const DEFAULT_MATERIAL_COLOR = '#ffde3a';
+const SCENE_BACKGROUND = 0x141414;
+
 export interface ThreeDMorphingOptions {
   depth: number;
   perspective: number;
@@ -50,7 +55,7 @@ export class ThreeDMorphingEngine {
       position: { x: 10, y: 10, z: 10 }
     },
     material: {
-      color: '#5cbe2c',
+      color: DEFAULT_MATERIAL_COLOR,
       metalness: 0.3,
       roughness: 0.4,
       opacity: 1.0
@@ -101,7 +106,7 @@ export class ThreeDMorphingEngine {
 
     // Create scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
+    scene.background = new THREE.Color(SCENE_BACKGROUND);
 
     // Create camera
     const camera = new THREE.PerspectiveCamera(

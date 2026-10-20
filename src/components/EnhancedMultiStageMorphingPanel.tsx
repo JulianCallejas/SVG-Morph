@@ -3,6 +3,9 @@ import { Play, Pause, Square, RotateCcw, Plus, Trash2, Save, Upload, Download, S
 import { multiStageMorphing, MultiStageSequence, MorphingStage, StageTransition } from '../utils/multiStageMorphing';
 import { SVGData } from '../types/svg';
 import { useToast } from '../contexts/ToastContext';
+import { Button } from './ui/Button';
+import { Panel } from './ui/Panel';
+import { Field, Select, Slider } from './ui/Fields';
 
 interface EnhancedMultiStageMorphingPanelProps {
   onSequenceChange?: (sequence: MultiStageSequence | null) => void;
@@ -273,106 +276,88 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
   const activeSequence = activeSequenceId ? multiStageMorphing.getSequence(activeSequenceId) : null;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-            <Play className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Multi-Stage Morphing</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Create complex animation sequences</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setShowStageBuilder(true)}
-            className="inline-flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg"
-          >
+    <Panel
+      title="Multi-Stage Morphing"
+      className="space-y-6"
+      actions={
+        <div className="flex items-center gap-2">
+          <Button variant="primary" onClick={() => setShowStageBuilder(true)}>
             <Plus className="w-4 h-4" />
             <span>New Sequence</span>
-          </button>
-          <button
+          </Button>
+          <Button
+            size="icon"
+            variant={showSettings ? 'primary' : 'ghost'}
             onClick={() => setShowSettings(!showSettings)}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-accent hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <Settings className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
-      </div>
+      }
+    >
+      <p className="text-sm text-muted -mt-2">Create complex animation sequences</p>
 
       {/* Stage Builder Modal */}
       {showStageBuilder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Create Multi-Stage Sequence</h3>
-              <button
-                onClick={() => setShowStageBuilder(false)}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg transition-colors"
-              >
+        <div className="fixed inset-0 !mt-0 bg-canvas/80 flex items-center justify-center z-[60] p-4">
+          <div className="bg-surface max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between gap-4 p-5 sm:p-6">
+              <h3 className="text-xl font-medium">Create Multi-Stage Sequence</h3>
+              <Button size="icon" variant="ghost" onClick={() => setShowStageBuilder(false)}>
                 <X className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
-            
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+
+            <div className="px-5 pb-5 sm:px-6 sm:pb-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               <div className="space-y-6">
                 {/* Sequence Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Sequence Name
-                  </label>
+                <Field label="Sequence Name">
                   <input
                     type="text"
                     value={buildingSequenceName}
                     onChange={(e) => setBuildingSequenceName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
+                    className="h-11 w-full bg-raised px-3 text-content"
                     placeholder="My Animation Sequence"
                   />
-                </div>
+                </Field>
 
                 {/* Stages */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Animation Stages</h4>
-                    <div className="flex items-center space-x-2">
-                      <button
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h4 className="text-lg font-medium">Animation Stages</h4>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
                         onClick={() => setStageUploads(prev => [...prev].reverse())}
                         disabled={stageUploads.length < 2}
-                        className="inline-flex items-center space-x-2 bg-secondary hover:bg-secondary/90 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg font-medium transition-colors"
                         title="Reverse Stage Order"
                       >
                         <ArrowUpDown className="w-4 h-4" />
                         <span>Reverse</span>
-                      </button>
-                      <button
-                        onClick={handleAddStage}
-                        className="inline-flex items-center space-x-2 bg-accent hover:bg-accent/90 text-white px-3 py-2 rounded-lg font-medium transition-colors"
-                      >
+                      </Button>
+                      <Button variant="primary" onClick={handleAddStage}>
                         <Plus className="w-4 h-4" />
                         <span>Add Stage</span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
                   {stageUploads.length === 0 && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <FileImage className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <div className="text-center py-8 text-muted">
+                      <FileImage className="w-12 h-12 mx-auto mb-3" />
                       <p>No stages added yet</p>
                       <p className="text-sm">Click "Add Stage" to get started</p>
                     </div>
                   )}
 
                   {stageUploads.map((stage, index) => (
-                    <div key={stage.id} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h5 className="font-medium text-gray-900 dark:text-white">
+                    <div key={stage.id} className="bg-canvas p-4 space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <h5 className="font-medium">
                           Stage {index + 1}: {stage.name}
                         </h5>
                         <button
                           onClick={() => handleRemoveStage(stage.id)}
-                          className="p-1 text-red-600 hover:text-red-700 transition-colors"
+                          className="inline-flex h-11 w-11 items-center justify-center text-danger hover:bg-raised transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -381,9 +366,7 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* SVG Upload */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            SVG File
-                          </label>
+                          <span className="mb-2 block text-sm font-medium">SVG File</span>
                           <input
                             ref={el => fileInputRefs.current[stage.id] = el}
                             type="file"
@@ -393,10 +376,10 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                           />
                           <button
                             onClick={() => fileInputRefs.current[stage.id]?.click()}
-                            className={`w-full p-3 border-2 border-dashed rounded-xl transition-colors ${
+                            className={`w-full min-h-11 p-3 transition-colors ${
                               stage.svgData
-                                ? 'border-green-300 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
-                                : 'border-gray-300 dark:border-gray-600 hover:border-accent text-gray-600 dark:text-gray-400'
+                                ? 'bg-sun-800 text-content'
+                                : 'bg-raised hover:bg-line/30 text-muted'
                             }`}
                           >
                             <div className="flex items-center justify-center space-x-2">
@@ -409,42 +392,32 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                         </div>
 
                         {/* Stage Name */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Stage Name
-                          </label>
+                        <Field label="Stage Name">
                           <input
                             type="text"
                             value={stage.name}
                             onChange={(e) => handleUpdateStageProperty(stage.id, 'name', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
+                            className="h-11 w-full bg-raised px-3 text-content"
                           />
-                        </div>
+                        </Field>
 
                         {/* Duration */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Duration (ms)
-                          </label>
+                        <Field label="Duration (ms)">
                           <input
                             type="number"
                             min="100"
                             max="10000"
                             value={stage.duration}
                             onChange={(e) => handleUpdateStageProperty(stage.id, 'duration', parseInt(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
+                            className="h-11 w-full bg-raised px-3 text-content"
                           />
-                        </div>
+                        </Field>
 
                         {/* Easing */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Easing
-                          </label>
-                          <select
+                        <Field label="Easing">
+                          <Select
                             value={stage.easing}
                             onChange={(e) => handleUpdateStageProperty(stage.id, 'easing', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
                           >
                             <option value="linear">Linear</option>
                             <option value="ease">Ease</option>
@@ -453,18 +426,18 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                             <option value="ease-in-out">Ease In Out</option>
                             <option value="bounce">Bounce</option>
                             <option value="elastic">Elastic</option>
-                          </select>
-                        </div>
+                          </Select>
+                        </Field>
                       </div>
 
                       {/* SVG Preview */}
                       {stage.svgData && (
-                        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+                        <div className="bg-raised p-3">
                           <div className="flex items-center justify-center h-20">
-                            <div 
+                            <div
                               dangerouslySetInnerHTML={{
                                 __html: `<svg width="60" height="60" viewBox="${stage.svgData.viewBox}" class="max-w-full max-h-full">
-                                  ${stage.svgData.paths.map(path => 
+                                  ${stage.svgData.paths.map(path =>
                                     `<path d="${path.d}" fill="${path.fill}" stroke="${path.stroke}" stroke-width="${path.strokeWidth}" />`
                                   ).join('')}
                                 </svg>`
@@ -478,21 +451,18 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                 </div>
 
                 {/* Create Button */}
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => setShowStageBuilder(false)}
-                    className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                  >
+                <div className="flex flex-wrap justify-end gap-3 pt-4">
+                  <Button variant="ghost" onClick={() => setShowStageBuilder(false)}>
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={handleCreateSequenceFromStages}
                     disabled={!buildingSequenceName.trim() || stageUploads.length < 2 || stageUploads.some(s => !s.svgData)}
-                    className="inline-flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-400 disabled:to-gray-500 text-white px-6 py-2 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg disabled:cursor-not-allowed disabled:transform-none"
                   >
                     <Save className="w-4 h-4" />
                     <span>Create Sequence</span>
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -503,32 +473,32 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
       {/* Existing sequences and controls... */}
       {sequences.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Sequences</h3>
+          <h3 className="text-lg font-medium">Sequences</h3>
           <div className="grid gap-3">
             {sequences.map((sequence) => (
               <div
                 key={sequence.id}
-                className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                className={`p-4 transition-colors cursor-pointer ${
                   activeSequenceId === sequence.id
-                    ? 'border-accent bg-accent/5 dark:bg-accent/10'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-accent/50'
+                    ? 'bg-sun-800'
+                    : 'bg-raised hover:bg-line/30'
                 }`}
                 onClick={() => handleSequenceSelect(sequence.id)}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{sequence.name}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <h4 className="font-medium">{sequence.name}</h4>
+                    <p className="text-sm text-muted">
                       {sequence.stages.length} stages • {(sequence.totalDuration / 1000).toFixed(1)}s
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleReverseSequence(sequence.id);
                       }}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:text-accent hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      className="inline-flex h-11 w-11 items-center justify-center text-content hover:bg-line/40 transition-colors"
                       title="Reverse Stage Order"
                     >
                       <ArrowUpDown className="w-4 h-4" />
@@ -538,7 +508,7 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                         e.stopPropagation();
                         handleExportSequence(sequence.id);
                       }}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:text-secondary hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      className="inline-flex h-11 w-11 items-center justify-center text-content hover:bg-line/40 transition-colors"
                       title="Export Sequence"
                     >
                       <Download className="w-4 h-4" />
@@ -548,7 +518,7 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                         e.stopPropagation();
                         handleDeleteSequence(sequence.id);
                       }}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      className="inline-flex h-11 w-11 items-center justify-center text-content hover:bg-line/40 transition-colors"
                       title="Delete Sequence"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -563,48 +533,37 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
 
       {/* Playback Controls */}
       {activeSequence && (
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-gray-900 dark:text-white">Playback Controls</h4>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="bg-canvas p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="font-medium">Playback Controls</h4>
+            <div className="text-sm text-muted">
               Stage {currentStage + 1} of {activeSequence.stages.length}
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={isPlaying ? handlePause : handlePlay}
-              className="p-3 bg-accent hover:bg-accent/90 text-white rounded-lg transition-colors"
-            >
+          <div className="flex items-center gap-3">
+            <Button size="icon" variant="primary" onClick={isPlaying ? handlePause : handlePlay}>
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-            </button>
-            <button
-              onClick={handleStop}
-              className="p-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-            >
+            </Button>
+            <Button size="icon" onClick={handleStop}>
               <Square className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleReverse}
-              className="p-3 bg-secondary hover:bg-secondary/90 text-white rounded-lg transition-colors"
-            >
+            </Button>
+            <Button size="icon" onClick={handleReverse}>
               <RotateCcw className="w-5 h-5" />
-            </button>
+            </Button>
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center justify-between text-sm text-muted">
               <span>Progress</span>
               <span>{Math.round(currentProgress * 100)}%</span>
             </div>
-            <input
-              type="range"
+            <Slider
               min="0"
               max="1"
               step="0.01"
               value={currentProgress}
               onChange={(e) => handleSeek(parseFloat(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 slider"
             />
           </div>
         </div>
@@ -612,12 +571,12 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
 
       {/* Empty State */}
       {sequences.length === 0 && (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <Play className="w-12 h-12 mx-auto mb-3 opacity-50" />
+        <div className="text-center py-8 text-muted">
+          <Play className="w-12 h-12 mx-auto mb-3" />
           <p>No sequences created yet</p>
           <p className="text-sm">Click "New Sequence" to get started</p>
         </div>
       )}
-    </div>
+    </Panel>
   );
 };

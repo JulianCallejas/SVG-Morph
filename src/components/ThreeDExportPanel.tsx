@@ -3,6 +3,8 @@ import { Download, FileText, Box, Layers, Globe, X } from 'lucide-react';
 import { threeDExporter, ThreeDExportOptions, ExportResult } from '../utils/threeDExport';
 import { ThreeDScene } from '../utils/threeDMorphing';
 import { useToast } from '../contexts/ToastContext';
+import { Button } from './ui/Button';
+import { Field, Select, Slider, CheckRow } from './ui/Fields';
 
 interface ThreeDExportPanelProps {
   scene: ThreeDScene | null;
@@ -106,67 +108,55 @@ export const ThreeDExportPanel: React.FC<ThreeDExportPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-canvas/80 z-50 flex items-center justify-center p-4">
+      <div className="bg-surface max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl flex items-center justify-center">
-              <Download className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Export 3D Model</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Choose format and export options</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-accent hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
+        <div className="flex items-center justify-between gap-4 p-5 sm:p-6">
+          <h2 className="text-xl font-medium">Export 3D Model</h2>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 px-5 pb-6 sm:px-6 overflow-y-auto">
+          <p className="text-sm text-muted mb-6">Choose format and export options</p>
+
           {/* Format Selection */}
           <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Format</h3>
+            <h3 className="text-lg font-medium mb-4">Export Format</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(formatInfo).map(([format, info]) => {
                 const Icon = info.icon;
                 const isSelected = exportOptions.format === format;
+                const selectFormat = () => setExportOptions(prev => ({ ...prev, format: format as any }));
                 return (
                   <div
                     key={format}
-                    onClick={() => setExportOptions(prev => ({ ...prev, format: format as any }))}
-                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                      isSelected
-                        ? 'border-accent bg-accent/5 shadow-lg'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-accent/50 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    role="radio"
+                    aria-checked={isSelected}
+                    tabIndex={0}
+                    onClick={selectFormat}
+                    onKeyDown={(e) => {
+                      if (e.target === e.currentTarget && (e.key === ' ' || e.key === 'Enter')) {
+                        e.preventDefault();
+                        selectFormat();
+                      }
+                    }}
+                    className={`p-4 cursor-pointer transition-colors ${
+                      isSelected ? 'bg-sun-800' : 'bg-raised hover:bg-line/30'
                     }`}
                   >
-                    <div className="flex items-start space-x-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        isSelected 
-                          ? 'bg-gradient-to-br from-accent to-accent/80' 
-                          : 'bg-gradient-to-br from-gray-400 to-gray-500'
-                      }`}>
-                        <Icon className="w-5 h-5 text-white" />
-                      </div>
+                    <div className="flex items-start gap-3">
+                      <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isSelected ? 'text-link' : 'text-muted'}`} />
                       <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="font-semibold text-gray-900 dark:text-white">{info.name}</h4>
-                          <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">
-                            {info.extension}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium">{info.name}</h4>
+                          <span className="text-sm text-muted">{info.extension}</span>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{info.description}</p>
-                        <div className="flex flex-wrap gap-1 mt-2">
+                        <p className="text-sm text-muted mt-1">{info.description}</p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
                           {info.features.slice(0, 3).map((feature) => (
-                            <span
-                              key={feature}
-                              className="text-xs bg-accent/10 text-accent px-2 py-1 rounded"
-                            >
+                            <span key={feature} className="text-sm text-link">
                               {feature}
                             </span>
                           ))}
@@ -183,39 +173,32 @@ export const ThreeDExportPanel: React.FC<ThreeDExportPanelProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Quality Settings */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quality Settings</h3>
+              <h3 className="text-lg font-medium mb-4">Quality Settings</h3>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Export Quality
-                  </label>
-                  <select
+                <Field label="Export Quality">
+                  <Select
                     value={exportOptions.quality}
                     onChange={(e) => setExportOptions(prev => ({ ...prev, quality: e.target.value as any }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-accent"
                   >
                     {Object.entries(qualitySettings).map(([quality, settings]) => (
                       <option key={quality} value={quality}>
                         {quality.charAt(0).toUpperCase() + quality.slice(1)} - {settings.description}
                       </option>
                     ))}
-                  </select>
-                </div>
+                  </Select>
+                </Field>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Scale Factor: {exportOptions.scale}x
-                  </label>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="5.0"
-                    step="0.1"
-                    value={exportOptions.scale}
-                    onChange={(e) => setExportOptions(prev => ({ ...prev, scale: parseFloat(e.target.value) }))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600 focus:ring-2 focus:ring-accent"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <Field label={`Scale Factor: ${exportOptions.scale}x`}>
+                    <Slider
+                      min="0.1"
+                      max="5.0"
+                      step="0.1"
+                      value={exportOptions.scale}
+                      onChange={(e) => setExportOptions(prev => ({ ...prev, scale: parseFloat(e.target.value) }))}
+                    />
+                  </Field>
+                  <div className="flex justify-between text-sm text-muted">
                     <span>0.1x</span>
                     <span>5.0x</span>
                   </div>
@@ -225,61 +208,46 @@ export const ThreeDExportPanel: React.FC<ThreeDExportPanelProps> = ({
 
             {/* Advanced Options */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Advanced Options</h3>
+              <h3 className="text-lg font-medium mb-4">Advanced Options</h3>
               <div className="space-y-4">
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
+                <div>
+                  <CheckRow
+                    label="Include Normals"
                     checked={exportOptions.includeNormals}
                     onChange={(e) => setExportOptions(prev => ({ ...prev, includeNormals: e.target.checked }))}
-                    className="w-4 h-4 text-accent bg-gray-100 border-gray-300 rounded focus:ring-accent focus:ring-2"
                   />
-                  <div>
-                    <span className="text-gray-900 dark:text-white font-medium">Include Normals</span>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Better lighting and shading</p>
-                  </div>
-                </label>
+                  <p className="text-sm text-muted mt-1">Better lighting and shading</p>
+                </div>
 
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
+                <div>
+                  <CheckRow
+                    label="Include Materials"
                     checked={exportOptions.includeTextures}
                     onChange={(e) => setExportOptions(prev => ({ ...prev, includeTextures: e.target.checked }))}
-                    className="w-4 h-4 text-accent bg-gray-100 border-gray-300 rounded focus:ring-accent focus:ring-2"
                   />
-                  <div>
-                    <span className="text-gray-900 dark:text-white font-medium">Include Materials</span>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Export material properties</p>
-                  </div>
-                </label>
+                  <p className="text-sm text-muted mt-1">Export material properties</p>
+                </div>
 
-                <label className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
+                <div>
+                  <CheckRow
+                    label="Center Model"
                     checked={exportOptions.centerModel}
                     onChange={(e) => setExportOptions(prev => ({ ...prev, centerModel: e.target.checked }))}
-                    className="w-4 h-4 text-accent bg-gray-100 border-gray-300 rounded focus:ring-accent focus:ring-2"
                   />
-                  <div>
-                    <span className="text-gray-900 dark:text-white font-medium">Center Model</span>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Position at origin (0,0,0)</p>
-                  </div>
-                </label>
+                  <p className="text-sm text-muted mt-1">Position at origin (0,0,0)</p>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Compatibility Info */}
-          <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+          <div className="mt-8 p-4 bg-canvas">
+            <h4 className="font-medium mb-2">
               {formatInfo[exportOptions.format].name} Compatibility
             </h4>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
               {formatInfo[exportOptions.format].compatibility.map((app) => (
-                <span
-                  key={app}
-                  className="text-sm bg-accent/10 text-accent px-3 py-1 rounded-lg"
-                >
+                <span key={app} className="text-sm text-link">
                   {app}
                 </span>
               ))}
@@ -288,25 +256,22 @@ export const ThreeDExportPanel: React.FC<ThreeDExportPanelProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Export as <strong>{formatInfo[exportOptions.format].name}</strong> format
+        <div className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6 bg-canvas">
+          <div className="text-sm text-muted">
+            Export as <strong className="text-content">{formatInfo[exportOptions.format].name}</strong> format
           </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               onClick={handleExport}
               disabled={!scene || isExporting}
-              className="inline-flex items-center space-x-2 bg-gradient-to-r from-accent to-accent/80 hover:from-accent/90 hover:to-accent/70 disabled:from-gray-400 disabled:to-gray-500 text-white px-6 py-2 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg disabled:cursor-not-allowed disabled:transform-none"
             >
               {isExporting ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-on-action border-t-transparent rounded-full animate-spin motion-reduce:animate-none"></div>
                   <span>Exporting...</span>
                 </>
               ) : (
@@ -315,7 +280,7 @@ export const ThreeDExportPanel: React.FC<ThreeDExportPanelProps> = ({
                   <span>Export 3D Model</span>
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

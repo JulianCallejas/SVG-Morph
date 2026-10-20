@@ -4,29 +4,31 @@ import { exportSystem, ExportOptions, JavaScriptExportOptions, ExportResult, cre
 import { useToast } from '../contexts/ToastContext';
 import { 
   Download, 
-  Settings, 
   FileText, 
   Image, 
   Code, 
   Database,
   History,
   Trash2,
-  CheckSquare,
-  Square,
   Loader2,
   Zap,
   Video
 } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Panel } from './ui/Panel';
+import { Field, Select, CheckRow } from './ui/Fields';
+
+const INPUT_CLASS = 'h-11 w-full bg-raised px-3 text-content placeholder:text-muted';
 
 export const EnhancedExportPanel: React.FC = () => {
   const { sourceSVG, targetSVG, animationSettings, nodeMatches, manualModeEnabled } = useMorphStore();
+  const canExport = !!sourceSVG && !!targetSVG;
   const { showSuccess, showError, showWarning, showInfo } = useToast();
   const [exportOptions, setExportOptions] = useState<ExportOptions>(createExportOptions({
     duration: animationSettings.duration,
     easing: animationSettings.easing,
     loop: animationSettings.loop,
   }));
-  const [selectedFormats, setSelectedFormats] = useState<Set<ExportOptions['format']>>(new Set(['svg']));
   const [isExporting, setIsExporting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [exportResults, setExportResults] = useState<ExportResult[]>([]);
@@ -64,16 +66,6 @@ export const EnhancedExportPanel: React.FC = () => {
     javascript: 'JavaScript function for programmatic control',
     video: 'Video animation (MP4, WebM, GIF)',
   };
-
-  const handleFormatToggle = useCallback((format: ExportOptions['format']) => {
-    const newSelected = new Set(selectedFormats);
-    if (newSelected.has(format)) {
-      newSelected.delete(format);
-    } else {
-      newSelected.add(format);
-    }
-    setSelectedFormats(newSelected);
-  }, [selectedFormats]);
 
   const handleSingleExport = useCallback(async (format: ExportOptions['format']) => {
     if (!sourceSVG || !targetSVG) {
@@ -155,54 +147,6 @@ export const EnhancedExportPanel: React.FC = () => {
     }
   }, [sourceSVG, targetSVG, exportOptions, jsOptions, videoOptions, nodeMatches, manualModeEnabled, showWarning, showError, showSuccess]);
 
-  const handleBatchExport = useCallback(async () => {
-    if (!sourceSVG || !targetSVG) {
-      showWarning('Missing SVG Files', 'Please load both source and target SVG files first.');
-      return;
-    }
-
-    if (selectedFormats.size === 0) {
-      showWarning('No Format Selected', 'Please select at least one format to export.');
-      return;
-    }
-
-    setIsExporting(true);
-    try {
-      const formatOptions = Array.from(selectedFormats).map(format => {
-        const shouldUseManualMatches = manualModeEnabled && nodeMatches.length > 0;
-        const baseOptions = {
-          ...exportOptions,
-          format,
-          nodeMatches: shouldUseManualMatches ? nodeMatches : undefined,
-          useManualMatching: shouldUseManualMatches
-        };
-        
-        if (format === 'javascript') {
-          return {
-            ...baseOptions,
-            ...jsOptions
-          } as JavaScriptExportOptions;
-        }
-        return baseOptions;
-      });
-
-      const results = await exportSystem.batchExport(sourceSVG, targetSVG, formatOptions);
-      
-      // Download all results
-      results.forEach(result => {
-        setTimeout(() => exportSystem.downloadResult(result), 100);
-      });
-
-      setExportResults(prev => [...results, ...prev].slice(0, 10)); // Keep last 10 results
-      showSuccess('Export Complete', `Successfully exported ${results.length} format(s)!`);
-    } catch (error) {
-      console.error('Batch export failed:', error);
-      showError('Batch Export Failed', 'An error occurred during batch export. Please check the console for details.');
-    } finally {
-      setIsExporting(false);
-    }
-  }, [sourceSVG, targetSVG, selectedFormats, exportOptions, jsOptions, nodeMatches, manualModeEnabled, showWarning, showError, showSuccess]);
-
   const handleHistoryDownload = useCallback(() => {
     // In a real implementation, you'd re-export or store the content
     showInfo('Feature Coming Soon', 'Re-export functionality will be implemented in a future update.');
@@ -219,39 +163,25 @@ export const EnhancedExportPanel: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Export Options */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
-            <Settings className="w-4 h-4 text-white" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Export Options</h3>
-        </div>
-
+      <Panel title="Export Options">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Basic Settings */}
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Resolution Scale
-              </label>
-              <select
+            <Field label="Resolution Scale">
+              <Select
                 value={exportOptions.resolution}
                 onChange={(e) => setExportOptions(prev => ({
                   ...prev,
                   resolution: Number(e.target.value) as 1 | 2 | 4
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
               >
                 <option value={1}>1x (Standard)</option>
                 <option value={2}>2x (High DPI)</option>
                 <option value={4}>4x (Ultra High DPI)</option>
-              </select>
-            </div>
+              </Select>
+            </Field>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Duration (seconds)
-              </label>
+            <Field label="Duration (seconds)">
               <input
                 type="number"
                 value={exportOptions.duration}
@@ -259,24 +189,20 @@ export const EnhancedExportPanel: React.FC = () => {
                   ...prev,
                   duration: Number(e.target.value)
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+                className={INPUT_CLASS}
                 min="0.1"
                 max="10"
                 step="0.1"
               />
-            </div>
+            </Field>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Easing Function
-              </label>
-              <select
+            <Field label="Easing Function">
+              <Select
                 value={exportOptions.easing}
                 onChange={(e) => setExportOptions(prev => ({
                   ...prev,
                   easing: e.target.value
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
               >
                 <option value="linear">Linear</option>
                 <option value="easeIn">Ease In</option>
@@ -284,16 +210,13 @@ export const EnhancedExportPanel: React.FC = () => {
                 <option value="easeInOut">Ease In Out</option>
                 <option value="bounce">Bounce</option>
                 <option value="elastic">Elastic</option>
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
 
           {/* Advanced Settings */}
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Filename (optional)
-              </label>
+            <Field label="Filename (optional)">
               <input
                 type="text"
                 value={exportOptions.filename || ''}
@@ -302,343 +225,240 @@ export const EnhancedExportPanel: React.FC = () => {
                   filename: e.target.value || undefined
                 }))}
                 placeholder="Auto-generated if empty"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors placeholder-gray-400 dark:placeholder-gray-500"
+                className={INPUT_CLASS}
+              />
+            </Field>
+
+            <div className="space-y-3">
+              <CheckRow
+                label="Include Animation"
+                checked={exportOptions.includeAnimation}
+                onChange={(e) => setExportOptions(prev => ({
+                  ...prev,
+                  includeAnimation: e.target.checked
+                }))}
+              />
+
+              <CheckRow
+                label="Loop Animation"
+                checked={exportOptions.loop}
+                onChange={(e) => setExportOptions(prev => ({
+                  ...prev,
+                  loop: e.target.checked
+                }))}
+              />
+
+              <CheckRow
+                label="Optimize SVG"
+                checked={exportOptions.optimize}
+                onChange={(e) => setExportOptions(prev => ({
+                  ...prev,
+                  optimize: e.target.checked
+                }))}
+              />
+            </div>
+          </div>
+        </div>
+      </Panel>
+
+      {/* JavaScript Options */}
+      <Panel title="JavaScript Options">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Library Selection */}
+          <div className="space-y-4">
+            <Field label="Animation Library">
+              <Select
+                value={jsOptions.library}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  library: e.target.value as 'vanilla' | 'gsap' | 'anime'
+                }))}
+              >
+                <option value="vanilla">Vanilla JavaScript</option>
+                <option value="gsap">GSAP (GreenSock)</option>
+                <option value="anime">Anime.js</option>
+              </Select>
+            </Field>
+
+            <Field label="Export Type">
+              <Select
+                value={jsOptions.exportType}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  exportType: e.target.value as 'function' | 'class' | 'module'
+                }))}
+              >
+                <option value="function">Function</option>
+                <option value="class">Class</option>
+                <option value="module">ES6 Module</option>
+              </Select>
+            </Field>
+
+            <Field label="Function/Class Name">
+              <input
+                type="text"
+                value={jsOptions.functionName}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  functionName: e.target.value
+                }))}
+                className={INPUT_CLASS}
+                placeholder="createSVGMorph"
+              />
+            </Field>
+          </div>
+
+          {/* Advanced Options */}
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <CheckRow
+                label="Include Library Import"
+                checked={jsOptions.includeLibraryImport}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  includeLibraryImport: e.target.checked
+                }))}
+              />
+
+              <CheckRow
+                label="Minify Code"
+                checked={jsOptions.minified}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  minified: e.target.checked
+                }))}
+              />
+
+              <CheckRow
+                label="Include TypeScript Definitions"
+                checked={jsOptions.includeTypeScript}
+                onChange={(e) => setJsOptions(prev => ({
+                  ...prev,
+                  includeTypeScript: e.target.checked
+                }))}
               />
             </div>
 
-            <div className="space-y-3">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={exportOptions.includeAnimation}
-                  onChange={(e) => setExportOptions(prev => ({
-                    ...prev,
-                    includeAnimation: e.target.checked
-                  }))}
-                  className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Include Animation</span>
-              </label>
-
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={exportOptions.loop}
-                  onChange={(e) => setExportOptions(prev => ({
-                    ...prev,
-                    loop: e.target.checked
-                  }))}
-                  className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Loop Animation</span>
-              </label>
-
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={exportOptions.optimize}
-                  onChange={(e) => setExportOptions(prev => ({
-                    ...prev,
-                    optimize: e.target.checked
-                  }))}
-                  className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Optimize SVG</span>
-              </label>
+            {/* Library Info */}
+            <div className="p-4 bg-raised">
+              <h4 className="font-medium mb-2">
+                {jsOptions.library === 'vanilla' && 'Vanilla JavaScript'}
+                {jsOptions.library === 'gsap' && 'GSAP (GreenSock)'}
+                {jsOptions.library === 'anime' && 'Anime.js'}
+              </h4>
+              <p className="text-sm text-muted">
+                {jsOptions.library === 'vanilla' && 'Pure JavaScript with no dependencies. Uses Web Animations API and requestAnimationFrame.'}
+                {jsOptions.library === 'gsap' && 'Professional animation library with MorphSVG plugin. Requires GSAP license for commercial use.'}
+                {jsOptions.library === 'anime' && 'Lightweight animation library (~17KB). MIT license, good SVG support.'}
+              </p>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* JavaScript Options */}
-      {selectedFormats.has('javascript') && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">JavaScript Options</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Library Selection */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Animation Library
-                </label>
-                <select
-                  value={jsOptions.library}
-                  onChange={(e) => setJsOptions(prev => ({
-                    ...prev,
-                    library: e.target.value as 'vanilla' | 'gsap' | 'anime'
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
-                >
-                  <option value="vanilla">Vanilla JavaScript</option>
-                  <option value="gsap">GSAP (GreenSock)</option>
-                  <option value="anime">Anime.js</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Export Type
-                </label>
-                <select
-                  value={jsOptions.exportType}
-                  onChange={(e) => setJsOptions(prev => ({
-                    ...prev,
-                    exportType: e.target.value as 'function' | 'class' | 'module'
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
-                >
-                  <option value="function">Function</option>
-                  <option value="class">Class</option>
-                  <option value="module">ES6 Module</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Function/Class Name
-                </label>
-                <input
-                  type="text"
-                  value={jsOptions.functionName}
-                  onChange={(e) => setJsOptions(prev => ({
-                    ...prev,
-                    functionName: e.target.value
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
-                  placeholder="createSVGMorph"
-                />
-              </div>
-            </div>
-
-            {/* Advanced Options */}
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={jsOptions.includeLibraryImport}
-                    onChange={(e) => setJsOptions(prev => ({
-                      ...prev,
-                      includeLibraryImport: e.target.checked
-                    }))}
-                    className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Include Library Import</span>
-                </label>
-
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={jsOptions.minified}
-                    onChange={(e) => setJsOptions(prev => ({
-                      ...prev,
-                      minified: e.target.checked
-                    }))}
-                    className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Minify Code</span>
-                </label>
-
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={jsOptions.includeTypeScript}
-                    onChange={(e) => setJsOptions(prev => ({
-                      ...prev,
-                      includeTypeScript: e.target.checked
-                    }))}
-                    className="mr-3 w-4 h-4 text-accent bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-accent focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Include TypeScript Definitions</span>
-                </label>
-              </div>
-
-              {/* Library Info */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  {jsOptions.library === 'vanilla' && 'Vanilla JavaScript'}
-                  {jsOptions.library === 'gsap' && 'GSAP (GreenSock)'}
-                  {jsOptions.library === 'anime' && 'Anime.js'}
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {jsOptions.library === 'vanilla' && 'Pure JavaScript with no dependencies. Uses Web Animations API and requestAnimationFrame.'}
-                  {jsOptions.library === 'gsap' && 'Professional animation library with MorphSVG plugin. Requires GSAP license for commercial use.'}
-                  {jsOptions.library === 'anime' && 'Lightweight animation library (~17KB). MIT license, good SVG support.'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </Panel>
 
       {/* Format Selection */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 bg-gradient-to-br from-secondary to-accent rounded-lg flex items-center justify-center">
-            <Download className="w-4 h-4 text-white" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Export Formats</h3>
-        </div>
-        
+      <Panel title="Export Formats">
+        {!canExport && (
+          <p className="mb-4 text-sm text-muted">Load both SVG files to enable exporting.</p>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {Object.entries(formatIcons).map(([format, Icon]) => (
-            <div
-              key={format}
-              className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                selectedFormats.has(format as ExportOptions['format'])
-                  ? 'border-accent bg-accent/10 dark:bg-accent/20 shadow-md'
-                  : 'border-gray-200 dark:border-gray-600 hover:border-accent/50 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-              onClick={() => handleFormatToggle(format as ExportOptions['format'])}
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  {selectedFormats.has(format as ExportOptions['format']) ? (
-                    <CheckSquare className="w-5 h-5 text-accent" />
-                  ) : (
-                    <Square className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                    <span className="font-medium text-gray-900 dark:text-gray-100 uppercase">{format}</span>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatDescriptions[format as keyof typeof formatDescriptions]}
-                  </p>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSingleExport(format as ExportOptions['format']);
-                  }}
-                  disabled={isExporting || !sourceSVG || !targetSVG}
-                  className="px-3 py-1 text-sm bg-accent/10 text-accent rounded-lg hover:bg-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                >
-                  Export
-                </button>
+            <div key={format} className="flex flex-col bg-raised p-4">
+              <div className="mb-1 flex items-center gap-2">
+                <Icon className="w-4 h-4 text-muted" />
+                <span className="font-medium uppercase">{format}</span>
               </div>
+              <p className="mb-4 flex-1 text-sm text-muted">
+                {formatDescriptions[format as keyof typeof formatDescriptions]}
+              </p>
+              <Button
+                variant="primary"
+                className="w-full justify-center"
+                onClick={() => handleSingleExport(format as ExportOptions['format'])}
+                disabled={isExporting || !canExport}
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Export {format.toUpperCase()}
+              </Button>
             </div>
           ))}
         </div>
 
-        {/* Export Actions */}
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={handleBatchExport}
-            disabled={isExporting || selectedFormats.size === 0 || !sourceSVG || !targetSVG}
-            className="flex items-center gap-2 px-6 py-3 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-md hover:shadow-lg"
-          >
-            {isExporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            Export Selected ({selectedFormats.size})
-          </button>
-
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-all duration-200 font-medium shadow-md hover:shadow-lg"
-          >
-            <History className="w-4 h-4" />
-            Export History
-          </button>
-        </div>
-      </div>
+        <Button onClick={() => setShowHistory(!showHistory)}>
+          <History className="w-4 h-4" />
+          Export History
+        </Button>
+      </Panel>
 
       {/* Recent Exports */}
       {exportResults.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
-              <History className="w-4 h-4 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Exports</h3>
-          </div>
+        <Panel title="Recent Exports">
           <div className="space-y-2">
             {exportResults.map((result, index) => (
-              <div key={index} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-accent to-secondary rounded-lg flex items-center justify-center">
-                    <Download className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{result.filename}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{formatFileSize(result.size)}</p>
+              <div key={index} className="flex items-center justify-between gap-3 p-4 bg-raised">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Download className="w-5 h-5 flex-shrink-0 text-link" />
+                  <div className="min-w-0">
+                    <p className="font-medium break-all">{result.filename}</p>
+                    <p className="text-sm text-muted">{formatFileSize(result.size)}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => exportSystem.downloadResult(result)}
-                  className="px-4 py-2 text-sm bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-colors font-medium"
-                >
+                <Button onClick={() => exportSystem.downloadResult(result)}>
                   Download Again
-                </button>
+                </Button>
               </div>
             ))}
           </div>
-        </div>
+        </Panel>
       )}
 
       {/* Export History */}
       {showHistory && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-secondary to-accent rounded-lg flex items-center justify-center">
-                <History className="w-4 h-4 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Export History</h3>
-            </div>
-            <button
+        <Panel
+          title="Export History"
+          actions={
+            <Button
+              variant="ghost"
               onClick={() => {
                 exportSystem.clearHistory();
                 setShowHistory(false);
               }}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              className="text-danger"
             >
               <Trash2 className="w-4 h-4" />
               Clear History
-            </button>
-          </div>
-
+            </Button>
+          }
+        >
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {exportSystem.getHistory().map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-secondary to-accent rounded-lg flex items-center justify-center">
-                    {React.createElement(formatIcons[item.options.format], {
-                      className: "w-4 h-4 text-white"
-                    })}
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{item.filename}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div key={item.id} className="flex items-center justify-between gap-3 p-4 bg-raised">
+                <div className="flex items-center gap-3 min-w-0">
+                  {React.createElement(formatIcons[item.options.format], {
+                    className: "w-5 h-5 flex-shrink-0 text-link"
+                  })}
+                  <div className="min-w-0">
+                    <p className="font-medium break-all">{item.filename}</p>
+                    <p className="text-sm text-muted">
                       {new Date(item.timestamp).toLocaleString()} • {formatFileSize(item.size)}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleHistoryDownload()}
-                  className="px-4 py-2 text-sm bg-secondary/10 text-secondary rounded-lg hover:bg-secondary/20 transition-colors font-medium"
-                >
+                <Button onClick={() => handleHistoryDownload()}>
                   Re-export
-                </button>
+                </Button>
               </div>
             ))}
-            
+
             {exportSystem.getHistory().length === 0 && (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-8">No export history available</p>
+              <p className="text-center text-muted py-8">No export history available</p>
             )}
           </div>
-        </div>
+        </Panel>
       )}
     </div>
   );

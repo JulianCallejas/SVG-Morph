@@ -1,68 +1,170 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shapes, Home, Play, Info, Zap, Layers, Box, Search } from 'lucide-react';
+import { ChevronDown, Menu, X } from 'lucide-react';
+
+interface ToolLink {
+  path: string;
+  label: string;
+  note: string;
+}
+
+const TOOLS: ToolLink[] = [
+  { path: '/playground-enhanced', label: 'Studio', note: 'Node matching, controls and every export in one flow' },
+  { path: '/multi-stage', label: 'Multi-stage', note: 'Chain several SVGs, A to B to C to D' },
+  { path: '/3d-morphing', label: '3D Studio', note: 'Extrude the morph and export OBJ, STL, PLY or GLTF' },
+  { path: '/reverse-engineering', label: 'Reverse engineering', note: 'Read the parameters of an animated SVG' },
+];
+
+const SCROLL_THRESHOLD = 80;
+
+const linkClass =(active: boolean): string =>
+  `inline-flex h-11 items-center font-medium underline-offset-8 decoration-2 ${
+    active ? 'text-content underline decoration-action' : 'text-muted hover:text-content'
+  }`;
 
 export const Navigation: React.FC = () => {
-  const location = useLocation();
+  const { pathname } = useLocation();
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const toolsButtonRef = useRef<HTMLButtonElement>(null);
 
-  const navItems = [
-    { path: '/', icon: Home, label: 'Home' },
-    { path: '/playground', icon: Play, label: 'Playground' },
-    { path: '/playground-enhanced', icon: Zap, label: 'Enhanced', badge: 'Pro' },
-    { path: '/multi-stage', icon: Layers, label: 'Multi-Stage', badge: 'NEW' },
-    { path: '/3d-morphing', icon: Box, label: '3D Studio', badge: '3D' },
-    { path: '/reverse-engineering', icon: Search, label: 'Reverse Eng.', badge: 'NEW' },
-    { path: '/about', icon: Info, label: 'About' },
-  ];
+  const toolsActive = TOOLS.some((tool) => tool.path === pathname);
+  // The open mobile menu needs a solid ground to stay legible, so it never goes translucent.
+  const translucent = scrolled && !menuOpen;
+
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > SCROLL_THRESHOLD);
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
+  }, []);
+
+  useEffect(() => {
+    setToolsOpen(false);
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!toolsOpen && !menuOpen) return undefined;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (toolsOpen && toolsRef.current && !toolsRef.current.contains(event.target as Node)) {
+        setToolsOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setToolsOpen(false);
+      setMenuOpen(false);
+      toolsButtonRef.current?.focus();
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [toolsOpen, menuOpen]);
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 dark:bg-primary/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 group">
-            <div className="relative">
-              <Shapes className="h-8 w-8 text-accent group-hover:scale-110 transition-transform duration-200" />
-              <div className="absolute inset-0 bg-accent/20 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-accent to-secondary bg-clip-text text-transparent">
-              SVG Morph
-            </span>
+    <header
+      className={`sticky top-0 z-50 transition-[background-color,backdrop-filter] duration-300 ${
+        translucent ? 'bg-raised/40 backdrop-blur' : 'bg-raised'
+      }`}
+    >
+      <nav aria-label="Main" className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link to="/" className="text-lg font-semibold tracking-tight text-content">
+          SVG Morph
+        </Link>
+
+        <div className="hidden items-center gap-8 md:flex">
+          <Link to="/playground" className={linkClass(pathname === '/playground')}>
+            Playground
           </Link>
 
-          {/* Navigation Links */}
-          <div className="flex space-x-1">
-            {navItems.map(({ path, icon: Icon, label, badge }) => {
-              const isActive = location.pathname === path;
-              return (
-                <Link
-                  key={path}
-                  to={path}
-                  className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-accent/10 text-accent border border-accent/20'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-accent'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline font-medium">{label}</span>
-                  {badge && (
-                    <span className={`absolute -top-1 -right-1 px-1.5 py-0.5 text-xs rounded-full font-medium ${
-                      badge === 'NEW' 
-                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
-                        : badge === 'Pro'
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
-                        : 'bg-blue-500 text-white'
-                    }`}>
-                      {badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+          <div ref={toolsRef} className="relative">
+            <button
+              ref={toolsButtonRef}
+              type="button"
+              aria-expanded={toolsOpen}
+              aria-controls="tools-menu"
+              onClick={() => setToolsOpen((open) => !open)}
+              className={`${linkClass(toolsActive)} gap-1`}
+            >
+              Tools
+              <ChevronDown
+                aria-hidden="true"
+                className={`h-4 w-4 transition-transform duration-200 ${toolsOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {toolsOpen && (
+              <ul id="tools-menu" className="absolute left-1/2 top-full mt-4 w-80 -translate-x-1/2 bg-raised p-2">
+                {TOOLS.map((tool) => (
+                  <li key={tool.path}>
+                    <Link
+                      to={tool.path}
+                      aria-current={pathname === tool.path ? 'page' : undefined}
+                      className="block px-4 py-3 hover:bg-surface"
+                    >
+                      <span className="block font-medium text-content">{tool.label}</span>
+                      <span className="block text-sm text-muted">{tool.note}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+
+          <Link to="/about" className={linkClass(pathname === '/about')}>
+            About
+          </Link>
         </div>
-      </div>
-    </nav>
+
+        <div className="flex items-center gap-2">
+          <Link
+            to="/playground-enhanced"
+            className="press hidden h-11 items-center bg-action px-5 font-semibold text-on-action hover:bg-sun-300 md:inline-flex"
+          >
+            Open the studio
+          </Link>
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            onClick={() => setMenuOpen((open) => !open)}
+            className="inline-flex h-11 w-11 items-center justify-center text-content md:hidden"
+          >
+            {menuOpen ? <X aria-hidden="true" className="h-6 w-6" /> : <Menu aria-hidden="true" className="h-6 w-6" />}
+          </button>
+        </div>
+      </nav>
+
+      {menuOpen && (
+        <div id="mobile-menu" className="px-4 pb-6 pt-2 md:hidden">
+          <Link to="/playground" className="flex h-12 items-center text-lg font-medium text-content">
+            Playground
+          </Link>
+          <p className="mt-4 text-sm text-muted">Tools</p>
+          {TOOLS.map((tool) => (
+            <Link key={tool.path} to={tool.path} className="flex h-12 items-center text-lg font-medium text-content">
+              {tool.label}
+            </Link>
+          ))}
+          <Link to="/about" className="mt-4 flex h-12 items-center text-lg font-medium text-content">
+            About
+          </Link>
+          <Link
+            to="/playground-enhanced"
+            className="mt-4 flex h-12 items-center justify-center bg-action font-semibold text-on-action"
+          >
+            Open the studio
+          </Link>
+        </div>
+      )}
+    </header>
   );
 };

@@ -1,8 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, Download, Eye, Settings, FileText, Zap, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { Upload, Download, Settings, FileText, AlertCircle, CheckCircle, Info, X } from 'lucide-react';
 import { analyzeAnimation, extractMorphingParameters, type AnalysisResult } from '../utils/animationAnalysis';
 import { useMorphStore } from '../store/morphStore';
 import { useToast } from '../contexts/ToastContext';
+import { Button } from '../components/ui/Button';
+import { Panel } from '../components/ui/Panel';
 
 interface AnalysisState {
   isAnalyzing: boolean;
@@ -129,313 +131,229 @@ export const ReverseEngineering: React.FC = () => {
     showSuccess('Analysis exported successfully!');
   }, [analysisState.result, file, showSuccess, showError]);
 
-  const getComplexityColor = (complexity: string) => {
-    switch (complexity) {
-      case 'low': return 'text-green-600 bg-green-100';
-      case 'medium': return 'text-yellow-600 bg-yellow-100';
-      case 'high': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
+
+  const clearFile = () => {
+    setFile(null);
+    setAnalysisState({ isAnalyzing: false, result: null, error: null });
   };
 
-  const getAnimationTypeIcon = (type: string) => {
-    switch (type) {
-      case 'smil': return '🎬';
-      case 'css': return '🎨';
-      case 'javascript': return '⚡';
-      default: return '📄';
-    }
-  };
+  const result = analysisState.result;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-primary py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg">
-              <Zap className="h-8 w-8 text-white" />
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+    <div className="min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header className="mb-10">
+          <h1 className="text-[clamp(2rem,4vw,3.5rem)] font-light leading-[1.05] tracking-[-0.035em]">
             Reverse Engineering
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          <p className="mt-4 max-w-[70ch] text-lg text-muted">
             Analyze existing SVG animations and extract morphing parameters for recreation in SVG-Morph
           </p>
-        </div>
+        </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Upload Section */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <Upload className="h-5 w-5 mr-2 text-accent" />
-                Upload Animation
-              </h2>
-
-              {!file ? (
-                <div
-                  onDrop={handleDrop}
-                  onDragOver={(e) => e.preventDefault()}
-                  className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-accent transition-colors duration-200 cursor-pointer"
-                >
-                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-300 mb-2">
-                    Drop your animated SVG file here
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Supports SMIL, CSS, and JavaScript animations
-                  </p>
-                  <label className="inline-flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors cursor-pointer">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Choose File
-                    <input
-                      type="file"
-                      accept=".svg,image/svg+xml"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-accent mr-2" />
-                      <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {file.name}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setFile(null);
-                        setAnalysisState({ isAnalyzing: false, result: null, error: null });
-                      }}
-                      className="text-gray-500 hover:text-red-500 transition-colors"
-                    >
-                      ×
-                    </button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:items-start">
+          <Panel title="Upload Animation">
+            {!file ? (
+              <div
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+                className="border-2 border-dashed border-line bg-canvas p-8 text-center transition-colors hover:border-action"
+              >
+                <Upload className="h-12 w-12 text-muted mx-auto mb-4" aria-hidden="true" />
+                <p className="mb-2">Drop your animated SVG file here</p>
+                <p className="text-sm text-muted mb-6">Supports SMIL, CSS, and JavaScript animations</p>
+                <label className="press inline-flex h-11 cursor-pointer items-center gap-2 bg-action px-5 font-medium text-on-action hover:bg-sun-300 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus">
+                  <Upload className="h-4 w-4" aria-hidden="true" />
+                  Choose File
+                  <input
+                    type="file"
+                    accept=".svg,image/svg+xml"
+                    onChange={handleFileSelect}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3 bg-raised pl-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <FileText className="h-5 w-5 shrink-0 text-link" aria-hidden="true" />
+                    <span className="truncate text-sm font-medium">{file.name}</span>
                   </div>
-
-                  {analysisState.isAnalyzing && (
-                    <div className="flex items-center justify-center p-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
-                      <span className="ml-3 text-gray-600 dark:text-gray-300">Analyzing animation...</span>
-                    </div>
-                  )}
-
-                  {analysisState.error && (
-                    <div className="flex items-center p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                      <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-                      <span className="text-sm text-red-700 dark:text-red-300">{analysisState.error}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Analysis Results */}
-          <div className="lg:col-span-2">
-            {analysisState.result && (
-              <div className="space-y-6">
-                {/* Overview */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <Eye className="h-5 w-5 mr-2 text-accent" />
-                    Analysis Overview
-                  </h2>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <div className="text-2xl font-bold text-accent">
-                        {analysisState.result.metadata.totalAnimations}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Animations</div>
-                    </div>
-                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <div className={`text-sm px-2 py-1 rounded-full ${getComplexityColor(analysisState.result.metadata.complexity)}`}>
-                        {analysisState.result.metadata.complexity.toUpperCase()}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">Complexity</div>
-                    </div>
-                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {analysisState.result.metadata.estimatedParameters.duration || 'N/A'}ms
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Duration</div>
-                    </div>
-                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {analysisState.result.metadata.estimatedParameters.easing || 'N/A'}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">Easing</div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {analysisState.result.metadata.animationTypes.map(type => (
-                      <span
-                        key={type}
-                        className="inline-flex items-center px-3 py-1 bg-accent/10 text-accent rounded-full text-sm font-medium"
-                      >
-                        <span className="mr-1">{getAnimationTypeIcon(type)}</span>
-                        {type.toUpperCase()}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={applyToMorphStore}
-                      className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Apply to Project
-                    </button>
-                    <button
-                      onClick={exportParameters}
-                      className="flex items-center px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Export Analysis
-                    </button>
-                    <button
-                      onClick={() => setShowAdvanced(!showAdvanced)}
-                      className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      {showAdvanced ? 'Hide' : 'Show'} Details
-                    </button>
-                  </div>
+                  <Button variant="ghost" size="icon" onClick={clearFile} aria-label="Remove file" className="hover:bg-line/40">
+                    <X className="h-5 w-5" />
+                  </Button>
                 </div>
 
-                {/* Detailed Analysis */}
-                {showAdvanced && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                      Detailed Animation Analysis
-                    </h3>
-
-                    <div className="space-y-4">
-                      {analysisState.result.animations.map((animation, index) => (
-                        <div
-                          key={index}
-                          className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                            selectedAnimation === index
-                              ? 'border-accent bg-accent/5'
-                              : 'border-gray-200 dark:border-gray-600 hover:border-accent/50'
-                          }`}
-                          onClick={() => setSelectedAnimation(index)}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <span className="text-lg mr-2">{getAnimationTypeIcon(animation.type)}</span>
-                              <span className="font-medium text-gray-900 dark:text-white">
-                                {animation.type.toUpperCase()} Animation {index + 1}
-                              </span>
-                            </div>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {animation.keyframes.length} keyframes
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-600 dark:text-gray-300">Duration:</span>
-                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                                {animation.duration}ms
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600 dark:text-gray-300">Easing:</span>
-                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                                {animation.easing || 'linear'}
-                              </span>
-                            </div>
-                            {animation.morphingPaths && (
-                              <div>
-                                <span className="text-gray-600 dark:text-gray-300">Type:</span>
-                                <span className="ml-2 font-medium text-accent">Path Morphing</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {selectedAnimation === index && animation.morphingPaths && (
-                            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Source Path:</h4>
-                                  <code className="text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded block overflow-x-auto">
-                                    {animation.morphingPaths.source.substring(0, 100)}...
-                                  </code>
-                                </div>
-                                <div>
-                                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Target Path:</h4>
-                                  <code className="text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded block overflow-x-auto">
-                                    {animation.morphingPaths.target.substring(0, 100)}...
-                                  </code>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                {analysisState.isAnalyzing && (
+                  <p role="status" className="p-4 text-center text-muted">Analyzing animation...</p>
                 )}
 
-                {/* Extracted SVGs Preview */}
-                {analysisState.result.extractedSVGs && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                      Extracted SVG Shapes
-                    </h3>
+                {analysisState.error && (
+                  <p role="alert" className="flex items-center gap-2 bg-canvas p-3 text-sm text-danger">
+                    <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    <span>{analysisState.error}</span>
+                  </p>
+                )}
+              </div>
+            )}
+          </Panel>
+
+          <div className="lg:col-span-2">
+            {result && (
+              <div className="space-y-6 enter">
+                <Panel title="Analysis Overview">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-raised p-4">
+                      <div className="text-2xl font-light text-link">{result.metadata.totalAnimations}</div>
+                      <div className="text-sm text-muted">Animations</div>
+                    </div>
+                    <div className="bg-raised p-4">
+                      <div className="text-lg font-medium capitalize">{result.metadata.complexity}</div>
+                      <div className="text-sm text-muted">Complexity</div>
+                    </div>
+                    <div className="bg-raised p-4">
+                      <div className="text-lg font-medium">
+                        {result.metadata.estimatedParameters.duration || 'N/A'}ms
+                      </div>
+                      <div className="text-sm text-muted">Duration</div>
+                    </div>
+                    <div className="bg-raised p-4">
+                      <div className="text-lg font-medium">
+                        {result.metadata.estimatedParameters.easing || 'N/A'}
+                      </div>
+                      <div className="text-sm text-muted">Easing</div>
+                    </div>
+                  </div>
+
+                  <p className="mb-6 text-sm text-muted">
+                    Animation types:{' '}
+                    <span className="font-medium text-content">
+                      {result.metadata.animationTypes.map((type) => type.toUpperCase()).join(', ')}
+                    </span>
+                  </p>
+
+                  <div className="flex flex-wrap gap-3">
+                    <Button variant="primary" onClick={applyToMorphStore}>
+                      <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                      Apply to Project
+                    </Button>
+                    <Button onClick={exportParameters}>
+                      <Download className="h-4 w-4" aria-hidden="true" />
+                      Export Analysis
+                    </Button>
+                    <Button onClick={() => setShowAdvanced(!showAdvanced)} aria-expanded={showAdvanced}>
+                      <Settings className="h-4 w-4" aria-hidden="true" />
+                      {showAdvanced ? 'Hide' : 'Show'} Details
+                    </Button>
+                  </div>
+                </Panel>
+
+                {showAdvanced && (
+                  <Panel title="Detailed Animation Analysis" className="enter">
+                    <div className="space-y-3">
+                      {result.animations.map((animation, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          aria-pressed={selectedAnimation === index}
+                          onClick={() => setSelectedAnimation(index)}
+                          className={`press block w-full p-4 text-left transition-colors ${
+                            selectedAnimation === index ? 'bg-sun-800' : 'bg-raised hover:bg-line/40'
+                          }`}
+                        >
+                          <span className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium">
+                              {animation.type.toUpperCase()} Animation {index + 1}
+                            </span>
+                            <span className="text-sm text-muted">{animation.keyframes.length} keyframes</span>
+                          </span>
+
+                          <span className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                            <span>
+                              <span className="text-muted">Duration:</span>
+                              <span className="ml-2 font-medium">{animation.duration}ms</span>
+                            </span>
+                            <span>
+                              <span className="text-muted">Easing:</span>
+                              <span className="ml-2 font-medium">{animation.easing || 'linear'}</span>
+                            </span>
+                            {animation.morphingPaths && (
+                              <span>
+                                <span className="text-muted">Type:</span>
+                                <span className="ml-2 font-medium text-link">Path Morphing</span>
+                              </span>
+                            )}
+                          </span>
+
+                          {selectedAnimation === index && animation.morphingPaths && (
+                            <span className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <span className="block min-w-0">
+                                <span className="mb-2 block font-medium">Source Path:</span>
+                                <code className="block truncate bg-canvas p-2 text-xs">
+                                  {animation.morphingPaths.source.substring(0, 100)}...
+                                </code>
+                              </span>
+                              <span className="block min-w-0">
+                                <span className="mb-2 block font-medium">Target Path:</span>
+                                <code className="block truncate bg-canvas p-2 text-xs">
+                                  {animation.morphingPaths.target.substring(0, 100)}...
+                                </code>
+                              </span>
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </Panel>
+                )}
+
+                {result.extractedSVGs && (
+                  <Panel title="Extracted SVG Shapes">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Source Shape</h4>
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 flex items-center justify-center">
+                        <h3 className="mb-2 font-medium">Source Shape</h3>
+                        <div className="bg-canvas p-4 flex items-center justify-center">
                           <div
-                            dangerouslySetInnerHTML={{ __html: analysisState.result.extractedSVGs.source }}
-                            className="max-w-full max-h-48"
+                            dangerouslySetInnerHTML={{ __html: result.extractedSVGs.source }}
+                            className="w-full min-w-0 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-48 [&_svg]:max-w-full [&_path]:stroke-action"
                           />
                         </div>
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Target Shape</h4>
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 flex items-center justify-center">
+                        <h3 className="mb-2 font-medium">Target Shape</h3>
+                        <div className="bg-canvas p-4 flex items-center justify-center">
                           <div
-                            dangerouslySetInnerHTML={{ __html: analysisState.result.extractedSVGs.target }}
-                            className="max-w-full max-h-48"
+                            dangerouslySetInnerHTML={{ __html: result.extractedSVGs.target }}
+                            className="w-full min-w-0 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-48 [&_svg]:max-w-full [&_path]:stroke-action"
                           />
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </Panel>
                 )}
               </div>
             )}
 
-            {!analysisState.result && !analysisState.isAnalyzing && !analysisState.error && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center">
-                <Info className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                  Ready to Analyze
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">
-                  Upload an animated SVG file to extract morphing parameters and recreate the animation in SVG-Morph.
-                </p>
-                <div className="text-left max-w-md mx-auto">
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Supported Animation Types:</h4>
-                  <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
-                    <li>• SMIL animations (animate, animateTransform)</li>
-                    <li>• CSS keyframe animations</li>
-                    <li>• JavaScript-based morphing (GSAP, Anime.js)</li>
-                    <li>• Path morphing and property animations</li>
+            {!result && !analysisState.isAnalyzing && !analysisState.error && (
+              <Panel className="p-8 sm:p-12">
+                <div className="text-center">
+                  <Info className="h-16 w-16 text-muted mx-auto mb-4" aria-hidden="true" />
+                  <h2 className="text-xl font-medium mb-2">Ready to Analyze</h2>
+                  <p className="text-muted mb-6">
+                    Upload an animated SVG file to extract morphing parameters and recreate the animation in SVG-Morph.
+                  </p>
+                </div>
+                <div className="max-w-md mx-auto">
+                  <h3 className="font-medium mb-2">Supported Animation Types:</h3>
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted marker:text-link">
+                    <li>SMIL animations (animate, animateTransform)</li>
+                    <li>CSS keyframe animations</li>
+                    <li>JavaScript-based morphing (GSAP, Anime.js)</li>
+                    <li>Path morphing and property animations</li>
                   </ul>
                 </div>
-              </div>
+              </Panel>
             )}
           </div>
         </div>

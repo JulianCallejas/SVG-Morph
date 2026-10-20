@@ -14,7 +14,7 @@ function App() {
   return (
     <ToastProvider>
       <Router>
-        <div className="min-h-screen bg-gray-50 dark:bg-primary text-gray-900 dark:text-gray-100 transition-colors duration-300">
+        <div className="min-h-screen bg-canvas text-content transition-colors duration-300">
           <Navigation />
           <ProcessingIndicator />
           <Routes>

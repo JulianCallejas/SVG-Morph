@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Bug, Copy, Check } from 'lucide-react';
+import { Button } from './ui/Button';
 
 interface Props {
   children: ReactNode;
@@ -137,20 +138,20 @@ User Agent: ${navigator.userAgent}
       const canRetry = this.retryCount < this.maxRetries;
 
       return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
+        <div className="min-h-screen bg-canvas text-content flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-surface p-6">
             {/* Error Icon */}
-            <div className="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-red-600" />
+            <div className="flex items-center justify-center w-16 h-16 bg-canvas mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-danger" />
             </div>
 
             {/* Error Title */}
-            <h1 className="text-xl font-semibold text-gray-900 text-center mb-2">
+            <h1 className="text-xl font-semibold text-center mb-2">
               {level === 'critical' ? 'Critical Error' : 'Something went wrong'}
             </h1>
 
             {/* Error Message */}
-            <p className="text-gray-600 text-center mb-6">
+            <p className="text-muted text-center mb-6">
               {level === 'critical' 
                 ? 'A critical error occurred that requires reloading the application.'
                 : 'We encountered an unexpected error. You can try again or reload the page.'
@@ -159,16 +160,16 @@ User Agent: ${navigator.userAgent}
 
             {/* Error Details (Development) */}
             {process.env.NODE_ENV === 'development' && error && (
-              <div className="mb-6 p-4 bg-gray-100 rounded-lg">
-                <h3 className="font-medium text-gray-900 mb-2">Error Details:</h3>
-                <p className="text-sm text-red-600 font-mono break-all">
+              <div className="mb-6 p-4 bg-canvas">
+                <h3 className="font-medium mb-2">Error Details:</h3>
+                <p className="text-sm text-danger font-mono break-all">
                   {error.message}
                 </p>
                 <details className="mt-2">
-                  <summary className="text-sm text-gray-600 cursor-pointer">
+                  <summary className="text-sm text-muted cursor-pointer">
                     Stack Trace
                   </summary>
-                  <pre className="text-xs text-gray-600 mt-2 overflow-auto max-h-32">
+                  <pre className="text-sm text-muted mt-2 overflow-auto max-h-32">
                     {error.stack}
                   </pre>
                 </details>
@@ -176,15 +177,16 @@ User Agent: ${navigator.userAgent}
             )}
 
             {/* Error ID */}
-            <div className="mb-6 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Error ID:</p>
-                  <p className="text-sm font-mono text-gray-900">{errorId}</p>
+            <div className="mb-6 p-3 bg-canvas">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-muted">Error ID:</p>
+                  <p className="text-sm font-mono break-all">{errorId}</p>
                 </div>
-                <button
+                <Button
+                  variant="ghost"
                   onClick={this.copyErrorDetails}
-                  className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                  className="shrink-0 px-3 text-sm text-muted"
                   title="Copy error details"
                 >
                   {this.state.copied ? (
@@ -198,51 +200,44 @@ User Agent: ${navigator.userAgent}
                       <span>Copy</span>
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Action Buttons */}
             <div className="space-y-3">
               {canRetry && level !== 'critical' && (
-                <button
-                  onClick={this.handleRetry}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                >
+                <Button variant="primary" onClick={this.handleRetry} className="w-full justify-center">
                   <RefreshCw className="w-4 h-4" />
                   <span>Try Again ({this.maxRetries - this.retryCount} attempts left)</span>
-                </button>
+                </Button>
               )}
 
-              <button
-                onClick={this.handleReload}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
+              <Button onClick={this.handleReload} className="w-full justify-center">
                 <RefreshCw className="w-4 h-4" />
                 <span>Reload Page</span>
-              </button>
+              </Button>
 
-              <button
-                onClick={this.handleGoHome}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+              <Button variant="ghost" onClick={this.handleGoHome} className="w-full justify-center">
                 <Home className="w-4 h-4" />
                 <span>Go to Home</span>
-              </button>
+              </Button>
             </div>
 
             {/* Report Bug Link */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <button
+            <div className="mt-6">
+              <Button
+                variant="ghost"
                 onClick={() => {
                   // In a real app, this would open a bug report form or email
-                  window.open('mailto:support@example.com?subject=SVG Morph Error Report&body=' + encodeURIComponent(`Error ID: ${errorId}\nPlease describe what you were doing when this error occurred.`));
+                  window.open('mailto:support@example.com?subject=SVG Morph Error Report&body=' + encodeURIComponent(`Error ID: ${errorId}
+Please describe what you were doing when this error occurred.`));
                 }}
-                className="w-full flex items-center justify-center space-x-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                className="w-full justify-center text-sm text-muted"
               >
                 <Bug className="w-4 h-4" />
                 <span>Report this issue</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -268,14 +263,14 @@ export const ComponentErrorBoundary: React.FC<{
   <ErrorBoundary 
     level="component"
     fallback={fallback || (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-        <div className="flex items-center space-x-2 text-red-800">
+      <div className="p-4 bg-surface text-content">
+        <div className="flex items-center space-x-2 text-danger">
           <AlertTriangle className="w-5 h-5" />
           <span className="font-medium">
             {name ? `${name} Error` : 'Component Error'}
           </span>
         </div>
-        <p className="text-red-600 text-sm mt-1">
+        <p className="text-muted text-sm mt-1">
           This component encountered an error and couldn't render properly.
         </p>
       </div>
