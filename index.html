@@ -6,7 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SVG Morph - Advanced SVG Animation Tool</title>
     <meta name="description" content="Create smooth morphing animations between SVG images with advanced controls and real-time preview." />
-    <script>document.documentElement.classList.add('js');</script>
+    <script>
+      document.documentElement.classList.add('js');
+      try {
+        if (localStorage.getItem('theme') === 'light') {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.classList.add('light');
+        }
+      } catch (e) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />

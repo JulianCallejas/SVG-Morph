@@ -6,7 +6,6 @@ import { MorphLoop } from '../components/about/MorphLoop';
 import { PathSampler } from '../components/about/PathSampler';
 import { PairingFragment } from '../components/home/PairingFragment';
 import { SiteFooter } from '../components/SiteFooter';
-import { WorkerTest } from '../components/WorkerTest';
 import { useReveal } from '../hooks/useReveal';
 
 const STEPS = [
@@ -188,14 +187,6 @@ export const About: React.FC = () => {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </section>
-
-        <section aria-label="Web Worker check" className="px-4 py-8 sm:px-6 lg:px-8 lg:py-16">
-          <div data-reveal className="mx-auto max-w-[1600px] lg:grid lg:grid-cols-12 lg:gap-12">
-            <div data-ui className="lg:col-span-7 lg:col-start-6">
-              <WorkerTest />
             </div>
           </div>
         </section>

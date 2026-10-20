@@ -4,9 +4,9 @@
 
 /*
  * Semantic color roles as RGB channels so Tailwind can apply alpha.
- * Dark is the default theme. A future light theme adds the `light` class on <html>.
+ * Dark is the default theme. The theme toggle (useTheme) adds the `light` class on <html>.
  * Every text pair below was measured against WCAG AA (text 4.5:1, lines and focus 3:1).
- * Legacy pages still use tailwind `dark:` utilities, which key off the `dark` class in index.html.
+ * The `dark` class on <html> is kept in sync for any tailwind `dark:` utility; none is used today.
  */
 @layer base {
   :root {

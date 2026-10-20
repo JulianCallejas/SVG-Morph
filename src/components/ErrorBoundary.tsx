@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
     });
 
     // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.error('ErrorBoundary caught an error:', error, errorInfo);
     }
 
@@ -159,7 +159,7 @@ User Agent: ${navigator.userAgent}
             </p>
 
             {/* Error Details (Development) */}
-            {process.env.NODE_ENV === 'development' && error && (
+            {import.meta.env.DEV && error && (
               <div className="mb-6 p-4 bg-canvas">
                 <h3 className="font-medium mb-2">Error Details:</h3>
                 <p className="text-sm text-danger font-mono break-all">
