@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronDown, Menu, X } from 'lucide-react';
+import { ChevronDown, Menu, Moon, Sun, X } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
 
 interface ToolLink {
   path: string;
@@ -27,6 +28,7 @@ export const Navigation: React.FC = () => {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   const toolsRef = useRef<HTMLDivElement>(null);
   const toolsButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -124,6 +126,14 @@ export const Navigation: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+            className="inline-flex h-11 w-11 items-center justify-center text-content hover:bg-line/30"
+          >
+            {theme === 'light' ? <Moon aria-hidden="true" className="h-5 w-5" /> : <Sun aria-hidden="true" className="h-5 w-5" />}
+          </button>
           <Link
             to="/playground-enhanced"
             className="press hidden h-11 items-center bg-action px-5 font-semibold text-on-action hover:bg-sun-300 md:inline-flex"
