@@ -1,5 +1,7 @@
 import { interpolate } from 'd3-interpolate';
 import SVGPathCommander from 'svg-path-commander';
+import { buildContourSVG } from '../utils/contourSvg';
+import type { ContourPlanEntry } from '../utils/contourPairing';
 
 export interface PathData {
   d: string;
@@ -23,7 +25,7 @@ export interface NodeMatch {
 }
 
 export interface WorkerMessage {
-  type: 'PARSE_SVG' | 'INTERPOLATE_PATHS' | 'CREATE_INTERPOLATED_SVG' | 'NORMALIZE_PATH' | 'INTERPOLATE_WITH_MATCHES' | 'NORMALIZE_PATHS_WITH_MATCHES';
+  type: 'PARSE_SVG' | 'INTERPOLATE_PATHS' | 'CREATE_INTERPOLATED_SVG' | 'CREATE_CONTOUR_SVG' | 'NORMALIZE_PATH' | 'INTERPOLATE_WITH_MATCHES' | 'NORMALIZE_PATHS_WITH_MATCHES';
   id: string;
   payload: unknown;
 }
@@ -58,6 +60,10 @@ self.onmessage = function(event: MessageEvent<WorkerMessage>) {
         handleCreateInterpolatedSVG(id, (payload as { sourceSVG: string; targetSVG: string; progress: number; nodeMatches?: NodeMatch[] }).sourceSVG, (payload as { sourceSVG: string; targetSVG: string; progress: number; nodeMatches?: NodeMatch[] }).targetSVG, (payload as { sourceSVG: string; targetSVG: string; progress: number; nodeMatches?: NodeMatch[] }).progress, (payload as { sourceSVG: string; targetSVG: string; progress: number; nodeMatches?: NodeMatch[] }).nodeMatches);
         break;
       
+      case 'CREATE_CONTOUR_SVG':
+        handleCreateContourSVG(id, payload as ContourSVGPayload);
+        break;
+
       case 'INTERPOLATE_WITH_MATCHES':
         handleInterpolateWithMatches(id, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).sourcePath, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).targetPath, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).progress, (payload as { sourcePath: string; targetPath: string; progress: number; nodeMatches: NodeMatch[] }).nodeMatches);
         break;
@@ -342,6 +348,31 @@ function handleCreateInterpolatedSVG(id: string, sourceSVG: string, targetSVG: s
       progress: 100
     } as WorkerResponse);
   }
+}
+
+export interface ContourSVGPayload {
+  sourceSVG: string;
+  targetSVG: string;
+  progress: number;
+  plan: ContourPlanEntry[];
+  nodeCount?: number;
+}
+
+// Unlike CREATE_INTERPOLATED_SVG this does not swallow errors into an opacity blend:
+// an invalid plan is reported back as an ERROR so the caller can decide what to do.
+function handleCreateContourSVG(id: string, payload: ContourSVGPayload) {
+  const { sourceSVG, targetSVG, progress, plan, nodeCount } = payload;
+  postMessage({ type: 'PROGRESS', id, progress: 0 } as WorkerResponse);
+
+  const result = buildContourSVG(
+    parseSVGString(sourceSVG),
+    parseSVGString(targetSVG),
+    plan,
+    progress,
+    { nodeCount }
+  );
+
+  postMessage({ type: 'SUCCESS', id, payload: result, progress: 100 } as WorkerResponse);
 }
 
 // Helper functions for Web Worker environment (no DOM APIs available)

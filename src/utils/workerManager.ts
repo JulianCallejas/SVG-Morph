@@ -1,4 +1,5 @@
 import { WorkerMessage, WorkerResponse, SVGData, NodeMatch } from '../workers/pathProcessor';
+import type { ContourPlanEntry } from './contourPairing';
 
 export interface WorkerTask {
   id: string;
@@ -174,6 +175,33 @@ export class WorkerManager {
       targetSVG,
       progress,
       nodeMatches
+    }, onProgress);
+  }
+
+  // Renders a contour plan (see contourSvg.ts). Rejects on an invalid plan instead of blending.
+  async createContourSVG(
+    sourceSVG: string,
+    targetSVG: string,
+    progress: number,
+    plan: ContourPlanEntry[],
+    nodeCount?: number,
+    onProgress?: (progress: number) => void
+  ): Promise<string> {
+    if (!this.isInitialized) {
+      // Fallback to synchronous processing, same pure builder as the worker
+      const [{ parseSVG }, { buildContourSVG }] = await Promise.all([
+        import('./svgMorphing'),
+        import('./contourSvg'),
+      ]);
+      return buildContourSVG(parseSVG(sourceSVG), parseSVG(targetSVG), plan, progress, { nodeCount });
+    }
+
+    return this.postMessage<string>('CREATE_CONTOUR_SVG', {
+      sourceSVG,
+      targetSVG,
+      progress,
+      plan,
+      nodeCount
     }, onProgress);
   }
 
