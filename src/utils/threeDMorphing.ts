@@ -1,4 +1,14 @@
 import { SVGData } from '../workers/pathProcessor';
+import type { ContourPlanEntry } from './contourPairing';
+import { planContours } from './contourSvg';
+// type only: the module itself (and three.js) is loaded lazily when a scene is created
+import type { ScenePart } from './threeDContours';
+
+interface LivePart {
+  part: ScenePart;
+  mesh: any; // THREE.Mesh
+  positions: Float32Array;
+}
 
 // Defaults for the 3D scene in the brand palette. three.js needs literal values, so they live here once:
 // the material is sun-400 and the scene background is the canvas token (ash-900).
@@ -27,6 +37,8 @@ export interface ThreeDMorphingOptions {
     rotationSpeed: number;
     morphSpeed: number;
   };
+  /** Per-contour plan (morph / swap / static). Absent means a suggested plan. */
+  contourPlan?: ContourPlanEntry[];
 }
 
 export interface ThreeDScene {
@@ -42,6 +54,7 @@ export class ThreeDMorphingEngine {
   private scene: ThreeDScene | null = null;
   private animationId: number | null = null;
   private isInitialized = false;
+  private progress = 0;
 
   private defaultOptions: ThreeDMorphingOptions = {
     depth: 20,
@@ -77,10 +90,12 @@ export class ThreeDMorphingEngine {
       // Dynamic import of Three.js to reduce bundle size
       const THREE = await import('three');
       const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js');
-      
+      const { mergeGeometries } = await import('three/examples/jsm/utils/BufferGeometryUtils.js');
+
       this.THREE = {
         ...THREE,
-        OrbitControls
+        OrbitControls,
+        mergeGeometries
       };
       
       this.isInitialized = true;
@@ -157,11 +172,12 @@ export class ThreeDMorphingEngine {
   /**
    * Update 3D scene with new morphing progress
    */
-  updateMorphing(progress: number, targetSVG?: SVGData): void {
+  updateMorphing(progress: number, _targetSVG?: SVGData): void {
     if (!this.scene || !this.scene.mesh) return;
 
-    // Update mesh geometry based on morphing progress
-    this.updateMeshGeometry(this.scene.mesh, progress, targetSVG);
+    // Move every contour to its shape at this progress
+    this.progress = progress;
+    this.applyProgress(this.scene.mesh, progress);
   }
 
   /**
@@ -177,13 +193,20 @@ export class ThreeDMorphingEngine {
       this.scene.camera.position.z = opts.perspective / 10;
     }
 
-    // Update material
-    if (options.material && this.scene.mesh.material) {
-      const material = this.scene.mesh.material;
-      if (options.material.color) material.color.setHex(options.material.color.replace('#', '0x'));
-      if (options.material.metalness !== undefined) material.metalness = options.material.metalness;
-      if (options.material.roughness !== undefined) material.roughness = options.material.roughness;
-      if (options.material.opacity !== undefined) material.opacity = options.material.opacity;
+    // Update the material of every contour
+    if (options.material) {
+      const group = this.scene.mesh;
+      for (const { mesh } of group.userData.live as LivePart[]) {
+        const material = mesh.material;
+        if (options.material.color) material.color.setHex(options.material.color.replace('#', '0x'));
+        if (options.material.metalness !== undefined) material.metalness = options.material.metalness;
+        if (options.material.roughness !== undefined) material.roughness = options.material.roughness;
+      }
+      if (options.material.opacity !== undefined) {
+        group.userData.baseOpacity = options.material.opacity;
+        // opacity also carries each contour's swap/fade visibility, so reapply the current frame
+        this.applyProgress(group, this.progress);
+      }
     }
 
     // Update controls
@@ -267,9 +290,10 @@ export class ThreeDMorphingEngine {
       options.lighting.position.y,
       options.lighting.position.z
     );
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
+    // No cast shadows: the drawing floats on a plain background with nothing to receive them. The
+    // shadow camera is only 10 units wide by default and the scene is about 100 (see
+    // threeDContours.ts), so with shadows on just the middle of the drawing shaded itself.
+    directionalLight.castShadow = false;
     scene.add(directionalLight);
 
     // Point light for additional illumination
@@ -306,160 +330,78 @@ export class ThreeDMorphingEngine {
   ): Promise<any> {
     const { THREE } = this;
 
-    // Convert SVG paths to 3D geometry
-    const geometry = await this.svgToGeometry(sourceSVG, options);
+    // One part per contour (tubes for strokes, solids for fills). The geometry module is loaded
+    // here, together with three.js, so it stays out of the main bundle.
+    const { buildContourScene } = await import('./threeDContours');
+    const plan = options.contourPlan ?? planContours(sourceSVG, targetSVG)?.plan;
+    if (!plan) {
+      throw new Error('The SVG paths could not be split into contours for the 3D view');
+    }
+    const contourScene = buildContourScene(sourceSVG, targetSVG, plan, { depth: options.depth });
 
-    // Create material
-    const material = new THREE.MeshStandardMaterial({
-      color: options.material.color,
-      metalness: options.material.metalness,
-      roughness: options.material.roughness,
-      opacity: options.material.opacity,
-      transparent: options.material.opacity < 1,
-      side: THREE.DoubleSide
+    const group = new THREE.Group();
+    const live: LivePart[] = contourScene.parts.map((part: ScenePart) => {
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(part.geometry.vertexCount * 3);
+      part.geometry.fill(0, positions);
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setIndex(new THREE.BufferAttribute(part.geometry.index, 1));
+      geometry.computeVertexNormals();
+      part.geometry.fixNormals?.(geometry.attributes.normal.array);
+
+      const material = new THREE.MeshStandardMaterial({
+        color: options.material.color,
+        metalness: options.material.metalness,
+        roughness: options.material.roughness,
+        opacity: options.material.opacity,
+        transparent: options.material.opacity < 1,
+        side: THREE.DoubleSide
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      // vertices move during the morph, so the initial bounding sphere would cull them wrongly
+      mesh.frustumCulled = false;
+      group.add(mesh);
+
+      return { part, mesh, positions };
     });
 
-    // Create mesh
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    group.userData.live = live;
+    group.userData.baseOpacity = options.material.opacity;
+    group.userData.exportMesh = () => this.exportableMesh(live);
+    this.applyProgress(group, 0);
 
-    // Store target geometry for morphing
-    mesh.userData.targetGeometry = await this.svgToGeometry(targetSVG, options);
-    mesh.userData.sourceGeometry = geometry.clone();
-
-    return mesh;
+    return group;
   }
 
-  private async svgToGeometry(svgData: SVGData, options: ThreeDMorphingOptions): Promise<any> {
-    const { THREE } = this;
-
-    // Validate SVG data structure
-    if (!svgData) {
-      throw new Error('SVG data is null or undefined');
-    }
-
-    // Check if paths exist and have data
-    if (!svgData.paths || svgData.paths.length === 0) {
-      throw new Error('No paths found in SVG data');
-    }
-
-    const firstPath = svgData.paths[0];
-    if (!firstPath || !firstPath.d) {
-      throw new Error('First path has no data');
-    }
-
-    // Create shape from SVG path
-    const shape = this.pathToShape(firstPath.d);
-    
-    // Validate that the shape has points
-    if (!shape || shape.getPoints().length === 0) {
-      throw new Error('Failed to create valid shape from SVG path');
-    }
-    
-    // Extrude the shape to create 3D geometry
-    const extrudeSettings = {
-      depth: options.depth,
-      bevelEnabled: true,
-      bevelSegments: 2,
-      steps: 2,
-      bevelSize: 1,
-      bevelThickness: 1
-    };
-
-    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
-  }
-
-  private pathToShape(pathD: string): any {
-    const { THREE } = this;
-    const shape = new THREE.Shape();
-
-    // Parse SVG path commands and convert to Three.js shape
-    const commands = this.parseSVGPath(pathD);
-    
-    commands.forEach((command, index) => {
-      switch (command.type) {
-        case 'M':
-          shape.moveTo(command.x, -command.y); // Flip Y for Three.js coordinate system
-          break;
-        case 'L':
-          shape.lineTo(command.x, -command.y);
-          break;
-        case 'C':
-          shape.bezierCurveTo(
-            command.x1, -command.y1,
-            command.x2, -command.y2,
-            command.x, -command.y
-          );
-          break;
-        case 'Q':
-          shape.quadraticCurveTo(
-            command.x1, -command.y1,
-            command.x, -command.y
-          );
-          break;
-        case 'Z':
-          shape.closePath();
-          break;
+  // Moves every part to its shape at this progress and shows or hides it (swap and fade).
+  private applyProgress(group: any, progress: number): void {
+    const baseOpacity: number = group.userData.baseOpacity ?? 1;
+    for (const { part, mesh, positions } of group.userData.live as LivePart[]) {
+      part.geometry.fill(progress, positions);
+      mesh.geometry.attributes.position.needsUpdate = true;
+      mesh.geometry.computeVertexNormals();
+      if (part.geometry.fixNormals) {
+        part.geometry.fixNormals(mesh.geometry.attributes.normal.array);
+        mesh.geometry.attributes.normal.needsUpdate = true;
       }
-    });
 
-    return shape;
+      const visibility = part.visibility(progress);
+      mesh.visible = visibility > 0;
+      mesh.material.opacity = baseOpacity * visibility;
+      mesh.material.transparent = mesh.material.opacity < 1;
+    }
   }
 
-  private parseSVGPath(pathD: string): any[] {
-    const commands: any[] = [];
-    const regex = /([MmLlHhVvCcSsQqTtAaZz])[^MmLlHhVvCcSsQqTtAaZz]*/g;
-    let match;
+  // What the exporter needs: one geometry made of the parts that are visible right now.
+  private exportableMesh(live: LivePart[]): { geometry: any; material: any } | null {
+    const visible = live.filter(({ mesh }) => mesh.visible);
+    if (visible.length === 0) return null;
 
-    while ((match = regex.exec(pathD)) !== null) {
-      const command = match[0];
-      const type = command[0].toUpperCase();
-      const params = command.slice(1).trim().split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
-
-      switch (type) {
-        case 'M':
-        case 'L':
-          commands.push({ type, x: params[0] || 0, y: params[1] || 0 });
-          break;
-        case 'C':
-          commands.push({
-            type,
-            x1: params[0] || 0, y1: params[1] || 0,
-            x2: params[2] || 0, y2: params[3] || 0,
-            x: params[4] || 0, y: params[5] || 0
-          });
-          break;
-        case 'Q':
-          commands.push({
-            type,
-            x1: params[0] || 0, y1: params[1] || 0,
-            x: params[2] || 0, y: params[3] || 0
-          });
-          break;
-        case 'Z':
-          commands.push({ type });
-          break;
-      }
-    }
-
-    return commands;
-  }
-
-  private updateMeshGeometry(mesh: any, progress: number, targetSVG?: SVGData): void {
-    if (!mesh.userData.sourceGeometry || !mesh.userData.targetGeometry) return;
-
-    const sourcePositions = mesh.userData.sourceGeometry.attributes.position.array;
-    const targetPositions = mesh.userData.targetGeometry.attributes.position.array;
-    const currentPositions = mesh.geometry.attributes.position.array;
-
-    // Interpolate between source and target positions
-    for (let i = 0; i < sourcePositions.length; i++) {
-      currentPositions[i] = sourcePositions[i] + (targetPositions[i] - sourcePositions[i]) * progress;
-    }
-
-    mesh.geometry.attributes.position.needsUpdate = true;
-    mesh.geometry.computeVertexNormals();
+    const geometry = this.THREE.mergeGeometries(visible.map(({ mesh }) => mesh.geometry.clone()), false);
+    return geometry ? { geometry, material: visible[0].mesh.material } : null;
   }
 
   private startAnimation(): void {

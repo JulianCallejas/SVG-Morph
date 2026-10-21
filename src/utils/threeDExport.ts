@@ -31,7 +31,10 @@ export class ThreeDExporter {
       throw new Error('No 3D scene available for export');
     }
 
-    const mesh = this.scene.mesh;
+    // A scene made of several contours offers one merged mesh of what is visible right now;
+    // a plain single mesh is used as it is.
+    const sceneMesh = this.scene.mesh;
+    const mesh = sceneMesh?.userData?.exportMesh ? sceneMesh.userData.exportMesh() : sceneMesh;
     if (!mesh || !mesh.geometry) {
       throw new Error('No mesh geometry available for export');
     }
@@ -67,8 +70,9 @@ export class ThreeDExporter {
     // Center the model
     if (options.centerModel) {
       preparedGeometry.computeBoundingBox();
-      const center = preparedGeometry.boundingBox.getCenter(new (geometry.constructor.Vector3 || Object)());
-      preparedGeometry.translate(-center.x, -center.y, -center.z);
+      // the center comes straight from the box: a vector class is not reachable from the geometry
+      const { min, max } = preparedGeometry.boundingBox;
+      preparedGeometry.translate(-(min.x + max.x) / 2, -(min.y + max.y) / 2, -(min.z + max.z) / 2);
     }
 
     // Compute normals if needed

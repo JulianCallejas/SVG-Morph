@@ -3,6 +3,7 @@ import { Box, Settings, Play, Pause, RotateCcw, Download, Maximize, Minimize } f
 import { threeDMorphing, ThreeDMorphingOptions, DEFAULT_MATERIAL_COLOR } from '../utils/threeDMorphing';
 import { SVGData } from '../types/svg';
 import { useToast } from '../contexts/ToastContext';
+import { useMorphStore } from '../store/morphStore';
 import { Button } from './ui/Button';
 import { CheckRow, Field, Slider } from './ui/Fields';
 import { Panel } from './ui/Panel';
@@ -51,6 +52,8 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<any>(null);
   const { showSuccess, showError, showWarning } = useToast();
+  // the contour plan chosen in the playground (morph / swap / static per contour)
+  const contourPlan = useMorphStore((state) => state.contourPlan);
 
   // Initialize 3D scene
   const initialize3DScene = useCallback(async () => {
@@ -69,7 +72,7 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
         containerRef.current,
         sourceSVG,
         targetSVG,
-        options
+        { ...options, contourPlan: contourPlan ?? undefined }
       );
 
       sceneRef.current = scene;
@@ -81,7 +84,7 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [sourceSVG, targetSVG, options, showSuccess, showError]);
+  }, [sourceSVG, targetSVG, options, contourPlan, showSuccess, showError]);
 
   // Update morphing progress
   useEffect(() => {

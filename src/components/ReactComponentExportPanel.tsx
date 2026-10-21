@@ -3,6 +3,8 @@ import { Code, Download, Settings, Zap, Copy, Eye } from 'lucide-react';
 import { reactComponentGenerator, ReactComponentOptions } from '../utils/reactComponentGenerator';
 import { SVGData } from '../types/svg';
 import { useToast } from '../contexts/ToastContext';
+import { useMorphStore } from '../store/morphStore';
+import { activeContourPlan } from '../utils/contourSvg';
 import { Button } from './ui/Button';
 import { CheckRow, Field, Select } from './ui/Fields';
 import { Panel } from './ui/Panel';
@@ -37,6 +39,18 @@ export const ReactComponentExportPanel: React.FC<ReactComponentExportPanelProps>
 
   const { showSuccess, showError, showWarning } = useToast();
 
+  // Same rule as the preview and the other exports: the per-contour plan applies to paths with
+  // several subpaths or a plan the user edited, and never together with manual node matches.
+  const { sourceContours, targetContours, contourPlan, contourPlanCustomized, manualModeEnabled, nodeMatches } =
+    useMorphStore();
+  const activePlan = activeContourPlan(
+    contourPlan,
+    sourceContours,
+    targetContours,
+    contourPlanCustomized,
+    manualModeEnabled && nodeMatches.length > 0,
+  );
+
   const handleGenerate = useCallback(() => {
     if (!sourceSVG || !targetSVG) {
       showWarning('Please upload both source and target SVG files');
@@ -44,7 +58,12 @@ export const ReactComponentExportPanel: React.FC<ReactComponentExportPanelProps>
     }
 
     try {
-      const result = reactComponentGenerator.generateComponent(sourceSVG, targetSVG, options);
+      const result = reactComponentGenerator.generateComponent(
+        sourceSVG,
+        targetSVG,
+        options,
+        activePlan ?? undefined,
+      );
 
       setGeneratedCode(result.component);
       setGeneratedTypes(result.types || '');
@@ -55,7 +74,7 @@ export const ReactComponentExportPanel: React.FC<ReactComponentExportPanelProps>
     } catch (error) {
       showError(`Failed to generate component: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [sourceSVG, targetSVG, options, showSuccess, showError, showWarning]);
+  }, [sourceSVG, targetSVG, options, activePlan, showSuccess, showError, showWarning]);
 
   const handleCopyCode = useCallback((code: string, type: string) => {
     navigator.clipboard.writeText(code);
@@ -93,6 +112,13 @@ export const ReactComponentExportPanel: React.FC<ReactComponentExportPanelProps>
           <Code className="h-5 w-5 shrink-0 text-link" />
           Export as ready-to-use React components
         </p>
+
+        {activePlan && (
+          <p role="status" className="text-sm font-medium">
+            Your contour plan is active: the component animates every contour with native SMIL, so the
+            animation library and styled-components options do not apply to it.
+          </p>
+        )}
 
         {/* Configuration */}
         <div className="space-y-4">

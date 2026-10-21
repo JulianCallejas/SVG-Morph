@@ -2,6 +2,8 @@ import { videoExporter, VideoExportOptions, VideoExportProgress } from './videoE
 import { workerManager } from './workerManager';
 import { NodeMatch } from './nodeMatching';
 import { sanitizeSVG, escapeForTemplateLiteral } from './sanitizeSVG';
+import type { ContourPlanEntry } from './contourPairing';
+import { buildContourSMIL } from './contourSmil';
 
 export interface ExportOptions {
   format: 'svg' | 'css' | 'smil' | 'json' | 'javascript' | 'video';
@@ -14,6 +16,11 @@ export interface ExportOptions {
   filename?: string;
   nodeMatches?: NodeMatch[];
   useManualMatching?: boolean;
+  /**
+   * Per-contour plan (see contourPairing.ts). Set only when the contour pipeline is active
+   * (`activeContourPlan`); absent keeps the whole-path export exactly as before.
+   */
+  contourPlan?: ContourPlanEntry[];
 }
 
 export interface JavaScriptExportOptions extends ExportOptions {
@@ -151,6 +158,7 @@ export class ExportSystem {
       loop: options.loop,
       backgroundColor: options.backgroundColor,
       filename: options.filename,
+      contourPlan: options.contourPlan,
     };
 
     try {
@@ -291,6 +299,8 @@ export class ExportSystem {
         svg: targetSVG,
         optimized: options.optimize,
       },
+      // only present when the contour pipeline is active, so other exports keep their shape
+      ...(options.contourPlan && { contourPlan: options.contourPlan }),
       exportedAt: new Date().toISOString(),
     };
 
@@ -335,6 +345,16 @@ function ${options.functionName}(containerId, userOptions = {}) {
    * Generate SVG with SMIL animation using normalized paths for smooth transitions
    */
   private async generateSVGWithSMILAnimation(sourceSVG: string, targetSVG: string, options: ExportOptions): Promise<string> {
+    // Contour plan: errors are not swallowed into an opacity fade, so an invalid plan is reported.
+    if (options.contourPlan) {
+      return buildContourSMIL(
+        await workerManager.parseSVG(sourceSVG),
+        await workerManager.parseSVG(targetSVG),
+        options.contourPlan,
+        { duration: options.duration, loop: options.loop },
+      );
+    }
+
     try {
       const duration = `${options.duration}s`;
       const repeatCount = options.loop ? 'indefinite' : '1';
