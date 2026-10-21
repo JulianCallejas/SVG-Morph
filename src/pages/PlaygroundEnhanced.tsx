@@ -41,6 +41,8 @@ export const PlaygroundEnhanced: React.FC = () => {
     setSourcePoints,
     setTargetPoints,
     autoMatchNodes,
+    matchingOptions,
+    updateMatchingOptions,
     setSourceSVG,
     setTargetSVG,
     animationSettings,
@@ -407,38 +409,26 @@ export const PlaygroundEnhanced: React.FC = () => {
                 </Button>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <h4 className="font-medium mb-3">Processing Options</h4>
-                  <div className="space-y-2">
-                    <CheckRow label="Use Web Workers for processing" defaultChecked />
-                    <CheckRow label="Enable progress callbacks" defaultChecked />
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-3">Matching Algorithm</h4>
-                  <div className="space-y-2">
-                    <CheckRow label="Use Thin-Plate Spline optimization" />
-                    <CheckRow label="Balance matching for better results" defaultChecked />
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-3">Export Settings</h4>
-                  <div className="space-y-2">
-                    <CheckRow label="Optimize SVG output" defaultChecked />
-                    <CheckRow label="Include metadata in exports" />
-                  </div>
+              <div>
+                <h4 className="font-medium mb-1">Matching Algorithm</h4>
+                <p className="mb-3 text-sm text-muted">Changes apply right away to Auto Match and Quick Match.</p>
+                <div className="space-y-2">
+                  <CheckRow
+                    label="Use Thin-Plate Spline optimization"
+                    checked={!!matchingOptions.useThinPlateSpline}
+                    onChange={(e) => updateMatchingOptions({ useThinPlateSpline: e.target.checked })}
+                  />
+                  <CheckRow
+                    label="Balance matching for better results"
+                    checked={!!matchingOptions.balanceMatching}
+                    onChange={(e) => updateMatchingOptions({ balanceMatching: e.target.checked })}
+                  />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-8">
-                <Button variant="ghost" onClick={() => setShowAdvanced(false)}>
-                  Cancel
-                </Button>
+              <div className="flex justify-end mt-8">
                 <Button variant="primary" onClick={() => setShowAdvanced(false)}>
-                  Save Settings
+                  Done
                 </Button>
               </div>
             </div>
