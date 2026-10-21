@@ -22,6 +22,11 @@ export interface MorphGeometryData {
   index: Uint32Array;
   /** Writes `vertexCount * 3` positions for this progress (0..1) into `out`. */
   fill(progress: number, out: Float32Array): void;
+  /**
+   * Optional: overwrite the normals that averaging the triangles gets wrong (the flat caps of a
+   * solid). Call it after the normals have been computed.
+   */
+  fixNormals?(normals: Float32Array): void;
 }
 
 export interface ScenePart {
@@ -187,6 +192,13 @@ export function buildSolid(from: Point[], to: Point[], depth: number): MorphGeom
   return {
     vertexCount: 6 * n,
     index: Uint32Array.from(indices),
+    // the cap triangles do not all wind the same way, so their averaged normals shade patchily
+    fixNormals(normals) {
+      for (let i = 0; i < n; i++) {
+        normals.set([0, 0, 1], i * 3);
+        normals.set([0, 0, -1], (n + i) * 3);
+      }
+    },
     fill(progress, out) {
       const t = clamp01(progress);
       const points = lerpPoints(from, to, t);

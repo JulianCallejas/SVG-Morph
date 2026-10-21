@@ -52,6 +52,7 @@ export const ThreeDMorphing: React.FC = () => {
     targetSVG,
     sourceSVGData,
     targetSVGData,
+    contourPlan,
     setSourceSVG,
     setTargetSVG
   } = useMorphStore();
@@ -74,7 +75,8 @@ export const ThreeDMorphing: React.FC = () => {
         containerRef.current,
         sourceSVGData,
         targetSVGData,
-        options
+        // the contour plan chosen in the playground (morph / swap / static per contour)
+        { ...options, contourPlan: contourPlan ?? undefined }
       );
 
       sceneRef.current = scene;
@@ -85,7 +87,7 @@ export const ThreeDMorphing: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [sourceSVGData, targetSVGData, options, showSuccess, showError]);
+  }, [sourceSVGData, targetSVGData, options, contourPlan, showSuccess, showError]);
 
   // Animation loop for morphing
   const startMorphAnimation = useCallback(() => {

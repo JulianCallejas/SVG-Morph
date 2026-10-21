@@ -134,6 +134,18 @@ describe('buildSolid', () => {
     expect(Math.max(...solid.index)).toBeLessThan(solid.vertexCount);
   });
 
+  it('gives the two caps flat normals along z, and leaves the walls to the usual computation', () => {
+    const solid = buildSolid(square, square, 6);
+    const normals = new Float32Array(solid.vertexCount * 3).fill(0.5);
+
+    solid.fixNormals!(normals);
+
+    // vertices 0..3 are the front cap, 4..7 the back cap, then the walls
+    expect([normals[0], normals[1], normals[2]]).toEqual([0, 0, 1]);
+    expect([normals[4 * 3], normals[4 * 3 + 1], normals[4 * 3 + 2]]).toEqual([0, 0, -1]);
+    expect(normals[8 * 3]).toBe(0.5);
+  });
+
   it('morphs the outline while keeping the same triangles', () => {
     const solid = buildSolid(square, wider, 6);
 
