@@ -4,6 +4,7 @@ import {
   DEFAULT_SWAP_AT,
   type ContourPlanEntry,
 } from './contourPairing';
+import { MAX_NODE_COUNT, MIN_NODE_COUNT } from './contourInterpolation';
 import type { StyledContour } from './contourSvg';
 
 /** Human label of a contour: `P2` for a path with one contour, `P2.1` when it has several. */
@@ -135,9 +136,15 @@ export function unpairEntry(
   return sortPlan([...plan.slice(0, index), ...halves, ...plan.slice(index + 1)], source, target);
 }
 
-export type EntryPatch = Partial<Pick<ContourPlanEntry, 'mode' | 'swapAt' | 'fadeWindow'>>;
+/** `nodeCount: null` goes back to automatic. */
+export type EntryPatch = Partial<Pick<ContourPlanEntry, 'mode' | 'swapAt' | 'fadeWindow'>> & {
+  nodeCount?: number | null;
+};
 
-/** Change the mode, swap point or fade window of one entry. swapAt and fadeWindow are clamped to 0..1. */
+/**
+ * Change the mode, swap point, fade window or node count of one entry. swapAt and fadeWindow are
+ * clamped to 0..1, a manual node count to a whole number within the allowed range.
+ */
 export function updateEntry(
   plan: ContourPlanEntry[],
   index: number,
@@ -156,5 +163,10 @@ export function updateEntry(
     ...(patch.swapAt !== undefined && { swapAt: clamp01(patch.swapAt) }),
     ...(patch.fadeWindow !== undefined && { fadeWindow: clamp01(patch.fadeWindow) }),
   };
+  if (patch.nodeCount === null) {
+    delete next.nodeCount;
+  } else if (patch.nodeCount !== undefined) {
+    next.nodeCount = Math.min(MAX_NODE_COUNT, Math.max(MIN_NODE_COUNT, Math.round(patch.nodeCount)));
+  }
   return plan.map((e, i) => (i === index ? next : e));
 }

@@ -3,9 +3,16 @@ import type { Contour } from './contours';
 import type { ContourPlanEntry } from './contourPairing';
 
 export interface InterpolateContoursOptions {
-  /** Nodes sampled along each morphing contour. Defaults to the 100 the worker already uses. */
+  /** Nodes for every morphing pair that does not set its own. Absent means automatic. */
   nodeCount?: number;
 }
+
+// Bounds of a manual node count, and of the automatic one (a straight line still needs enough
+// nodes to bend into a curve).
+export const MIN_NODE_COUNT = 8;
+export const MAX_NODE_COUNT = 300;
+export const MIN_AUTO_NODE_COUNT = 32;
+const NODES_PER_SEGMENT = 8;
 
 /** One shape to draw for the current frame. */
 export interface RenderedContour {
@@ -18,9 +25,7 @@ export interface RenderedContour {
   opacity: number;
 }
 
-export const DEFAULT_NODE_COUNT = 100;
-
-interface Point {
+export interface Point {
   x: number;
   y: number;
 }
@@ -35,7 +40,8 @@ const roundTo = (value: number, digits: number): number => {
 // so samples are cached per contour object and node count.
 const sampleCache = new WeakMap<Contour, Map<number, Point[]>>();
 
-function sampleContour(contour: Contour, nodeCount: number): Point[] {
+/** `nodeCount + 1` points evenly spaced along a contour; the same points the morph uses. */
+export function sampleContour(contour: Contour, nodeCount: number): Point[] {
   let byCount = sampleCache.get(contour);
   if (!byCount) {
     byCount = new Map();
@@ -54,6 +60,37 @@ function sampleContour(contour: Contour, nodeCount: number): Point[] {
 
   byCount.set(nodeCount, points);
   return points;
+}
+
+const segmentCache = new WeakMap<Contour, number>();
+
+function segmentCount(contour: Contour): number {
+  let count = segmentCache.get(contour);
+  if (count === undefined) {
+    count = parsePathString(contour.d).length;
+    segmentCache.set(contour, count);
+  }
+  return count;
+}
+
+/** Automatic node count for a pair: enough for the more complex of the two sides. */
+export function autoNodeCount(source: Contour, target: Contour): number {
+  const wanted = Math.max(segmentCount(source), segmentCount(target)) * NODES_PER_SEGMENT;
+  return Math.min(MAX_NODE_COUNT, Math.max(MIN_AUTO_NODE_COUNT, wanted));
+}
+
+/** Node count of a morphing pair: the entry's own, else the option, else automatic. */
+export function resolveNodeCount(
+  entry: ContourPlanEntry,
+  source: Contour,
+  target: Contour,
+  options: InterpolateContoursOptions = {},
+): number {
+  const nodeCount = entry.nodeCount ?? options.nodeCount ?? autoNodeCount(source, target);
+  if (!Number.isInteger(nodeCount) || nodeCount < 1) {
+    throw new RangeError(`nodeCount must be an integer of at least 1, got ${nodeCount}`);
+  }
+  return nodeCount;
 }
 
 function pointsToPath(points: Point[], closed: boolean): string {
@@ -132,10 +169,6 @@ export function interpolateContours(
   progress: number,
   options: InterpolateContoursOptions = {},
 ): RenderedContour[] {
-  const nodeCount = options.nodeCount ?? DEFAULT_NODE_COUNT;
-  if (!Number.isInteger(nodeCount) || nodeCount < 1) {
-    throw new RangeError(`nodeCount must be an integer of at least 1, got ${nodeCount}`);
-  }
   const t = clamp01(progress);
 
   return plan.flatMap((entry): RenderedContour[] => {
@@ -150,7 +183,7 @@ export function interpolateContours(
       ];
     }
     if (entry.mode === 'morph' && from && to) {
-      return [morphContour(from, to, t, nodeCount)];
+      return [morphContour(from, to, t, resolveNodeCount(entry, from, to, options))];
     }
     // a swap, or a morph that lost one of its sides
     return swapContours(from, to, entry, t);

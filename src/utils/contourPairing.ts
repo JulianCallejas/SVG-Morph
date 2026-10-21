@@ -16,6 +16,8 @@ export interface ContourPlanEntry {
   swapAt: number;
   /** Width of the opacity cross-fade around `swapAt`, as a fraction of the animation. 0 = hard cut. */
   fadeWindow: number;
+  /** Nodes sampled along a morphing pair. Absent means automatic (see `autoNodeCount`). */
+  nodeCount?: number;
 }
 
 export const DEFAULT_SWAP_AT = 0.5;

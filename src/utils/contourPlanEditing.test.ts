@@ -6,6 +6,7 @@ import {
   DEFAULT_SWAP_AT,
   type ContourPlanEntry,
 } from './contourPairing';
+import { MAX_NODE_COUNT, MIN_NODE_COUNT } from './contourInterpolation';
 import {
   colorIndexByContour,
   contourLabel,
@@ -198,6 +199,22 @@ describe('updateEntry', () => {
     const plan = updateEntry(suggested, 2, { swapAt: 4, fadeWindow: -1 });
 
     expect(plan[2]).toMatchObject({ swapAt: 1, fadeWindow: 0 });
+  });
+
+  it('sets a manual node count on one entry and clears it back to automatic', () => {
+    const manual = updateEntry(suggested, 0, { nodeCount: 50 });
+
+    expect(manual[0].nodeCount).toBe(50);
+    expect(manual[1].nodeCount).toBeUndefined();
+
+    const automatic = updateEntry(manual, 0, { nodeCount: null });
+    expect('nodeCount' in automatic[0]).toBe(false);
+  });
+
+  it('keeps the manual node count within its limits and whole', () => {
+    expect(updateEntry(suggested, 0, { nodeCount: 2 })[0].nodeCount).toBe(MIN_NODE_COUNT);
+    expect(updateEntry(suggested, 0, { nodeCount: 9999 })[0].nodeCount).toBe(MAX_NODE_COUNT);
+    expect(updateEntry(suggested, 0, { nodeCount: 40.6 })[0].nodeCount).toBe(41);
   });
 
   it('refuses a morph on an unpaired contour', () => {

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { splitContours } from './contours';
 import { pairContours, type ContourPlanEntry } from './contourPairing';
-import { interpolateContours } from './contourInterpolation';
+import {
+  MAX_NODE_COUNT,
+  MIN_AUTO_NODE_COUNT,
+  autoNodeCount,
+  interpolateContours,
+  resolveNodeCount,
+  sampleContour,
+} from './contourInterpolation';
 
 // `d` attributes of the two reference icons (see contours.test.ts)
 const CLOUD_ARROW_D =
@@ -45,12 +52,29 @@ describe('interpolateContours: morph', () => {
     expect(numbers(atEnd[0].d).filter((_, i) => i % 2 === 1)).toEqual([10, 10, 10]);
   });
 
-  it('samples 100 nodes by default and honours nodeCount', () => {
+  it('uses the automatic node count when nothing is set, and honours the nodeCount option', () => {
     const [byDefault] = interpolateContours([entry({})], source, target, 0.5);
     const [custom] = interpolateContours([entry({})], source, target, 0.5, { nodeCount: 10 });
 
-    expect(pointCount(byDefault.d)).toBe(101);
+    expect(pointCount(byDefault.d)).toBe(autoNodeCount(source[0], target[0]) + 1);
     expect(pointCount(custom.d)).toBe(11);
+  });
+
+  it('lets an entry set its own node count, above the option', () => {
+    const [item] = interpolateContours([entry({ nodeCount: 6 })], source, target, 0.5, { nodeCount: 50 });
+
+    expect(pointCount(item.d)).toBe(7);
+  });
+
+  it('gives each entry its own node count', () => {
+    const items = interpolateContours(
+      [entry({ nodeCount: 5 }), entry({ sourceId: 's2', targetId: 't2', nodeCount: 20 })],
+      [...source, ...splitContours('M0 20 L10 20', 's').map((c) => ({ ...c, id: 's2' }))],
+      [...target, ...splitContours('M0 30 L10 30', 't').map((c) => ({ ...c, id: 't2' }))],
+      0.5,
+    );
+
+    expect(items.map((item) => pointCount(item.d))).toEqual([6, 21]);
   });
 
   it('closes the contour when both sides are closed', () => {
@@ -81,6 +105,41 @@ describe('interpolateContours: morph', () => {
 
     expect(interpolateContours(plan, source, target, 0.2)).toHaveLength(1);
     expect(interpolateContours(plan, source, target, 0.8)).toHaveLength(0);
+  });
+});
+
+describe('node counts', () => {
+  const line = splitContours('M0 0 L10 0', 'a')[0];
+  const cloud = splitContours(CLOUD_ARROW_D, 'c')[0];
+
+  it('keeps the automatic count within its bounds', () => {
+    expect(autoNodeCount(line, line)).toBe(MIN_AUTO_NODE_COUNT);
+    expect(autoNodeCount(cloud, cloud)).toBeGreaterThan(MIN_AUTO_NODE_COUNT);
+    expect(autoNodeCount(cloud, cloud)).toBeLessThanOrEqual(MAX_NODE_COUNT);
+  });
+
+  it('asks for as many nodes as the more complex side needs, whatever the order', () => {
+    expect(autoNodeCount(line, cloud)).toBe(autoNodeCount(cloud, cloud));
+    expect(autoNodeCount(cloud, line)).toBe(autoNodeCount(line, cloud));
+  });
+
+  it('resolves manual entry count first, then the option, then the automatic count', () => {
+    expect(resolveNodeCount(entry({ nodeCount: 12 }), line, cloud, { nodeCount: 50 })).toBe(12);
+    expect(resolveNodeCount(entry({}), line, cloud, { nodeCount: 50 })).toBe(50);
+    expect(resolveNodeCount(entry({}), line, cloud)).toBe(autoNodeCount(line, cloud));
+  });
+
+  it('rejects an invalid manual count', () => {
+    expect(() => resolveNodeCount(entry({ nodeCount: 0 }), line, cloud)).toThrow(RangeError);
+    expect(() => resolveNodeCount(entry({ nodeCount: 3.5 }), line, cloud)).toThrow(RangeError);
+  });
+
+  it('samples the requested number of nodes along a contour', () => {
+    const points = sampleContour(line, 4);
+
+    expect(points).toHaveLength(5);
+    expect(points[0]).toEqual({ x: 0, y: 0 });
+    expect(points[4].x).toBeCloseTo(10);
   });
 });
 
