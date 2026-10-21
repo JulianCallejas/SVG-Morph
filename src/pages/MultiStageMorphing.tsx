@@ -8,6 +8,7 @@ import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Field, Select } from '../components/ui/Fields';
 import { Panel } from '../components/ui/Panel';
+import { sanitizeSVG } from '../utils/sanitizeSVG';
 
 const INPUT_CLASS = 'h-11 w-full bg-raised px-3 text-content';
 
@@ -240,7 +241,7 @@ ${pathAnimations}
     return (
       <div 
         className="w-full h-full flex items-center justify-center"
-        dangerouslySetInnerHTML={{ __html: svgContent }}
+        dangerouslySetInnerHTML={{ __html: sanitizeSVG(svgContent) }}
       />
     );
   };
