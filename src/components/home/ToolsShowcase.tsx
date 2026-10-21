@@ -147,7 +147,7 @@ const TOOLS: Tool[] = [
     name: 'Reverse engineering',
     summary: 'Upload an animated SVG and read back its SMIL, CSS or JavaScript.',
     path: '/reverse-engineering',
-    field: 'bg-selected',
+    field: 'bg-field-sun',
     Panel: ReversePanel,
   },
 ];
