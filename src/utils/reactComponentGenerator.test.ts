@@ -153,8 +153,19 @@ describe('contour-aware React component', () => {
   });
 
   it('refuses a component name that is not a valid identifier', () => {
-    expect(() => generate({ componentName: 'My Icon' })).toThrow(/valid identifier/i);
-    expect(() => generate({ componentName: 'A;alert(1)' })).toThrow(/valid identifier/i);
+    expect(() => generate({ componentName: 'My Icon' })).toThrow(/valid component name/i);
+    expect(() => generate({ componentName: 'A;alert(1)' })).toThrow(/valid component name/i);
+  });
+
+  it('refuses reserved words and lowercase names, which React would not treat as a component', () => {
+    // `class` and `default` are reserved; `icon` would be rendered as an HTML tag in the usage example
+    for (const name of ['class', 'default', 'icon', 'export']) {
+      expect(() => generate({ componentName: name })).toThrow(/valid component name/i);
+    }
+  });
+
+  it('accepts names with digits, underscores and dollar signs after the first capital', () => {
+    expect(() => generate({ componentName: 'Icon2_$' })).not.toThrow();
   });
 
   it('cannot be broken by hostile values in the SVG', () => {

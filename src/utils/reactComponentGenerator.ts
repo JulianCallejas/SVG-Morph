@@ -109,8 +109,12 @@ export class ReactComponentGenerator {
     plan: ContourPlanEntry[]
   ): { component: string; types?: string; dependencies: string[]; usage: string } {
     const name = options.componentName;
-    if (!/^[A-Za-z_$][\w$]*$/.test(name)) {
-      throw new Error(`Component name "${name}" is not a valid identifier`);
+    // Starting with a capital makes it a valid JS identifier that is never a reserved word (those are
+    // all lowercase) and the only kind React treats as a component instead of an HTML tag.
+    if (!/^[A-Z][\w$]*$/.test(name)) {
+      throw new Error(
+        `"${name}" is not a valid component name: use a JavaScript identifier that starts with an uppercase letter`
+      );
     }
 
     const model = buildContourSmilModel(toMorphData(sourceSVG), toMorphData(targetSVG), plan);
