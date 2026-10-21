@@ -6,6 +6,7 @@ import {
   MIN_AUTO_NODE_COUNT,
   autoNodeCount,
   interpolateContours,
+  pairNodes,
   resolveNodeCount,
   sampleContour,
 } from './contourInterpolation';
@@ -134,12 +135,119 @@ describe('node counts', () => {
     expect(() => resolveNodeCount(entry({ nodeCount: 3.5 }), line, cloud)).toThrow(RangeError);
   });
 
+  // svg-path-commander returns the end of the NEXT segment when a distance lands exactly on a
+  // vertex, and the start point for the whole closing segment of a `Z` path: both are worked around.
+  it('samples a closed contour all the way round, including its closing edge', () => {
+    const square = splitContours('M0 0 L10 0 L10 10 L0 10 Z', 'q')[0];
+
+    const points = sampleContour(square, 8);
+
+    const expected = [[0, 0], [5, 0], [10, 0], [10, 5], [10, 10], [5, 10], [0, 10], [0, 5], [0, 0]];
+    points.forEach((point, i) => {
+      expect(point.x).toBeCloseTo(expected[i][0], 1);
+      expect(point.y).toBeCloseTo(expected[i][1], 1);
+    });
+  });
+
+  it('samples exactly on a vertex without jumping to the next segment', () => {
+    const corner = splitContours('M0 0 L10 0 L10 10', 'v')[0];
+
+    const points = sampleContour(corner, 2);
+
+    expect([points[1].x, points[1].y].map(Math.round)).toEqual([10, 0]);
+  });
+
+  it('copes with a closed contour that already returns to its start', () => {
+    const triangle = splitContours('M0 0 L10 0 L10 10 L0 0 Z', 'z')[0];
+
+    const points = sampleContour(triangle, 6);
+
+    expect(points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true);
+  });
+
   it('samples the requested number of nodes along a contour', () => {
     const points = sampleContour(line, 4);
 
     expect(points).toHaveLength(5);
     expect(points[0]).toEqual({ x: 0, y: 0 });
     expect(points[4].x).toBeCloseTo(10);
+  });
+});
+
+describe('pair alignment', () => {
+  const only = (d: string, prefix: string) => splitContours(d, prefix);
+  const firstPoint = (d: string): number[] => numbers(d.split(' ')[0]);
+
+  it('reverses an open contour drawn in the opposite direction', () => {
+    const a = only('M0 0 L10 0', 's');
+    const b = only('M10 5 L0 5', 't');
+
+    const [item] = interpolateContours([entry({})], a, b, 0.5, { nodeCount: 4 });
+
+    // the start of a (0,0) must meet the matching end of b (0,5), not its start (10,5)
+    expect(firstPoint(item.d)).toEqual([0, 2.5]);
+  });
+
+  it('leaves an open contour with the same direction as it is', () => {
+    const a = only('M0 0 L10 0', 's');
+    const b = only('M0 5 L10 5', 't');
+
+    const [item] = interpolateContours([entry({})], a, b, 0.5, { nodeCount: 4 });
+
+    expect(firstPoint(item.d)).toEqual([0, 2.5]);
+  });
+
+  it('rotates the start of a closed contour to the nearest matching node', () => {
+    const a = only('M0 0 L10 0 L10 10 L0 10 Z', 's');
+    // the same square, but it starts at the opposite corner
+    const b = only('M10 10 L0 10 L0 0 L10 0 Z', 't');
+
+    const [item] = interpolateContours([entry({})], a, b, 0.5, { nodeCount: 8 });
+
+    // identical shapes must morph into themselves: the path still starts at the top-left corner
+    // (samples are nudged by 0.001 to dodge a library bug, so compare with a tolerance)
+    const [x, y] = firstPoint(item.d);
+    expect(x).toBeCloseTo(0, 1);
+    expect(y).toBeCloseTo(0, 1);
+  });
+
+  it('also reverses a closed contour drawn the other way round', () => {
+    const a = only('M0 0 L10 0 L10 10 L0 10 Z', 's');
+    const b = only('M0 0 L0 10 L10 10 L10 0 Z', 't');
+
+    const items = interpolateContours([entry({})], a, b, 0.5, { nodeCount: 8 });
+    const [aligned] = interpolateContours([entry({})], a, a.map((c) => ({ ...c, id: 't1' })), 0.5, {
+      nodeCount: 8,
+    });
+
+    // same geometry, up to the 0.001 sampling nudge
+    const got = numbers(items[0].d);
+    const want = numbers(aligned.d);
+    expect(got).toHaveLength(want.length);
+    got.forEach((value, i) => expect(value).toBeCloseTo(want[i], 1));
+  });
+
+  it('keeps identical contours exactly as they are', () => {
+    const a = only('M0 0 L10 0 L10 10 L0 10 Z', 's');
+    const same = a.map((c) => ({ ...c, id: 't1' }));
+
+    const nodes = pairNodes(a[0], same[0], 8);
+
+    expect(nodes.to).toEqual(nodes.from);
+  });
+
+  it('copes with an open contour paired with a closed one', () => {
+    const open = only('M0 0 L10 0', 's');
+    const closed = only('M0 0 L10 0 L10 10 L0 10 Z', 't');
+
+    expect(() => interpolateContours([entry({})], open, closed, 0.5, { nodeCount: 8 })).not.toThrow();
+  });
+
+  it('gives both sides of a pair the same number of nodes', () => {
+    const nodes = pairNodes(source[0], target[0], 12);
+
+    expect(nodes.from).toHaveLength(13);
+    expect(nodes.to).toHaveLength(13);
   });
 });
 

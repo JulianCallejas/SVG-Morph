@@ -40,6 +40,14 @@ const roundTo = (value: number, digits: number): number => {
 // so samples are cached per contour object and node count.
 const sampleCache = new WeakMap<Contour, Map<number, Point[]>>();
 
+const SAMPLE_NUDGE = 1e-3;
+
+// `d` of a closed contour with its trailing Z replaced by a line back to the starting point.
+function closeWithLine(d: string, parsed: ReturnType<typeof parsePathString>): string {
+  const [, x, y] = parsed[0] as unknown as [string, number, number];
+  return d.replace(/[Zz]\s*$/, `L${x} ${y}`);
+}
+
 /** `nodeCount + 1` points evenly spaced along a contour; the same points the morph uses. */
 export function sampleContour(contour: Contour, nodeCount: number): Point[] {
   let byCount = sampleCache.get(contour);
@@ -50,16 +58,89 @@ export function sampleContour(contour: Contour, nodeCount: number): Point[] {
   const cached = byCount.get(nodeCount);
   if (cached) return cached;
 
-  const path = parsePathString(contour.d);
+  // svg-path-commander answers wrongly for the closing segment of a `Z` path (it returns the start
+  // point), so a closed contour is sampled with its closing edge written out as a line.
+  const first = parsePathString(contour.d);
+  const path = contour.closed ? parsePathString(closeWithLine(contour.d, first)) : first;
   const totalLength = getTotalLength(path);
+  // ...and when a distance lands exactly on a vertex it returns the end of the next segment, so the
+  // inner samples are nudged forward by an amount far below anything visible.
+  const nudge = Math.min(SAMPLE_NUDGE, totalLength / (nodeCount * 4));
   const points: Point[] = [];
   for (let i = 0; i <= nodeCount; i++) {
-    const { x, y } = getPointAtLength(path, (i / nodeCount) * totalLength);
+    const distance = i === 0 ? 0 : i === nodeCount ? totalLength : (i / nodeCount) * totalLength + nudge;
+    const { x, y } = getPointAtLength(path, distance);
     points.push({ x, y });
   }
 
   byCount.set(nodeCount, points);
   return points;
+}
+
+const squaredDistance = (a: Point, b: Point): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+
+// Reorders the target nodes so node i of the target sits as close as possible to node i of the
+// source. Two closed contours may also start anywhere and run either way round; otherwise only
+// the direction can flip. Ties keep the original order, so identical contours are not touched.
+function alignToSource(from: Point[], to: Point[], bothClosed: boolean): Point[] {
+  const n = from.length - 1;
+
+  if (bothClosed && n >= 1) {
+    // a closed contour's last sample repeats its first: work on the n distinct nodes
+    let best = { cost: Infinity, reversed: false, shift: 0 };
+    for (const reversed of [false, true]) {
+      for (let shift = 0; shift < n; shift++) {
+        let cost = 0;
+        for (let i = 0; i < n && cost < best.cost; i++) {
+          const j = reversed ? (((shift - i) % n) + n) % n : (shift + i) % n;
+          cost += squaredDistance(from[i], to[j]);
+        }
+        if (cost < best.cost) best = { cost, reversed, shift };
+      }
+    }
+    const aligned = Array.from({ length: n }, (_, i) => {
+      const j = best.reversed ? (((best.shift - i) % n) + n) % n : (best.shift + i) % n;
+      return to[j];
+    });
+    return [...aligned, aligned[0]];
+  }
+
+  const cost = (candidate: Point[]) =>
+    candidate.reduce((sum, point, i) => sum + squaredDistance(from[i], point), 0);
+  const reversed = [...to].reverse();
+  return cost(reversed) < cost(to) ? reversed : to;
+}
+
+const alignCache = new WeakMap<Contour, WeakMap<Contour, Map<number, Point[]>>>();
+
+/**
+ * The nodes a pair morphs between: `from` are the source samples, `to` the target samples
+ * reordered (reversed and, for closed contours, rotated) to untwist the morph. Cached per pair
+ * and node count.
+ */
+export function pairNodes(
+  source: Contour,
+  target: Contour,
+  nodeCount: number,
+): { from: Point[]; to: Point[] } {
+  const from = sampleContour(source, nodeCount);
+
+  let byTarget = alignCache.get(source);
+  if (!byTarget) {
+    byTarget = new WeakMap();
+    alignCache.set(source, byTarget);
+  }
+  let byCount = byTarget.get(target);
+  if (!byCount) {
+    byCount = new Map();
+    byTarget.set(target, byCount);
+  }
+  let to = byCount.get(nodeCount);
+  if (!to) {
+    to = alignToSource(from, sampleContour(target, nodeCount), source.closed && target.closed);
+    byCount.set(nodeCount, to);
+  }
+  return { from, to };
 }
 
 const segmentCache = new WeakMap<Contour, number>();
@@ -106,8 +187,7 @@ function morphContour(
   progress: number,
   nodeCount: number,
 ): RenderedContour {
-  const from = sampleContour(source, nodeCount);
-  const to = sampleContour(target, nodeCount);
+  const { from, to } = pairNodes(source, target, nodeCount);
   const points = from.map((p, i) => ({
     x: p.x + (to[i].x - p.x) * progress,
     y: p.y + (to[i].y - p.y) * progress,
