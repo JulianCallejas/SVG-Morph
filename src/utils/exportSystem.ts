@@ -1,6 +1,7 @@
 import { videoExporter, VideoExportOptions, VideoExportProgress } from './videoExport';
 import { workerManager } from './workerManager';
 import { NodeMatch } from './nodeMatching';
+import { sanitizeSVG, escapeForTemplateLiteral } from './sanitizeSVG';
 
 export interface ExportOptions {
   format: 'svg' | 'css' | 'smil' | 'json' | 'javascript' | 'video';
@@ -318,7 +319,7 @@ function ${options.functionName}(containerId, userOptions = {}) {
   }
   
   // Basic morphing implementation
-  container.innerHTML = \`${sourceSVG.replace(/`/g, '\\`')}\`;
+  container.innerHTML = \`${escapeForTemplateLiteral(sanitizeSVG(sourceSVG))}\`;
   
   return {
     play: () => console.log('Animation started'),

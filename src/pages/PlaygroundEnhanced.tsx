@@ -13,6 +13,7 @@ import { CheckRow } from '../components/ui/Fields';
 import { Panel } from '../components/ui/Panel';
 import { extractPointsFromSVGData, scalePointsToFit } from '../utils/pointExtraction';
 import { Settings, Zap, Eye, Download, Play, Code, Box, X } from 'lucide-react';
+import { sanitizeSVG } from '../utils/sanitizeSVG';
 
 type StudioTab = 'upload' | 'match' | 'animate' | 'export' | 'react' | '3d';
 
@@ -219,7 +220,7 @@ export const PlaygroundEnhanced: React.FC = () => {
                     <div className="flex h-48 w-full items-center justify-center overflow-hidden bg-canvas">
                       <div
                         className="max-w-full max-h-full"
-                        dangerouslySetInnerHTML={{ __html: sourceSVG }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeSVG(sourceSVG) }}
                       />
                     </div>
                   </Panel>
@@ -241,7 +242,7 @@ export const PlaygroundEnhanced: React.FC = () => {
                     <div className="flex h-48 w-full items-center justify-center overflow-hidden bg-canvas">
                       <div
                         className="max-w-full max-h-full"
-                        dangerouslySetInnerHTML={{ __html: targetSVG }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeSVG(targetSVG) }}
                       />
                     </div>
                   </Panel>

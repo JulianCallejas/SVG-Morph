@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useMorphStore } from '../store/morphStore';
+import { sanitizeSVG } from '../utils/sanitizeSVG';
 
 interface SVGPreviewProps {
   sourceSVG: string | null;
@@ -24,6 +25,11 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
     const canvas = canvasRef.current;
     canvas.innerHTML = '';
 
+    // The files are untrusted: only sanitized markup reaches innerHTML below.
+    const safeSource = sanitizeSVG(sourceSVG);
+    const safeTarget = sanitizeSVG(targetSVG);
+    const safeInterpolated = interpolatedSVG ? sanitizeSVG(interpolatedSVG) : '';
+
     if (viewMode === 'split') {
       // Split view - show both SVGs side by side
       const container = document.createElement('div');
@@ -35,7 +41,7 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
         <div class="text-center">
           <div class="w-full max-w-48 aspect-square mx-auto mb-2 bg-surface flex items-center justify-center overflow-hidden">
             <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-              ${sourceSVG}
+              ${safeSource}
             </div>
           </div>
           <p class="text-sm text-muted">Source SVG</p>
@@ -48,7 +54,7 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
         <div class="text-center">
           <div class="w-full max-w-48 aspect-square mx-auto mb-2 bg-surface flex items-center justify-center overflow-hidden">
             <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-              ${targetSVG}
+              ${safeTarget}
             </div>
           </div>
           <p class="text-sm text-muted">Target SVG</p>
@@ -67,13 +73,13 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
       morphContainer.className = 'text-center';
       
       // Use interpolated SVG from Web Worker or fallback
-      const displaySVG = interpolatedSVG || `
+      const displaySVG = safeInterpolated || `
         <div style="position: relative; width: 100%; height: 100%;">
           <div style="position: absolute; opacity: ${1 - currentProgress};">
-            ${sourceSVG}
+            ${safeSource}
           </div>
           <div style="position: absolute; opacity: ${currentProgress};">
-            ${targetSVG}
+            ${safeTarget}
           </div>
         </div>
       `;

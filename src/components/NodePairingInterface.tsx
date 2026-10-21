@@ -5,6 +5,7 @@ import { NodeMatcher, MatchingOptions } from '../utils/nodeMatching';
 import { Undo2, Redo2, Trash2, Zap, Settings, Eye, EyeOff } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Field, Select } from './ui/Fields';
+import { sanitizeSVG } from '../utils/sanitizeSVG';
 
 interface NodePairingInterfaceProps {
   sourcePoints: Point[];
@@ -405,7 +406,7 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
                 <foreignObject x="0" y="0" width="260" height="340">
                   <div 
                     className="w-full h-full flex items-center justify-center opacity-30"
-                    dangerouslySetInnerHTML={{ __html: sourceSVG }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeSVG(sourceSVG) }}
                   />
                 </foreignObject>
               </g>
@@ -416,7 +417,7 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
                 <foreignObject x="0" y="0" width="260" height="340">
                   <div 
                     className="w-full h-full flex items-center justify-center opacity-30"
-                    dangerouslySetInnerHTML={{ __html: targetSVG }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeSVG(targetSVG) }}
                   />
                 </foreignObject>
               </g>

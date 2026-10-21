@@ -5,6 +5,7 @@ import { useMorphStore } from '../store/morphStore';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Panel } from '../components/ui/Panel';
+import { sanitizeSVG } from '../utils/sanitizeSVG';
 
 interface AnalysisState {
   isAnalyzing: boolean;
@@ -315,7 +316,7 @@ export const ReverseEngineering: React.FC = () => {
                         <h3 className="mb-2 font-medium">Source Shape</h3>
                         <div className="bg-canvas p-4 flex items-center justify-center">
                           <div
-                            dangerouslySetInnerHTML={{ __html: result.extractedSVGs.source }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeSVG(result.extractedSVGs.source) }}
                             className="w-full min-w-0 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-48 [&_svg]:max-w-full [&_path]:stroke-action"
                           />
                         </div>
@@ -324,7 +325,7 @@ export const ReverseEngineering: React.FC = () => {
                         <h3 className="mb-2 font-medium">Target Shape</h3>
                         <div className="bg-canvas p-4 flex items-center justify-center">
                           <div
-                            dangerouslySetInnerHTML={{ __html: result.extractedSVGs.target }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeSVG(result.extractedSVGs.target) }}
                             className="w-full min-w-0 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-48 [&_svg]:max-w-full [&_path]:stroke-action"
                           />
                         </div>

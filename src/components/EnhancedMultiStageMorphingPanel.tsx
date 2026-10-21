@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import { Button } from './ui/Button';
 import { Panel } from './ui/Panel';
 import { Field, Select, Slider } from './ui/Fields';
+import { sanitizeSVG } from '../utils/sanitizeSVG';
 
 interface EnhancedMultiStageMorphingPanelProps {
   onSequenceChange?: (sequence: MultiStageSequence | null) => void;
@@ -436,11 +437,11 @@ export const EnhancedMultiStageMorphingPanel: React.FC<EnhancedMultiStageMorphin
                           <div className="flex items-center justify-center h-20">
                             <div
                               dangerouslySetInnerHTML={{
-                                __html: `<svg width="60" height="60" viewBox="${stage.svgData.viewBox}" class="max-w-full max-h-full">
+                                __html: sanitizeSVG(`<svg width="60" height="60" viewBox="${stage.svgData.viewBox}" class="max-w-full max-h-full">
                                   ${stage.svgData.paths.map(path =>
                                     `<path d="${path.d}" fill="${path.fill}" stroke="${path.stroke}" stroke-width="${path.strokeWidth}" />`
                                   ).join('')}
-                                </svg>`
+                                </svg>`)
                               }}
                             />
                           </div>

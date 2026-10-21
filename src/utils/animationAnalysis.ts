@@ -351,7 +351,7 @@ export class AnimationAnalyzer {
     const bbox = this.calculatePathBounds(pathData);
     
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}" width="400" height="400">
-  <path d="${pathData}" fill="none" stroke="#000" stroke-width="2"/>
+  <path d="${pathData.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}" fill="none" stroke="#000" stroke-width="2"/>
 </svg>`;
   }
 
