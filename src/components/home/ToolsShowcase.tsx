@@ -2,68 +2,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DEMO_SHAPES } from '../../utils/homeDemo';
+import playgroundDark from '../../assets/home/tools/playground-dark.webp';
+import playgroundLight from '../../assets/home/tools/playground-light.webp';
+import studioDark from '../../assets/home/tools/studio-dark.webp';
+import studioLight from '../../assets/home/tools/studio-light.webp';
+import multiStageDark from '../../assets/home/tools/multi-stage-dark.webp';
+import multiStageLight from '../../assets/home/tools/multi-stage-light.webp';
+import reverseDark from '../../assets/home/tools/reverse-dark.webp';
+import reverseLight from '../../assets/home/tools/reverse-light.webp';
 
-const [circle, star, square] = DEMO_SHAPES;
+const star = DEMO_SHAPES[1];
 
 const SWIPE_DISTANCE = 50;
-
-const Tile: React.FC<{ label: string; d: string }> = ({ label, d }) => (
-  <div className="flex flex-col items-center justify-center gap-2 bg-surface p-4">
-    <svg viewBox="0 0 300 300" aria-hidden="true" className="h-24 w-24 sm:h-28 sm:w-28">
-      <path d={d} className="fill-sun-400" />
-    </svg>
-    <span className="text-sm">{label}</span>
-  </div>
-);
-
-const Row: React.FC<{ label: string; note?: string; selected?: boolean }> = ({ label, note, selected }) => (
-  <div
-    className={`flex flex-1 items-center justify-between gap-4 px-4 py-3 text-sm ${
-      selected ? 'bg-sun-400 text-ash-900' : 'bg-surface'
-    }`}
-  >
-    <span className="font-medium">{label}</span>
-    {note && <span className={selected ? 'text-ash-900' : 'text-muted'}>{note}</span>}
-  </div>
-);
-
-const PlaygroundPanel: React.FC = () => (
-  <div className="flex flex-1 flex-col gap-3">
-    <div className="grid flex-1 grid-cols-2 gap-3">
-      <Tile label="Source" d={circle.d} />
-      <Tile label="Target" d={star.d} />
-    </div>
-    <div className="flex items-center gap-3 bg-surface p-4">
-      <div className="h-2 flex-1 bg-ash-500">
-        <div className="h-2 w-1/2 bg-sun-400" />
-      </div>
-      <span className="w-10 text-right text-sm tabular-nums">50%</span>
-    </div>
-  </div>
-);
-
-const StudioPanel: React.FC = () => (
-  <div className="flex flex-1 flex-col gap-2">
-    <Row label="Upload your SVG files" />
-    <Row label="Node matching" selected />
-    <Row label="Animation controls" />
-    <Row label="Preview" />
-    <Row label="Export" />
-  </div>
-);
-
-const MultiStagePanel: React.FC = () => (
-  <div className="flex flex-1 flex-col gap-2">
-    <div className="grid grid-cols-4 gap-2">
-      {[circle, star, square, circle].map((shape, i) => (
-        <Tile key={i} label={shape.label} d={shape.d} />
-      ))}
-    </div>
-    <Row label="Circle to Star" note="Ease in-out" />
-    <Row label="Star to Square" note="Linear" selected />
-    <Row label="Square to Circle" note="Ease in-out" />
-  </div>
-);
 
 const ThreeDPanel: React.FC = () => (
   <div className="flex flex-1 flex-col gap-3">
@@ -90,15 +40,6 @@ const ThreeDPanel: React.FC = () => (
   </div>
 );
 
-const ReversePanel: React.FC = () => (
-  <div className="flex flex-1 flex-col gap-2">
-    <p className="px-1 pb-1 text-sm">Found in animated.svg</p>
-    <Row label="SMIL" note="animate on d" selected />
-    <Row label="CSS" note="@keyframes" />
-    <Row label="JavaScript" note="GSAP, Anime.js" />
-  </div>
-);
-
 interface Tool {
   id: string;
   name: string;
@@ -106,7 +47,9 @@ interface Tool {
   path: string;
   // Each slide owns a flat dark field so neighbours are told apart without brightening the page.
   field: string;
-  Panel: React.FC;
+  // A real capture of the tool in both themes. Tools without one fall back to a drawn Panel.
+  shot?: { dark: string; light: string; alt: string };
+  Panel?: React.FC;
 }
 
 const TOOLS: Tool[] = [
@@ -116,7 +59,7 @@ const TOOLS: Tool[] = [
     summary: 'Two files and one slider. The quickest way to see a morph.',
     path: '/playground',
     field: 'bg-field-sun',
-    Panel: PlaygroundPanel,
+    shot: { dark: playgroundDark, light: playgroundLight, alt: 'The Playground with a circle and a star loaded, shown side by side' },
   },
   {
     id: 'studio',
@@ -124,7 +67,7 @@ const TOOLS: Tool[] = [
     summary: 'Node matching, animation controls, preview and every export in one flow.',
     path: '/playground-enhanced',
     field: 'bg-surface',
-    Panel: StudioPanel,
+    shot: { dark: studioDark, light: studioLight, alt: 'The Studio node matching step with the pairs drawn between a circle and a star' },
   },
   {
     id: 'multi-stage',
@@ -132,7 +75,7 @@ const TOOLS: Tool[] = [
     summary: 'Chain several SVGs, A to B to C to D, with a transition between each.',
     path: '/multi-stage',
     field: 'bg-field-gold',
-    Panel: MultiStagePanel,
+    shot: { dark: multiStageDark, light: multiStageLight, alt: 'A multi-stage sequence from circle to star to square with its playback controls' },
   },
   {
     id: '3d',
@@ -148,7 +91,7 @@ const TOOLS: Tool[] = [
     summary: 'Upload an animated SVG and read back its SMIL, CSS or JavaScript.',
     path: '/reverse-engineering',
     field: 'bg-field-sun',
-    Panel: ReversePanel,
+    shot: { dark: reverseDark, light: reverseLight, alt: 'The analysis of an animated SVG: duration, easing and the extracted paths' },
   },
 ];
 
@@ -213,7 +156,7 @@ export const ToolsShowcase: React.FC = () => {
           className="flex items-stretch transition-transform duration-500 motion-reduce:transition-none"
           style={{ transform: `translateX(-${active * 100}%)`, transitionTimingFunction: 'var(--ease-out)' }}
         >
-          {TOOLS.map(({ id, name, summary, path, field, Panel }, i) => (
+          {TOOLS.map(({ id, name, summary, path, field, shot, Panel }, i) => (
             <div
               key={id}
               ref={(el) => {
@@ -227,13 +170,38 @@ export const ToolsShowcase: React.FC = () => {
             >
               <div className="mx-auto grid max-w-[1600px] gap-8 px-4 py-10 sm:px-6 lg:grid-cols-12 lg:items-center lg:gap-12 lg:px-8 lg:py-16">
                 <div className="lg:order-2 lg:col-span-7">
-                  <div
-                    data-ui
-                    className="mx-auto flex min-h-[340px] w-full max-w-[560px] flex-col bg-canvas p-5 text-content sm:p-6"
-                  >
-                    <p className="mb-4 text-sm font-semibold">{name}</p>
-                    <Panel />
-                  </div>
+                  {shot ? (
+                    <div data-ui className="mx-auto w-full max-w-[760px] bg-canvas">
+                      <img
+                        src={shot.dark}
+                        alt={shot.alt}
+                        width={1440}
+                        height={810}
+                        loading="lazy"
+                        decoding="async"
+                        className="block h-auto w-full [.light_&]:hidden"
+                      />
+                      <img
+                        src={shot.light}
+                        alt={shot.alt}
+                        width={1440}
+                        height={810}
+                        loading="lazy"
+                        decoding="async"
+                        className="hidden h-auto w-full [.light_&]:block"
+                      />
+                    </div>
+                  ) : (
+                    Panel && (
+                      <div
+                        data-ui
+                        className="mx-auto flex min-h-[340px] w-full max-w-[560px] flex-col bg-canvas p-5 text-content sm:p-6"
+                      >
+                        <p className="mb-4 text-sm font-semibold">{name}</p>
+                        <Panel />
+                      </div>
+                    )
+                  )}
                 </div>
                 <div className="lg:order-1 lg:col-span-5">
                   <p className="text-[clamp(2rem,4vw,3.75rem)] font-light leading-[1.05] tracking-[-0.035em]">{name}</p>
