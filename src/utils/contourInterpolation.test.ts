@@ -146,6 +146,18 @@ describe('interpolateContours: static', () => {
   });
 });
 
+describe('interpolateContours: origin ids', () => {
+  it('reports which contours each shape comes from', () => {
+    const morph = interpolateContours([entry({})], source, target, 0.5)[0];
+    const swapped = interpolateContours([entry({ mode: 'swap' })], source, target, 0.1)[0];
+    const fixed = interpolateContours([entry({ mode: 'static', sourceId: null })], source, target, 0.1)[0];
+
+    expect([morph.sourceId, morph.targetId]).toEqual(['s1', 't1']);
+    expect([swapped.sourceId, swapped.targetId]).toEqual(['s1', null]);
+    expect([fixed.sourceId, fixed.targetId]).toEqual([null, 't1']);
+  });
+});
+
 describe('interpolateContours: plan validation', () => {
   it('rejects a node count below 1 or a fractional one', () => {
     expect(() => interpolateContours([entry({})], source, target, 0.5, { nodeCount: 0 })).toThrow(

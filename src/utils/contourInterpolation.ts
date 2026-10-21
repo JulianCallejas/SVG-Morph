@@ -11,6 +11,9 @@ export interface InterpolateContoursOptions {
 export interface RenderedContour {
   /** `s~t` for a morphing pair, otherwise the id of the single contour shown. */
   id: string;
+  /** Source contour this shape comes from, so callers can look up its style. */
+  sourceId: string | null;
+  targetId: string | null;
   d: string;
   opacity: number;
 }
@@ -75,7 +78,13 @@ function morphContour(
   // the open/closed state flips halfway when the two sides disagree
   const closed = progress < 0.5 ? source.closed : target.closed;
 
-  return { id: `${source.id}~${target.id}`, d: pointsToPath(points, closed), opacity: 1 };
+  return {
+    id: `${source.id}~${target.id}`,
+    sourceId: source.id,
+    targetId: target.id,
+    d: pointsToPath(points, closed),
+    opacity: 1,
+  };
 }
 
 // Opacity of the source side of a swap: 1 before the swap, 0 after, linear across the fade window.
@@ -95,8 +104,12 @@ function swapContours(
   const toOpacity = roundTo(1 - fromOpacity, 4);
 
   const items: RenderedContour[] = [];
-  if (source && fromOpacity > 0) items.push({ id: source.id, d: source.d, opacity: fromOpacity });
-  if (target && toOpacity > 0) items.push({ id: target.id, d: target.d, opacity: toOpacity });
+  if (source && fromOpacity > 0) {
+    items.push({ id: source.id, sourceId: source.id, targetId: null, d: source.d, opacity: fromOpacity });
+  }
+  if (target && toOpacity > 0) {
+    items.push({ id: target.id, sourceId: null, targetId: target.id, d: target.d, opacity: toOpacity });
+  }
   return items;
 }
 
@@ -132,7 +145,9 @@ export function interpolateContours(
 
     if (entry.mode === 'static') {
       const shown = (from ?? to) as Contour;
-      return [{ id: shown.id, d: shown.d, opacity: 1 }];
+      return [
+        { id: shown.id, sourceId: from?.id ?? null, targetId: from ? null : shown.id, d: shown.d, opacity: 1 },
+      ];
     }
     if (entry.mode === 'morph' && from && to) {
       return [morphContour(from, to, t, nodeCount)];
