@@ -1,4 +1,28 @@
 import { SVGData } from '../types/svg';
+import type { ContourPlanEntry } from './contourPairing';
+import { buildContourSmilModel, type SmilAnimation, type SmilPath } from './contourSmil';
+import type { SVGData as MorphSVGData } from './svgMorphing';
+
+// types/svg declares strokeWidth and opacity as strings, but the parsers produce numbers (and
+// extra fields such as the line caps). Accept both and hand the contour code real numbers.
+const toNumber = (value: unknown): number | undefined => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+const toMorphData = (svg: SVGData): MorphSVGData => ({
+  ...svg,
+  paths: svg.paths.map((path) => ({
+    ...path,
+    strokeWidth: toNumber(path.strokeWidth),
+    opacity: toNumber(path.opacity),
+  })),
+});
+
+// A value taken from the user's SVG, written into the generated code as a JS string literal. JSON
+// escaping keeps quotes, backslashes and line breaks from ever leaving the literal.
+const literal = (value: string): string => JSON.stringify(value);
+const finite = (value: number, fallback: number): number => (Number.isFinite(value) ? value : fallback);
 
 export interface ReactComponentOptions {
   componentName: string;
@@ -38,18 +62,25 @@ export class ReactComponentGenerator {
   }
 
   /**
-   * Generate React component from SVG morphing data
+   * Generate React component from SVG morphing data.
+   * With a `contourPlan` (the playground's per-contour modes) the component is built from it
+   * instead of pairing whole paths; see `generateContourComponent`.
    */
   generateComponent(
     sourceSVG: SVGData,
     targetSVG: SVGData,
-    options: ReactComponentOptions
+    options: ReactComponentOptions,
+    contourPlan?: ContourPlanEntry[]
   ): {
     component: string;
     types?: string;
     dependencies: string[];
     usage: string;
   } {
+    if (contourPlan) {
+      return this.generateContourComponent(sourceSVG, targetSVG, options, contourPlan);
+    }
+
     const template = this.selectTemplate(options);
     const component = this.buildComponent(sourceSVG, targetSVG, options, template);
     const types = options.typescript ? this.generateTypes(options) : undefined;
@@ -61,6 +92,146 @@ export class ReactComponentGenerator {
       types,
       dependencies,
       usage
+    };
+  }
+
+  /**
+   * A component for a contour plan: one `<path>` per drawn contour, animated with native SMIL
+   * (the same animation the SMIL export writes, verified in Chrome and Firefox), so it needs no
+   * animation library: `animationType` and `styledComponents` do not apply to it. Duration, looping
+   * and autoplay are props. Throws if the component name is not a valid identifier or the plan
+   * references a contour that does not exist.
+   */
+  private generateContourComponent(
+    sourceSVG: SVGData,
+    targetSVG: SVGData,
+    options: ReactComponentOptions,
+    plan: ContourPlanEntry[]
+  ): { component: string; types?: string; dependencies: string[]; usage: string } {
+    const name = options.componentName;
+    if (!/^[A-Za-z_$][\w$]*$/.test(name)) {
+      throw new Error(`Component name "${name}" is not a valid identifier`);
+    }
+
+    const model = buildContourSmilModel(toMorphData(sourceSVG), toMorphData(targetSVG), plan);
+    const ts = options.typescript;
+    const props = options.includeProps;
+    const width = options.responsive ? "'100%'" : String(finite(model.width, 100));
+    const height = options.responsive ? "'auto'" : String(finite(model.height, 100));
+
+    const animateJsx = (animation: SmilAnimation): string => {
+      const attrs = [
+        `attributeName=${literal(animation.attributeName)}`,
+        animation.calcMode ? `calcMode=${literal(animation.calcMode)}` : '',
+        `values={${literal(animation.values)}}`,
+        animation.keyTimes ? `keyTimes=${literal(animation.keyTimes)}` : '',
+        animation.keySplines ? `keySplines=${literal(animation.keySplines)}` : '',
+        'dur={dur}',
+        'repeatCount={repeatCount}',
+      ].filter(Boolean);
+      return `<animate ${attrs.join(' ')} />`;
+    };
+
+    const pathJsx = (path: SmilPath): string => {
+      const attrs = [
+        `d={${literal(path.d)}}`,
+        `fill={${literal(path.fill)}}`,
+        `stroke={${literal(path.stroke)}}`,
+        `strokeWidth={${finite(path.strokeWidth, 1)}}`,
+        `opacity={${finite(path.opacity, 1)}}`,
+        path.strokeLinecap ? `strokeLinecap={${literal(path.strokeLinecap)}}` : '',
+        path.strokeLinejoin ? `strokeLinejoin={${literal(path.strokeLinejoin)}}` : '',
+      ].filter(Boolean);
+      if (path.animations.length === 0) return `<path ${attrs.join(' ')} />`;
+      return [`<path ${attrs.join(' ')}>`, ...path.animations.map((a) => `  ${animateJsx(a)}`), '</path>'].join('\n');
+    };
+    const indent = (text: string, spaces: number): string =>
+      text.split('\n').map((line) => ' '.repeat(spaces) + line).join('\n');
+
+    const propsInterface = [
+      `interface ${name}Props {`,
+      '  width?: number | string;',
+      '  height?: number | string;',
+      '  /** Seconds for one cycle: source to target and back. */',
+      '  duration?: number;',
+      '  loop?: boolean;',
+      '  autoPlay?: boolean;',
+      '  className?: string;',
+      '  style?: React.CSSProperties;',
+      '}',
+    ].join('\n');
+    const types = ts && props ? propsInterface : undefined;
+
+    const signature = props
+      ? `({ width = ${width}, height = ${height}, duration = 2, loop = false, autoPlay = true, className, style }${ts ? `: ${name}Props` : ''})`
+      : '()';
+    const fixedValues = props
+      ? []
+      : [`  const width = ${width};`, `  const height = ${height};`, '  const duration = 2;', '  const loop = false;', '  const autoPlay = true;'];
+    const svgProps = props ? ' className={className} style={style}' : '';
+    const accessibility = options.accessibility ? ' role="img" aria-label="SVG morphing animation" focusable="false"' : '';
+
+    const controls = options.includeControls
+      ? [
+          '      <div className="morph-controls">',
+          '        <button type="button" onClick={() => svgRef.current?.unpauseAnimations()}>Play</button>',
+          '        <button type="button" onClick={() => svgRef.current?.pauseAnimations()}>Pause</button>',
+          '        <button type="button" onClick={() => svgRef.current?.setCurrentTime(0)}>Restart</button>',
+          '      </div>',
+        ]
+      : [];
+
+    const lines = [
+      "import React, { useEffect, useRef } from 'react';",
+      '',
+      ...(types ? [types, ''] : []),
+      '// Generated by SVG Morph from a contour plan. Each contour is one <path>: morphing pairs',
+      '// animate their shape and swapped contours cross over by opacity. Native SMIL, no dependencies.',
+      `const ${name} = ${signature} => {`,
+      ...fixedValues,
+      `  const svgRef = useRef${ts ? '<SVGSVGElement>' : ''}(null);`,
+      '  const dur = `${duration}s`;',
+      "  const repeatCount = loop ? 'indefinite' : 1;",
+      '',
+      '  useEffect(() => {',
+      '    // SMIL starts by itself; only a paused start needs setting up',
+      '    if (!autoPlay) svgRef.current?.pauseAnimations();',
+      '  }, [autoPlay]);',
+      '',
+      '  return (',
+      '    <div className="svg-morph-container">',
+      `      <svg ref={svgRef} width={width} height={height} viewBox=${literal(model.viewBox)}${svgProps}${accessibility}>`,
+      ...model.paths.map((path) => indent(pathJsx(path), 8)),
+      '      </svg>',
+      ...controls,
+      '    </div>',
+      '  );',
+      '};',
+      '',
+      options.exportType === 'default' ? `export default ${name};` : `export { ${name} };`,
+    ];
+
+    const importLine =
+      options.exportType === 'default' ? `import ${name} from './${name}';` : `import { ${name} } from './${name}';`;
+    const usageProps = props ? ' width={200} height={200} duration={3} loop' : '';
+    const usage = [
+      '// Usage Example',
+      importLine,
+      '',
+      'function App() {',
+      '  return (',
+      '    <div>',
+      `      <${name}${usageProps} />`,
+      '    </div>',
+      '  );',
+      '}',
+    ].join('\n');
+
+    return {
+      component: lines.join('\n'),
+      types,
+      dependencies: ts ? ['react', '@types/react'] : ['react'],
+      usage,
     };
   }
 
