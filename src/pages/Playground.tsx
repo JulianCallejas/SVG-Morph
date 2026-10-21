@@ -3,6 +3,7 @@ import { FileUploadZone } from '../components/FileUploadZone';
 import { SVGPreview } from '../components/SVGPreview';
 import { AnimationControls } from '../components/AnimationControls';
 import { ExportPanel } from '../components/ExportPanel';
+import { ContourPlanPanel } from '../components/ContourPlanPanel';
 import { Button } from '../components/ui/Button';
 import { Panel } from '../components/ui/Panel';
 import { useMorphStore } from '../store/morphStore';
@@ -114,6 +115,11 @@ export const Playground: React.FC = () => {
               animationSettings={animationSettings}
             />
           </div>
+        </div>
+
+        {/* Contour plan: what each outline does during the animation (renders nothing until both SVGs are loaded) */}
+        <div className="mt-8">
+          <ContourPlanPanel />
         </div>
       </div>
     </div>

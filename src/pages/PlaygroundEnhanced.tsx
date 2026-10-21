@@ -4,6 +4,7 @@ import { FileUploadZone } from '../components/FileUploadZone';
 import { SVGPreview } from '../components/SVGPreview';
 import { AnimationControls } from '../components/AnimationControls';
 import { NodePairingInterface } from '../components/NodePairingInterface';
+import { ContourPlanPanel } from '../components/ContourPlanPanel';
 import { EnhancedExportPanel } from '../components/EnhancedExportPanel';
 import { ReactComponentExportPanel } from '../components/ReactComponentExportPanel';
 import { ThreeDMorphingPanel } from '../components/ThreeDMorphingPanel';
@@ -266,6 +267,8 @@ export const PlaygroundEnhanced: React.FC = () => {
               title="Node Matching"
               text="Configure how nodes between your SVGs are paired for smooth morphing"
             />
+
+            <ContourPlanPanel />
 
             <NodePairingInterface
               sourcePoints={sourcePoints}
