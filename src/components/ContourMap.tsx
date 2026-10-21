@@ -2,7 +2,7 @@ import React from 'react';
 import type { ContourPlanEntry } from '../utils/contourPairing';
 import type { StyledContour } from '../utils/contourSvg';
 import { colorIndexByContour, contourLabel, pathBoxes } from '../utils/contourPlanEditing';
-import { sampleContour } from '../utils/contourInterpolation';
+import type { Point } from '../utils/contourInterpolation';
 import { CONTOUR_FILL, CONTOUR_SOFT_FILL, CONTOUR_STROKE, colorSlot } from './contourColors';
 
 const STROKE = CONTOUR_STROKE;
@@ -26,7 +26,7 @@ interface ContourMapProps {
   otherContours: StyledContour[];
   plan: ContourPlanEntry[];
   /** Nodes to draw per contour id (only morphing contours have any). Empty draws none. */
-  nodeCounts: ReadonlyMap<string, number>;
+  nodePoints: ReadonlyMap<string, Point[]>;
   /** Index of the plan entry under the pointer or focus, shared by both maps and the list. */
   hoveredEntry: number | null;
   /** The contour picked on this side, waiting for a partner on the other side. */
@@ -48,7 +48,7 @@ export const ContourMap: React.FC<ContourMapProps> = ({
   contours,
   otherContours,
   plan,
-  nodeCounts,
+  nodePoints,
   hoveredEntry,
   selectedId,
   onHover,
@@ -148,9 +148,9 @@ export const ContourMap: React.FC<ContourMapProps> = ({
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
             />
-            {nodeCounts.has(contour.id) && (
+            {nodePoints.has(contour.id) && (
               <g className={FILL[slot]} aria-hidden="true">
-                {sampleContour(contour, nodeCounts.get(contour.id) as number).map((point, i) => (
+                {(nodePoints.get(contour.id) as Point[]).map((point, i) => (
                   // the first node is where the contour starts: drawn larger so the direction reads
                   <circle key={i} cx={point.x} cy={point.y} r={i === 0 ? unit * 1.6 : unit * 0.7} />
                 ))}

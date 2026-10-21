@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { useMorphStore } from '../store/morphStore';
 import type { ContourMode, ContourPlanEntry } from '../utils/contourPairing';
-import { MAX_NODE_COUNT, MIN_NODE_COUNT, resolveNodeCount } from '../utils/contourInterpolation';
+import {
+  MAX_NODE_COUNT,
+  MIN_NODE_COUNT,
+  pairNodes,
+  resolveNodeCount,
+  type Point,
+} from '../utils/contourInterpolation';
 import { contourLabel, pairManually, unpairEntry, updateEntry } from '../utils/contourPlanEditing';
 import { Button } from './ui/Button';
 import { CheckRow, Field, Slider } from './ui/Fields';
@@ -52,14 +58,18 @@ export const ContourPlanPanel: React.FC = () => {
     const to = targetContours.find((c) => c.id === entry.targetId);
     return from && to ? resolveNodeCount(entry, from, to) : null;
   };
-  const sourceNodes = new Map<string, number>();
-  const targetNodes = new Map<string, number>();
+  // The target nodes are the aligned ones, so the larger start node shows where each pair really meets.
+  const sourceNodes = new Map<string, Point[]>();
+  const targetNodes = new Map<string, Point[]>();
   if (showNodes) {
     for (const entry of contourPlan) {
       const count = nodeCountOf(entry);
-      if (count !== null) {
-        sourceNodes.set(entry.sourceId as string, count);
-        targetNodes.set(entry.targetId as string, count);
+      const from = sourceContours.find((c) => c.id === entry.sourceId);
+      const to = targetContours.find((c) => c.id === entry.targetId);
+      if (count !== null && from && to) {
+        const nodes = pairNodes(from, to, count);
+        sourceNodes.set(from.id, nodes.from);
+        targetNodes.set(to.id, nodes.to);
       }
     }
   }
@@ -128,7 +138,7 @@ export const ContourPlanPanel: React.FC = () => {
             contours={sourceContours}
             otherContours={targetContours}
             plan={contourPlan}
-            nodeCounts={sourceNodes}
+            nodePoints={sourceNodes}
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'source' ? selection.id : null}
             onHover={setHoveredEntry}
@@ -145,7 +155,7 @@ export const ContourPlanPanel: React.FC = () => {
             contours={targetContours}
             otherContours={sourceContours}
             plan={contourPlan}
-            nodeCounts={targetNodes}
+            nodePoints={targetNodes}
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'target' ? selection.id : null}
             onHover={setHoveredEntry}
