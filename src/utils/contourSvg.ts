@@ -74,6 +74,22 @@ export function needsContourPipeline(
   return planCustomized || hasSeveralContoursPerPath(source) || hasSeveralContoursPerPath(target);
 }
 
+/**
+ * The plan to render with, or null to stay on the whole-path pipeline. Shared by the preview and
+ * the exports so they always make the same choice: no plan, or manual node matching in use,
+ * means no; otherwise `needsContourPipeline` decides.
+ */
+export function activeContourPlan(
+  plan: ContourPlanEntry[] | null,
+  source: StyledContour[],
+  target: StyledContour[],
+  planCustomized: boolean,
+  manualMatching: boolean,
+): ContourPlanEntry[] | null {
+  if (plan === null || manualMatching) return null;
+  return needsContourPipeline(source, target, planCustomized) ? plan : null;
+}
+
 /** Escapes a value taken from a user SVG before it goes inside a double-quoted attribute. */
 export const escapeAttr = (value: string): string =>
   value

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useMorphStore } from '../store/morphStore';
 import { exportSystem, ExportOptions, JavaScriptExportOptions, ExportResult, createExportOptions, VideoExportOptionsExtended } from '../utils/exportSystem';
 import { useToast } from '../contexts/ToastContext';
+import { activeContourPlan } from '../utils/contourSvg';
 import { 
   Download, 
   FileText, 
@@ -21,7 +22,17 @@ import { Field, Select, CheckRow } from './ui/Fields';
 const INPUT_CLASS = 'h-11 w-full bg-raised px-3 text-content placeholder:text-muted';
 
 export const EnhancedExportPanel: React.FC = () => {
-  const { sourceSVG, targetSVG, animationSettings, nodeMatches, manualModeEnabled } = useMorphStore();
+  const {
+    sourceSVG,
+    targetSVG,
+    animationSettings,
+    nodeMatches,
+    manualModeEnabled,
+    sourceContours,
+    targetContours,
+    contourPlan,
+    contourPlanCustomized,
+  } = useMorphStore();
   const canExport = !!sourceSVG && !!targetSVG;
   const { showSuccess, showError, showWarning, showInfo } = useToast();
   const [exportOptions, setExportOptions] = useState<ExportOptions>(createExportOptions({
@@ -100,10 +111,20 @@ export const EnhancedExportPanel: React.FC = () => {
       
       // Add manual node matches to export options if Manual Mode is enabled and pairs exist
       const shouldUseManualMatches = manualModeEnabled && nodeMatches.length > 0;
+      // Same rule as the preview: the per-contour plan only applies to paths with several subpaths
+      // or a plan the user edited, and never together with manual node matches.
+      const activePlan = activeContourPlan(
+        contourPlan,
+        sourceContours,
+        targetContours,
+        contourPlanCustomized,
+        shouldUseManualMatches,
+      );
       const optionsWithMatches = {
         ...options,
         nodeMatches: shouldUseManualMatches ? nodeMatches : undefined,
-        useManualMatching: shouldUseManualMatches
+        useManualMatching: shouldUseManualMatches,
+        contourPlan: activePlan ?? undefined,
       };
       
       if (shouldUseManualMatches) {
@@ -145,7 +166,7 @@ export const EnhancedExportPanel: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [sourceSVG, targetSVG, exportOptions, jsOptions, videoOptions, nodeMatches, manualModeEnabled, showWarning, showError, showSuccess]);
+  }, [sourceSVG, targetSVG, exportOptions, jsOptions, videoOptions, nodeMatches, manualModeEnabled, sourceContours, targetContours, contourPlan, contourPlanCustomized, showWarning, showError, showSuccess]);
 
   const handleHistoryDownload = useCallback(() => {
     // In a real implementation, you'd re-export or store the content

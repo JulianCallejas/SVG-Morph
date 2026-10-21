@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SVGData } from './svgMorphing';
 import {
+  activeContourPlan,
   buildContourSVG,
   contoursFromSVGData,
   needsContourPipeline,
@@ -68,6 +69,40 @@ describe('needsContourPipeline', () => {
 
   it('turns on when the user customized the plan', () => {
     expect(needsContourPipeline(contours(single, 'source'), contours(single, 'target'), true)).toBe(true);
+  });
+});
+
+describe('activeContourPlan', () => {
+  const single = svgData([{ d: 'M0 0 L1 1' }]);
+  const multi = svgData([{ d: 'M0 0 L1 1 M2 2 L3 3' }]);
+  const planned = (a: SVGData, b: SVGData) => planContours(a, b)!;
+
+  it('returns the plan when a path has several subpaths', () => {
+    const { sourceContours, targetContours, plan } = planned(multi, single);
+
+    expect(activeContourPlan(plan, sourceContours, targetContours, false, false)).toBe(plan);
+  });
+
+  it('returns the plan once the user customized it', () => {
+    const { sourceContours, targetContours, plan } = planned(single, single);
+
+    expect(activeContourPlan(plan, sourceContours, targetContours, true, false)).toBe(plan);
+  });
+
+  it('returns null for one contour per path, so existing SVGs keep the whole-path pipeline', () => {
+    const { sourceContours, targetContours, plan } = planned(single, single);
+
+    expect(activeContourPlan(plan, sourceContours, targetContours, false, false)).toBeNull();
+  });
+
+  it('returns null when manual node matching is in use, whatever the plan', () => {
+    const { sourceContours, targetContours, plan } = planned(multi, single);
+
+    expect(activeContourPlan(plan, sourceContours, targetContours, true, true)).toBeNull();
+  });
+
+  it('returns null when there is no plan', () => {
+    expect(activeContourPlan(null, [], [], true, false)).toBeNull();
   });
 });
 

@@ -13,7 +13,7 @@ import { PhysicsOptions } from '../utils/physicsSimulation';
 import { VideoExportOptions } from '../utils/videoExport';
 import { ShareOptions } from '../utils/socialIntegration';
 import { CanvasRenderOptions } from '../utils/canvasRenderer';
-import { needsContourPipeline, planContours, type StyledContour } from '../utils/contourSvg';
+import { activeContourPlan, planContours, type StyledContour } from '../utils/contourSvg';
 import type { ContourPlanEntry } from '../utils/contourPairing';
 
 export interface AnimationSettings {
@@ -550,13 +550,15 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       
       // Contour pipeline: only for paths with several subpaths or a plan the user edited, and
       // never together with manual node matches. Everything else keeps the whole-path pipeline.
-      const plan = state.contourPlan;
-      const useContours =
-        plan !== null &&
-        !shouldUseManualMatches &&
-        needsContourPipeline(state.sourceContours, state.targetContours, state.contourPlanCustomized);
+      const plan = activeContourPlan(
+        state.contourPlan,
+        state.sourceContours,
+        state.targetContours,
+        state.contourPlanCustomized,
+        shouldUseManualMatches,
+      );
 
-      const interpolatedSVG = useContours
+      const interpolatedSVG = plan
         ? await workerManager.createContourSVG(state.sourceSVG, state.targetSVG, progress, plan)
         : await workerManager.createInterpolatedSVG(
             state.sourceSVG,

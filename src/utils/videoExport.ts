@@ -1,3 +1,5 @@
+import type { ContourPlanEntry } from './contourPairing';
+
 export interface VideoExportOptions {
   format: 'gif' | 'mp4' | 'webm';
   width: number;
@@ -8,6 +10,8 @@ export interface VideoExportOptions {
   loop: boolean;
   backgroundColor?: string;
   filename?: string;
+  /** Per-contour plan; when set, frames come from the contour pipeline instead of whole paths. */
+  contourPlan?: ContourPlanEntry[];
 }
 
 export interface VideoFrame {
@@ -179,7 +183,7 @@ export class VideoExporter {
     
     for (let i = 0; i < totalFrames; i++) {
       const progress = i / (totalFrames - 1);
-      const interpolatedSVG = await this.interpolateSVG(sourceSVG, targetSVG, progress);
+      const interpolatedSVG = await this.interpolateSVG(sourceSVG, targetSVG, progress, options.contourPlan);
       
       const canvas = await this.renderSVGToCanvas(interpolatedSVG, options);
       frames.push({
@@ -281,18 +285,17 @@ export class VideoExporter {
   private async interpolateSVG(
     sourceSVG: string,
     targetSVG: string,
-    progress: number
+    progress: number,
+    contourPlan?: ContourPlanEntry[]
   ): Promise<string> {
     try {
       // Import workerManager for proper path interpolation
       const { workerManager } = await import('./workerManager');
-      
+
       // Use the same interpolation logic as the preview animation
-      const interpolatedSVG = await workerManager.createInterpolatedSVG(
-        sourceSVG,
-        targetSVG,
-        progress
-      );
+      const interpolatedSVG = contourPlan
+        ? await workerManager.createContourSVG(sourceSVG, targetSVG, progress, contourPlan)
+        : await workerManager.createInterpolatedSVG(sourceSVG, targetSVG, progress);
       
       return interpolatedSVG;
     } catch (error) {
