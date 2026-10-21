@@ -8,6 +8,15 @@ export const CONTOUR_STROKE = [
   'stroke-contour-6',
 ] as const;
 
+export const CONTOUR_FILL = [
+  'fill-contour-1',
+  'fill-contour-2',
+  'fill-contour-3',
+  'fill-contour-4',
+  'fill-contour-5',
+  'fill-contour-6',
+] as const;
+
 export const CONTOUR_SOFT_FILL = [
   'fill-contour-1/20',
   'fill-contour-2/20',

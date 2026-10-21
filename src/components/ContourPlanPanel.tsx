@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMorphStore } from '../store/morphStore';
 import type { ContourMode, ContourPlanEntry } from '../utils/contourPairing';
+import { MAX_NODE_COUNT, MIN_NODE_COUNT, resolveNodeCount } from '../utils/contourInterpolation';
 import { contourLabel, pairManually, unpairEntry, updateEntry } from '../utils/contourPlanEditing';
 import { Button } from './ui/Button';
 import { CheckRow, Field, Slider } from './ui/Fields';
@@ -40,8 +41,28 @@ export const ContourPlanPanel: React.FC = () => {
 
   const [hoveredEntry, setHoveredEntry] = useState<number | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
+  const [showNodes, setShowNodes] = useState(true);
 
   if (!sourceSVGData || !targetSVGData || !contourPlan) return null;
+
+  // Nodes only exist for morphing pairs; both sides of a pair share the same count.
+  const nodeCountOf = (entry: ContourPlanEntry): number | null => {
+    if (entry.mode !== 'morph' || entry.sourceId === null || entry.targetId === null) return null;
+    const from = sourceContours.find((c) => c.id === entry.sourceId);
+    const to = targetContours.find((c) => c.id === entry.targetId);
+    return from && to ? resolveNodeCount(entry, from, to) : null;
+  };
+  const sourceNodes = new Map<string, number>();
+  const targetNodes = new Map<string, number>();
+  if (showNodes) {
+    for (const entry of contourPlan) {
+      const count = nodeCountOf(entry);
+      if (count !== null) {
+        sourceNodes.set(entry.sourceId as string, count);
+        targetNodes.set(entry.targetId as string, count);
+      }
+    }
+  }
 
   const sourceLabel = (id: string) => contourLabel(id, sourceContours);
   const targetLabel = (id: string) => contourLabel(id, targetContours);
@@ -88,6 +109,13 @@ export const ContourPlanPanel: React.FC = () => {
       <p role="status" className="mt-3 text-sm font-medium">
         {status}
       </p>
+      <div className="mt-4 max-w-sm">
+        <CheckRow
+          label="Show nodes on the maps"
+          checked={showNodes}
+          onChange={(event) => setShowNodes(event.target.checked)}
+        />
+      </div>
 
       <div className="mt-5 grid gap-6 sm:grid-cols-2">
         <figure>
@@ -100,6 +128,7 @@ export const ContourPlanPanel: React.FC = () => {
             contours={sourceContours}
             otherContours={targetContours}
             plan={contourPlan}
+            nodeCounts={sourceNodes}
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'source' ? selection.id : null}
             onHover={setHoveredEntry}
@@ -116,6 +145,7 @@ export const ContourPlanPanel: React.FC = () => {
             contours={targetContours}
             otherContours={sourceContours}
             plan={contourPlan}
+            nodeCounts={targetNodes}
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'target' ? selection.id : null}
             onHover={setHoveredEntry}
@@ -164,6 +194,41 @@ export const ContourPlanPanel: React.FC = () => {
                   options={modes.map((mode) => ({ id: mode, label: MODE_LABELS[mode] }))}
                   onChange={(mode) => apply(updateEntry(contourPlan, index, { mode }))}
                 />
+
+                {entry.mode === 'morph' && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Segmented
+                      label={`Nodes for ${title}`}
+                      value={entry.nodeCount === undefined ? 'auto' : 'manual'}
+                      options={[
+                        { id: 'auto', label: 'Auto' },
+                        { id: 'manual', label: 'Manual' },
+                      ]}
+                      onChange={(choice) =>
+                        apply(
+                          updateEntry(contourPlan, index, {
+                            nodeCount: choice === 'auto' ? null : (nodeCountOf(entry) ?? MIN_NODE_COUNT),
+                          }),
+                        )
+                      }
+                    />
+                    {entry.nodeCount === undefined ? (
+                      <p className="self-end text-sm text-muted">Automatic: {nodeCountOf(entry)} nodes</p>
+                    ) : (
+                      <Field label={`${entry.nodeCount} nodes`}>
+                        <Slider
+                          min={MIN_NODE_COUNT}
+                          max={MAX_NODE_COUNT}
+                          step={1}
+                          value={entry.nodeCount}
+                          onChange={(event) =>
+                            apply(updateEntry(contourPlan, index, { nodeCount: Number(event.target.value) }))
+                          }
+                        />
+                      </Field>
+                    )}
+                  </div>
+                )}
 
                 {entry.mode === 'swap' && (
                   <div className="grid gap-4 sm:grid-cols-2">

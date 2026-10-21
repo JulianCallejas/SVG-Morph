@@ -2,10 +2,12 @@ import React from 'react';
 import type { ContourPlanEntry } from '../utils/contourPairing';
 import type { StyledContour } from '../utils/contourSvg';
 import { colorIndexByContour, contourLabel, pathBoxes } from '../utils/contourPlanEditing';
-import { CONTOUR_SOFT_FILL, CONTOUR_STROKE, colorSlot } from './contourColors';
+import { sampleContour } from '../utils/contourInterpolation';
+import { CONTOUR_FILL, CONTOUR_SOFT_FILL, CONTOUR_STROKE, colorSlot } from './contourColors';
 
 const STROKE = CONTOUR_STROKE;
 const SOFT_FILL = CONTOUR_SOFT_FILL;
+const FILL = CONTOUR_FILL;
 
 const parseViewBox = (viewBox: string, width: number, height: number): [number, number, number, number] => {
   const parts = viewBox.trim().split(/[\s,]+/).map(Number);
@@ -23,6 +25,8 @@ interface ContourMapProps {
   /** Contours of the opposite SVG, only used to name a contour's partner. */
   otherContours: StyledContour[];
   plan: ContourPlanEntry[];
+  /** Nodes to draw per contour id (only morphing contours have any). Empty draws none. */
+  nodeCounts: ReadonlyMap<string, number>;
   /** Index of the plan entry under the pointer or focus, shared by both maps and the list. */
   hoveredEntry: number | null;
   /** The contour picked on this side, waiting for a partner on the other side. */
@@ -44,6 +48,7 @@ export const ContourMap: React.FC<ContourMapProps> = ({
   contours,
   otherContours,
   plan,
+  nodeCounts,
   hoveredEntry,
   selectedId,
   onHover,
@@ -143,6 +148,14 @@ export const ContourMap: React.FC<ContourMapProps> = ({
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
             />
+            {nodeCounts.has(contour.id) && (
+              <g className={FILL[slot]} aria-hidden="true">
+                {sampleContour(contour, nodeCounts.get(contour.id) as number).map((point, i) => (
+                  // the first node is where the contour starts: drawn larger so the direction reads
+                  <circle key={i} cx={point.x} cy={point.y} r={i === 0 ? unit * 1.6 : unit * 0.7} />
+                ))}
+              </g>
+            )}
             <text
               // keep the label inside the drawing when a contour touches its edge
               x={Math.min(Math.max(minX, x - pad + unit), minX + vbWidth - fontSize * 3)}
