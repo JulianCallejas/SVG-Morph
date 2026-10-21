@@ -386,6 +386,37 @@ function strokeCaps(tag: string): Pick<PathData, 'strokeLinecap' | 'strokeLinejo
   };
 }
 
+// The style of one tag (path, circle or rect) as the fields PathData carries
+function tagStyle(tag: string): Omit<PathData, 'd'> {
+  const fillMatch = tag.match(/fill\s*=\s*["']([^"']*)["']/i);
+  const strokeMatch = tag.match(/stroke\s*=\s*["']([^"']*)["']/i);
+  const strokeWidthMatch = tag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
+  const opacityMatch = tag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
+
+  // Enhanced fill attribute parsing
+  let fillValue: string | undefined;
+  if (fillMatch) {
+    fillValue = fillMatch[1];
+  } else {
+    // Check for fill in style attribute
+    const styleMatch = tag.match(/style\s*=\s*["']([^"']*)["']/i);
+    if (styleMatch) {
+      const styleFillMatch = styleMatch[1].match(/fill\s*:\s*([^;]+)/i);
+      if (styleFillMatch) {
+        fillValue = styleFillMatch[1].trim();
+      }
+    }
+  }
+
+  return {
+    fill: fillValue, // Preserve original fill value including undefined
+    stroke: strokeMatch ? strokeMatch[1] : 'none',
+    strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
+    opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
+    ...strokeCaps(tag),
+  };
+}
+
 // Helper functions for Web Worker environment (no DOM APIs available)
 // Exported so it can be tested; the worker is the only place that calls it in the app.
 export function parseSVGString(svgString: string): SVGData {
@@ -427,130 +458,37 @@ export function parseSVGString(svgString: string): SVGData {
     }
   }
 
-  // Extract path elements
-  const paths: PathData[] = [];
-  const pathRegex = /<path[^>]*>/gi;
-  let pathMatch;
-  
-  while ((pathMatch = pathRegex.exec(svgString)) !== null) {
-    const pathTag = pathMatch[0];
-    
-    // Extract path attributes
-    const dMatch = pathTag.match(/d\s*=\s*["']([^"']*)["']/i);
-    const fillMatch = pathTag.match(/fill\s*=\s*["']([^"']*)["']/i);
-    const strokeMatch = pathTag.match(/stroke\s*=\s*["']([^"']*)["']/i);
-    const strokeWidthMatch = pathTag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
-    const opacityMatch = pathTag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
-    
-    // Enhanced fill attribute parsing
-    let fillValue: string | undefined;
-    if (fillMatch) {
-      fillValue = fillMatch[1];
-    } else {
-      // Check for fill in style attribute
-      const styleMatch = pathTag.match(/style\s*=\s*["']([^"']*)["']/i);
-      if (styleMatch) {
-        const styleContent = styleMatch[1];
-        const styleFillMatch = styleContent.match(/fill\s*:\s*([^;]+)/i);
-        if (styleFillMatch) {
-          fillValue = styleFillMatch[1].trim();
-        }
-      }
-    }
-    
-    if (dMatch) {
-      paths.push({
-        d: dMatch[1],
-        fill: fillValue, // Preserve original fill value including undefined
-        stroke: strokeMatch ? strokeMatch[1] : 'none',
-        strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
-        opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
-        ...strokeCaps(pathTag),
-      });
-    }
+  // Shapes inside <defs>, <clipPath>, <mask> and the like are definitions, not drawings (the
+  // <rect> of a clipPath must not show up as a rectangle), so remember where those blocks are.
+  const definitionRanges: Array<[number, number]> = [];
+  const definitionRegex = /<(defs|clipPath|mask|pattern|symbol|marker)\b[\s\S]*?<\/\1\s*>/gi;
+  let definitionMatch;
+  while ((definitionMatch = definitionRegex.exec(svgString)) !== null) {
+    definitionRanges.push([definitionMatch.index, definitionMatch.index + definitionMatch[0].length]);
   }
+  const isDefinition = (at: number) => definitionRanges.some(([from, to]) => at >= from && at < to);
 
-  // If no paths found, try to convert basic shapes
-  if (paths.length === 0) {
-    // Extract circles
-    const circleRegex = /<circle[^>]*>/gi;
-    let circleMatch;
-    
-    while ((circleMatch = circleRegex.exec(svgString)) !== null) {
-      const circleTag = circleMatch[0];
-      const pathData = convertCircleToPath(circleTag);
-      if (pathData) {
-        const fillMatch = circleTag.match(/fill\s*=\s*["']([^"']*)["']/i);
-        const strokeMatch = circleTag.match(/stroke\s*=\s*["']([^"']*)["']/i);
-        const strokeWidthMatch = circleTag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
-        const opacityMatch = circleTag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
-        
-        // Enhanced fill attribute parsing for circles
-        let fillValue: string | undefined;
-        if (fillMatch) {
-          fillValue = fillMatch[1];
-        } else {
-          // Check for fill in style attribute
-          const styleMatch = circleTag.match(/style\s*=\s*["']([^"']*)["']/i);
-          if (styleMatch) {
-            const styleContent = styleMatch[1];
-            const styleFillMatch = styleContent.match(/fill\s*:\s*([^;]+)/i);
-            if (styleFillMatch) {
-              fillValue = styleFillMatch[1].trim();
-            }
-          }
-        }
-        
-        paths.push({
-          d: pathData,
-          fill: fillValue, // Preserve original fill value including undefined
-          stroke: strokeMatch ? strokeMatch[1] : 'none',
-          strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
-          opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
-          ...strokeCaps(circleTag),
-        });
-      }
-    }
+  // Every drawable element, in document order: <path>, and circles and rectangles turned into paths
+  const paths: PathData[] = [];
+  const elementRegex = /<(path|circle|rect)\b[^>]*>/gi;
+  let elementMatch;
 
-    // Extract rectangles
-    const rectRegex = /<rect[^>]*>/gi;
-    let rectMatch;
-    
-    while ((rectMatch = rectRegex.exec(svgString)) !== null) {
-      const rectTag = rectMatch[0];
-      const pathData = convertRectToPath(rectTag);
-      if (pathData) {
-        const fillMatch = rectTag.match(/fill\s*=\s*["']([^"']*)["']/i);
-        const strokeMatch = rectTag.match(/stroke\s*=\s*["']([^"']*)["']/i);
-        const strokeWidthMatch = rectTag.match(/stroke-width\s*=\s*["']?([^"'\s>]*)["']?/i);
-        const opacityMatch = rectTag.match(/opacity\s*=\s*["']?([^"'\s>]*)["']?/i);
-        
-        // Enhanced fill attribute parsing for rectangles
-        let fillValue: string | undefined;
-        if (fillMatch) {
-          fillValue = fillMatch[1];
-        } else {
-          // Check for fill in style attribute
-          const styleMatch = rectTag.match(/style\s*=\s*["']([^"']*)["']/i);
-          if (styleMatch) {
-            const styleContent = styleMatch[1];
-            const styleFillMatch = styleContent.match(/fill\s*:\s*([^;]+)/i);
-            if (styleFillMatch) {
-              fillValue = styleFillMatch[1].trim();
-            }
-          }
-        }
-        
-        paths.push({
-          d: pathData,
-          fill: fillValue, // Preserve original fill value including undefined
-          stroke: strokeMatch ? strokeMatch[1] : 'none',
-          strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
-          opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
-          ...strokeCaps(rectTag),
-        });
-      }
+  while ((elementMatch = elementRegex.exec(svgString)) !== null) {
+    const tag = elementMatch[0];
+    const kind = elementMatch[1].toLowerCase();
+
+    let d: string | null | undefined;
+    if (kind === 'path') {
+      // the whitespace before "d" keeps an id="..." from being read as the path data
+      d = tag.match(/\sd\s*=\s*["']([^"']*)["']/i)?.[1];
+    } else if (isDefinition(elementMatch.index)) {
+      continue;
+    } else {
+      d = kind === 'circle' ? convertCircleToPath(tag) : convertRectToPath(tag);
     }
+    if (d === undefined || d === null) continue;
+
+    paths.push({ d, ...tagStyle(tag) });
   }
 
   return { paths, viewBox, width, height };

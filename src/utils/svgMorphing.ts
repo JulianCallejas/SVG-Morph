@@ -36,36 +36,32 @@ export function parseSVG(svgString: string): SVGData {
   const width = parseFloat(svgElement.getAttribute('width') || '512');
   const height = parseFloat(svgElement.getAttribute('height') || '512');
 
-  // Extract all path elements
-  const pathElements = Array.from(svgElement.querySelectorAll('path'));
-  const paths: PathData[] = pathElements.map(path => ({
-    d: path.getAttribute('d') || '',
-    fill: path.getAttribute('fill') || '#000000',
-    stroke: path.getAttribute('stroke') || 'none',
-    strokeWidth: parseFloat(path.getAttribute('stroke-width') || '1'),
-    opacity: parseFloat(path.getAttribute('opacity') || '1'),
-    strokeLinecap: parseLinecap(path.getAttribute('stroke-linecap')),
-    strokeLinejoin: parseLinejoin(path.getAttribute('stroke-linejoin')),
-  }));
+  // Every drawable element in document order: <path>, and the basic shapes turned into paths.
+  // Shapes inside <defs>, <clipPath>, <mask> and the like are definitions, not drawings, so they
+  // are skipped (paths keep being read wherever they are, as before).
+  const paths: PathData[] = [];
+  svgElement.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line').forEach(element => {
+    const isPath = element.tagName.toLowerCase() === 'path';
+    let d: string | null;
+    if (isPath) {
+      d = element.getAttribute('d') || '';
+    } else if (element.closest('defs, clipPath, mask, pattern, symbol, marker')) {
+      return;
+    } else {
+      d = convertShapeToPath(element);
+    }
+    if (d === null || (!isPath && !d)) return;
 
-  // If no paths found, try to convert other shapes to paths
-  if (paths.length === 0) {
-    const shapes = Array.from(svgElement.querySelectorAll('rect, circle, ellipse, polygon, polyline, line'));
-    shapes.forEach(shape => {
-      const pathData = convertShapeToPath(shape);
-      if (pathData) {
-        paths.push({
-          d: pathData,
-          fill: shape.getAttribute('fill') || '#000000',
-          stroke: shape.getAttribute('stroke') || 'none',
-          strokeWidth: parseFloat(shape.getAttribute('stroke-width') || '1'),
-          opacity: parseFloat(shape.getAttribute('opacity') || '1'),
-          strokeLinecap: parseLinecap(shape.getAttribute('stroke-linecap')),
-          strokeLinejoin: parseLinejoin(shape.getAttribute('stroke-linejoin')),
-        });
-      }
+    paths.push({
+      d,
+      fill: element.getAttribute('fill') || '#000000',
+      stroke: element.getAttribute('stroke') || 'none',
+      strokeWidth: parseFloat(element.getAttribute('stroke-width') || '1'),
+      opacity: parseFloat(element.getAttribute('opacity') || '1'),
+      strokeLinecap: parseLinecap(element.getAttribute('stroke-linecap')),
+      strokeLinejoin: parseLinejoin(element.getAttribute('stroke-linejoin')),
     });
-  }
+  });
 
   return { paths, viewBox, width, height };
 }
