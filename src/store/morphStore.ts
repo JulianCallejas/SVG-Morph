@@ -13,6 +13,8 @@ import { PhysicsOptions } from '../utils/physicsSimulation';
 import { VideoExportOptions } from '../utils/videoExport';
 import { ShareOptions } from '../utils/socialIntegration';
 import { CanvasRenderOptions } from '../utils/canvasRenderer';
+import { needsContourPipeline, planContours, type StyledContour } from '../utils/contourSvg';
+import type { ContourPlanEntry } from '../utils/contourPairing';
 
 export interface AnimationSettings {
   duration: number;
@@ -51,7 +53,13 @@ interface MorphState {
   animationId: number | null;
   processingState: ProcessingState;
   interpolatedSVG: string | null;
-  
+
+  // Contour plan: each subpath of each path is a contour with its own mode (morph/swap/static)
+  sourceContours: StyledContour[];
+  targetContours: StyledContour[];
+  contourPlan: ContourPlanEntry[] | null;
+  contourPlanCustomized: boolean;
+
   // Phase 2 properties
   sourcePoints: Point[];
   targetPoints: Point[];
@@ -98,7 +106,11 @@ interface MorphState {
   processSVGs: () => Promise<void>;
   generateInterpolatedSVG: (progress: number) => Promise<void>;
   setProcessingState: (state: Partial<ProcessingState>) => void;
-  
+
+  // Contour plan actions
+  setContourPlan: (plan: ContourPlanEntry[]) => Promise<void>;
+  resetContourPlan: () => Promise<void>;
+
   // Phase 2 actions
   autoMatchNodes: () => void;
   updateMatchingOptions: (options: Partial<MatchingOptions>) => void;
@@ -175,7 +187,11 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   animationId: null,
   processingState: defaultProcessingState,
   interpolatedSVG: null,
-  
+  sourceContours: [],
+  targetContours: [],
+  contourPlan: null,
+  contourPlanCustomized: false,
+
   // Phase 2 state
   sourcePoints: [],
   targetPoints: [],
@@ -479,9 +495,16 @@ export const useMorphStore = create<MorphState>((set, get) => ({
 
       const [sourceSVGData, targetSVGData] = await Promise.all(promises);
 
+      // A fresh upload gets a fresh suggested plan; null keeps the whole-path pipeline
+      const planned = sourceSVGData && targetSVGData ? planContours(sourceSVGData, targetSVGData) : null;
+
       set({
         sourceSVGData,
         targetSVGData,
+        sourceContours: planned?.sourceContours ?? [],
+        targetContours: planned?.targetContours ?? [],
+        contourPlan: planned?.plan ?? null,
+        contourPlanCustomized: false,
         processingState: {
           isProcessing: false,
           currentTask: null,
@@ -525,13 +548,23 @@ export const useMorphStore = create<MorphState>((set, get) => ({
         console.log('⚡ Store: Manual Mode disabled, using default interpolation');
       }
       
-      const interpolatedSVG = await workerManager.createInterpolatedSVG(
-        state.sourceSVG,
-        state.targetSVG,
-        progress,
-        undefined, // onProgress callback
-        nodeMatches
-      );
+      // Contour pipeline: only for paths with several subpaths or a plan the user edited, and
+      // never together with manual node matches. Everything else keeps the whole-path pipeline.
+      const plan = state.contourPlan;
+      const useContours =
+        plan !== null &&
+        !shouldUseManualMatches &&
+        needsContourPipeline(state.sourceContours, state.targetContours, state.contourPlanCustomized);
+
+      const interpolatedSVG = useContours
+        ? await workerManager.createContourSVG(state.sourceSVG, state.targetSVG, progress, plan)
+        : await workerManager.createInterpolatedSVG(
+            state.sourceSVG,
+            state.targetSVG,
+            progress,
+            undefined, // onProgress callback
+            nodeMatches
+          );
 
       set({ interpolatedSVG });
     } catch (error) {
@@ -555,6 +588,23 @@ export const useMorphStore = create<MorphState>((set, get) => ({
     set((state) => ({
       processingState: { ...state.processingState, ...newState },
     })),
+
+  setContourPlan: async (plan) => {
+    set({ contourPlan: plan, contourPlanCustomized: true });
+    await get().generateInterpolatedSVG(get().currentProgress);
+  },
+
+  resetContourPlan: async () => {
+    const { sourceSVGData, targetSVGData } = get();
+    const planned = sourceSVGData && targetSVGData ? planContours(sourceSVGData, targetSVGData) : null;
+    set({
+      sourceContours: planned?.sourceContours ?? [],
+      targetContours: planned?.targetContours ?? [],
+      contourPlan: planned?.plan ?? null,
+      contourPlanCustomized: false,
+    });
+    await get().generateInterpolatedSVG(get().currentProgress);
+  },
 
   // Phase 2 actions
   autoMatchNodes: () => {
