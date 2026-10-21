@@ -206,7 +206,7 @@ function morphContour(
 }
 
 // Opacity of the source side of a swap: 1 before the swap, 0 after, linear across the fade window.
-function sourceOpacityAt(progress: number, swapAt: number, fadeWindow: number): number {
+export function sourceOpacityAt(progress: number, swapAt: number, fadeWindow: number): number {
   const window = clamp01(fadeWindow);
   if (window === 0) return progress < swapAt ? 1 : 0;
   return roundTo(clamp01((swapAt + window / 2 - progress) / window), 4);
