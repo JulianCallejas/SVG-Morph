@@ -74,7 +74,8 @@ export function needsContourPipeline(
   return planCustomized || hasSeveralContoursPerPath(source) || hasSeveralContoursPerPath(target);
 }
 
-const escapeAttr = (value: string): string =>
+/** Escapes a value taken from a user SVG before it goes inside a double-quoted attribute. */
+export const escapeAttr = (value: string): string =>
   value
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')

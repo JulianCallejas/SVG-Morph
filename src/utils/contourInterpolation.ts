@@ -174,7 +174,8 @@ export function resolveNodeCount(
   return nodeCount;
 }
 
-function pointsToPath(points: Point[], closed: boolean): string {
+/** `M x,y L x,y ...` for a list of nodes, closed with `Z` when asked. */
+export function pointsToPath(points: Point[], closed: boolean): string {
   const [first, ...rest] = points;
   const fmt = (p: Point) => `${roundTo(p.x, 3)},${roundTo(p.y, 3)}`;
   const d = `M${fmt(first)} ${rest.map((p) => `L${fmt(p)}`).join(' ')}`;
@@ -230,7 +231,8 @@ function swapContours(
   return items;
 }
 
-function lookup(contours: Contour[], id: string | null, side: string): Contour | undefined {
+/** The contour with this id, undefined for a null id, and an error for an id that does not exist. */
+export function findContour<T extends Contour>(contours: T[], id: string | null, side: string): T | undefined {
   if (id === null) return undefined;
   const contour = contours.find((c) => c.id === id);
   if (!contour) throw new Error(`Unknown ${side} contour "${id}" in the contour plan`);
@@ -252,8 +254,8 @@ export function interpolateContours(
   const t = clamp01(progress);
 
   return plan.flatMap((entry): RenderedContour[] => {
-    const from = lookup(source, entry.sourceId, 'source');
-    const to = lookup(target, entry.targetId, 'target');
+    const from = findContour(source, entry.sourceId, 'source');
+    const to = findContour(target, entry.targetId, 'target');
     if (!from && !to) throw new Error('A contour plan entry needs a source or a target contour');
 
     if (entry.mode === 'static') {
