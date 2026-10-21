@@ -2,6 +2,7 @@ import { interpolateColor } from './svgMorphing';
 import type { SVGData } from './svgMorphing';
 import { splitContours, type Contour } from './contours';
 import { pairContours, type ContourPlanEntry } from './contourPairing';
+import type { StrokeLinecap, StrokeLinejoin } from './strokeStyle';
 import {
   interpolateContours,
   type InterpolateContoursOptions,
@@ -15,6 +16,8 @@ export interface StyledContour extends Contour {
   stroke?: string;
   strokeWidth?: number;
   opacity?: number;
+  strokeLinecap?: StrokeLinecap;
+  strokeLinejoin?: StrokeLinejoin;
 }
 
 export interface ContourPlanResult {
@@ -39,6 +42,8 @@ export function contoursFromSVGData(data: SVGData, side: 'source' | 'target'): S
       stroke: path.stroke,
       strokeWidth: path.strokeWidth,
       opacity: path.opacity,
+      strokeLinecap: path.strokeLinecap,
+      strokeLinejoin: path.strokeLinejoin,
     })),
   );
 }
@@ -125,9 +130,15 @@ function pathElement(
   const strokeWidth = lerp(a.strokeWidth ?? 1, b.strokeWidth ?? 1, progress);
   const opacity = round4(lerp(a.opacity ?? 1, b.opacity ?? 1, progress) * item.opacity);
 
+  // caps and joins cannot be blended: they switch at the halfway point, and stay out when unset
+  const caps = progress < 0.5 ? a : b;
+  const capAttrs =
+    (caps.strokeLinecap ? ` stroke-linecap="${escapeAttr(caps.strokeLinecap)}"` : '') +
+    (caps.strokeLinejoin ? ` stroke-linejoin="${escapeAttr(caps.strokeLinejoin)}"` : '');
+
   return (
     `<path d="${escapeAttr(item.d)}" fill="${escapeAttr(fill)}" stroke="${escapeAttr(stroke)}"` +
-    ` stroke-width="${round4(strokeWidth)}" opacity="${opacity}" />`
+    ` stroke-width="${round4(strokeWidth)}" opacity="${opacity}"${capAttrs} />`
   );
 }
 

@@ -44,6 +44,15 @@ describe('contoursFromSVGData', () => {
     expect(contours[2]).toMatchObject({ stroke: '#000000', strokeWidth: 3 });
   });
 
+  it('keeps the stroke caps and joins of the path', () => {
+    const data = svgData([{ d: 'M0 0 L1 1', strokeLinecap: 'round', strokeLinejoin: 'bevel' }]);
+
+    expect(contoursFromSVGData(data, 'source')[0]).toMatchObject({
+      strokeLinecap: 'round',
+      strokeLinejoin: 'bevel',
+    });
+  });
+
   it('prefixes target contours with t', () => {
     const [contour] = contoursFromSVGData(svgData([{ d: 'M0 0 L1 1' }]), 'target');
 
@@ -172,6 +181,27 @@ describe('buildContourSVG', () => {
 
     // at the swap point the source side is at 50% of its own 0.5 opacity
     expect(buildContourSVG(a, b, swapPlan, 0.5)).toContain('opacity="0.25"');
+  });
+
+  it('writes the round caps and joins of the source, and nothing when they are not set', () => {
+    const round = svgData([{ d: 'M0 0 L10 0', stroke: '#000000', strokeLinecap: 'round', strokeLinejoin: 'round' }]);
+    const plain = svgData([{ d: 'M0 2 L10 2', stroke: '#000000' }]);
+    const pairing = planContours(round, plain)!.plan;
+
+    const svg = buildContourSVG(round, plain, pairing, 0.2);
+
+    expect(svg).toContain('stroke-linecap="round"');
+    expect(svg).toContain('stroke-linejoin="round"');
+    expect(buildContourSVG(plain, plain, planContours(plain, plain)!.plan, 0.2)).not.toContain('stroke-linecap');
+  });
+
+  it('switches a differing cap at the halfway point', () => {
+    const round = svgData([{ d: 'M0 0 L10 0', stroke: '#000000', strokeLinecap: 'round' }]);
+    const square = svgData([{ d: 'M0 2 L10 2', stroke: '#000000', strokeLinecap: 'square' }]);
+    const pairing = planContours(round, square)!.plan;
+
+    expect(buildContourSVG(round, square, pairing, 0.4)).toContain('stroke-linecap="round"');
+    expect(buildContourSVG(round, square, pairing, 0.6)).toContain('stroke-linecap="square"');
   });
 
   it('escapes attribute values taken from the SVG', () => {

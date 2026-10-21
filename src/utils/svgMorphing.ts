@@ -1,5 +1,6 @@
 import { interpolate } from 'd3-interpolate';
 import SVGPathCommander from 'svg-path-commander';
+import { parseLinecap, parseLinejoin, type StrokeLinecap, type StrokeLinejoin } from './strokeStyle';
 
 export interface PathData {
   d: string;
@@ -7,6 +8,8 @@ export interface PathData {
   stroke?: string;
   strokeWidth?: number;
   opacity?: number;
+  strokeLinecap?: StrokeLinecap;
+  strokeLinejoin?: StrokeLinejoin;
 }
 
 export interface SVGData {
@@ -41,6 +44,8 @@ export function parseSVG(svgString: string): SVGData {
     stroke: path.getAttribute('stroke') || 'none',
     strokeWidth: parseFloat(path.getAttribute('stroke-width') || '1'),
     opacity: parseFloat(path.getAttribute('opacity') || '1'),
+    strokeLinecap: parseLinecap(path.getAttribute('stroke-linecap')),
+    strokeLinejoin: parseLinejoin(path.getAttribute('stroke-linejoin')),
   }));
 
   // If no paths found, try to convert other shapes to paths
@@ -55,6 +60,8 @@ export function parseSVG(svgString: string): SVGData {
           stroke: shape.getAttribute('stroke') || 'none',
           strokeWidth: parseFloat(shape.getAttribute('stroke-width') || '1'),
           opacity: parseFloat(shape.getAttribute('opacity') || '1'),
+          strokeLinecap: parseLinecap(shape.getAttribute('stroke-linecap')),
+          strokeLinejoin: parseLinejoin(shape.getAttribute('stroke-linejoin')),
         });
       }
     });

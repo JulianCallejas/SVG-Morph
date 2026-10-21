@@ -52,9 +52,13 @@ function sourceCurve(entry: ContourPlanEntry): { mode: 'discrete' | 'linear'; po
 function pathElement(id: string, d: string, contour: StyledContour, opacity: number, children = ''): string {
   const fill = escapeAttr(contour.fill ?? 'none');
   const stroke = escapeAttr(contour.stroke ?? 'none');
+  // caps and joins are copied as they are (they cannot be animated smoothly) and omitted when unset
+  const caps =
+    (contour.strokeLinecap ? ` stroke-linecap="${escapeAttr(contour.strokeLinecap)}"` : '') +
+    (contour.strokeLinejoin ? ` stroke-linejoin="${escapeAttr(contour.strokeLinejoin)}"` : '');
   const attrs =
     ` id="${id}" d="${escapeAttr(d)}" fill="${fill}" stroke="${stroke}"` +
-    ` stroke-width="${num(contour.strokeWidth ?? 1)}" opacity="${num(opacity)}"`;
+    ` stroke-width="${num(contour.strokeWidth ?? 1)}" opacity="${num(opacity)}"${caps}`;
   return children ? `<path${attrs}>${children}</path>` : `<path${attrs} />`;
 }
 

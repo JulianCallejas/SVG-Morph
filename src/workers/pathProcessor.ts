@@ -2,6 +2,7 @@ import { interpolate } from 'd3-interpolate';
 import SVGPathCommander from 'svg-path-commander';
 import { buildContourSVG } from '../utils/contourSvg';
 import type { ContourPlanEntry } from '../utils/contourPairing';
+import { parseLinecap, parseLinejoin, type StrokeLinecap, type StrokeLinejoin } from '../utils/strokeStyle';
 
 export interface PathData {
   d: string;
@@ -9,6 +10,8 @@ export interface PathData {
   stroke?: string;
   strokeWidth?: number;
   opacity?: number;
+  strokeLinecap?: StrokeLinecap;
+  strokeLinejoin?: StrokeLinejoin;
 }
 
 export interface SVGData {
@@ -375,8 +378,17 @@ function handleCreateContourSVG(id: string, payload: ContourSVGPayload) {
   postMessage({ type: 'SUCCESS', id, payload: result, progress: 100 } as WorkerResponse);
 }
 
+// stroke-linecap / stroke-linejoin of one tag, as the fields PathData carries (only valid keywords)
+function strokeCaps(tag: string): Pick<PathData, 'strokeLinecap' | 'strokeLinejoin'> {
+  return {
+    strokeLinecap: parseLinecap(tag.match(/stroke-linecap\s*=\s*["']([^"']*)["']/i)?.[1]),
+    strokeLinejoin: parseLinejoin(tag.match(/stroke-linejoin\s*=\s*["']([^"']*)["']/i)?.[1]),
+  };
+}
+
 // Helper functions for Web Worker environment (no DOM APIs available)
-function parseSVGString(svgString: string): SVGData {
+// Exported so it can be tested; the worker is the only place that calls it in the app.
+export function parseSVGString(svgString: string): SVGData {
   // Extract SVG attributes using regex since we can't use DOMParser
   const svgMatch = svgString.match(/<svg[^>]*>/i);
   if (!svgMatch) {
@@ -453,6 +465,7 @@ function parseSVGString(svgString: string): SVGData {
         stroke: strokeMatch ? strokeMatch[1] : 'none',
         strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
         opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
+        ...strokeCaps(pathTag),
       });
     }
   }
@@ -494,6 +507,7 @@ function parseSVGString(svgString: string): SVGData {
           stroke: strokeMatch ? strokeMatch[1] : 'none',
           strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
           opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
+          ...strokeCaps(circleTag),
         });
       }
     }
@@ -533,6 +547,7 @@ function parseSVGString(svgString: string): SVGData {
           stroke: strokeMatch ? strokeMatch[1] : 'none',
           strokeWidth: strokeWidthMatch ? parseFloat(strokeWidthMatch[1]) || 1 : 1,
           opacity: opacityMatch ? parseFloat(opacityMatch[1]) || 1 : 1,
+          ...strokeCaps(rectTag),
         });
       }
     }

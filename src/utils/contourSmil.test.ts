@@ -170,6 +170,26 @@ describe('buildContourSMIL: swap', () => {
 });
 
 describe('buildContourSMIL: static and document', () => {
+  it('keeps the round caps and joins on every path it writes', () => {
+    const round = svgData([
+      { d: 'M0 0 L10 0 M20 20 L30 20', stroke: '#000000', strokeLinecap: 'round', strokeLinejoin: 'round' },
+    ]);
+    const plan = planContours(round, round)!.plan;
+
+    const doc = parse(buildContourSMIL(round, round, plan, options));
+
+    for (const path of doc.querySelectorAll('path')) {
+      expect(path.getAttribute('stroke-linecap')).toBe('round');
+      expect(path.getAttribute('stroke-linejoin')).toBe('round');
+    }
+  });
+
+  it('writes no cap or join when the source sets none', () => {
+    const path = parse(buildContourSMIL(lineA, lineB, [entry({ mode: 'static' })], options)).querySelector('path')!;
+
+    expect(path.hasAttribute('stroke-linecap')).toBe(false);
+  });
+
   it('keeps a static contour as drawn, with no animation', () => {
     const [path] = [...parse(buildContourSMIL(lineA, lineB, [entry({ mode: 'static' })], options)).querySelectorAll('path')];
 
