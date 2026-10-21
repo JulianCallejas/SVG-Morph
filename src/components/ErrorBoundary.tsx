@@ -229,8 +229,7 @@ User Agent: ${navigator.userAgent}
               <Button
                 variant="ghost"
                 onClick={() => {
-                  // In a real app, this would open a bug report form or email
-                  window.open('mailto:support@example.com?subject=SVG Morph Error Report&body=' + encodeURIComponent(`Error ID: ${errorId}
+                  window.open('mailto:jc.develop.co@gmail.com?subject=SVG%20Morph%20error%20report&body=' + encodeURIComponent(`Error ID: ${errorId}
 Please describe what you were doing when this error occurred.`));
                 }}
                 className="w-full justify-center text-sm text-muted"
