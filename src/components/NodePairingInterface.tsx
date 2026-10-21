@@ -82,10 +82,13 @@ export const NodePairingInterface: React.FC<NodePairingInterfaceProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const matcher = useRef(new NodeMatcher(matchingOptions));
 
+  // The algorithm switches live in the store (Advanced Settings); the distance fields stay local to this panel.
+  const { useThinPlateSpline, balanceMatching } = useMorphStore((state) => state.matchingOptions);
+
   // Update matcher when options change
   useEffect(() => {
-    matcher.current = new NodeMatcher(matchingOptions);
-  }, [matchingOptions]);
+    matcher.current = new NodeMatcher({ ...matchingOptions, useThinPlateSpline, balanceMatching });
+  }, [matchingOptions, useThinPlateSpline, balanceMatching]);
 
   const addToHistory = useCallback((action: PairAction) => {
     const newHistory = actionHistory.slice(0, historyIndex + 1);
