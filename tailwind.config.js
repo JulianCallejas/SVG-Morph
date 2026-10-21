@@ -45,6 +45,16 @@ export default {
           800: '#2b2b2b',
           900: '#141414',
         },
+        // Categorical hues that tell contours apart in the contour plan editor. Each one is at least
+        // 3:1 against both canvases (ash-900 and ash-50); labels carry the meaning, color only helps.
+        contour: {
+          1: '#3b82f6',
+          2: '#ea580c',
+          3: '#16a34a',
+          4: '#a855f7',
+          5: '#0d9488',
+          6: '#e11d48',
+        },
         // Semantic roles: values switch with the `dark` class (see src/index.css).
         canvas: 'rgb(var(--color-canvas) / <alpha-value>)',
         surface: 'rgb(var(--color-surface) / <alpha-value>)',
