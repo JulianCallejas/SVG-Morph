@@ -891,8 +891,6 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   },
   
   shareToSocial: async (platform: string) => {
-    const _state = get();
-    
     try {
       set({
         processingState: {

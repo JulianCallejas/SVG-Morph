@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Play, Pause, SkipBack, Plus, Trash2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import { Play, Pause, SkipBack, Plus, Trash2, Settings, Copy } from 'lucide-react';
 
 export interface Keyframe {
   id: string;

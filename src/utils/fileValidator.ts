@@ -225,7 +225,7 @@ const createValidationRules = (config: ValidationConfig): ValidationRule[] => {
         name: 'Script Security Check',
         severity: 'error',
         category: 'security',
-        validate: async (file, content) => {
+        validate: async (_file, content) => {
           if (!content) return { passed: true, message: 'No content to check' };
 
           const hasScripts = /<script/i.test(content);
@@ -246,7 +246,7 @@ const createValidationRules = (config: ValidationConfig): ValidationRule[] => {
         name: 'External Reference Check',
         severity: 'warning',
         category: 'security',
-        validate: async (file, content) => {
+        validate: async (_file, content) => {
           if (!content) return { passed: true, message: 'No content to check' };
 
           const hasExternalRefs = /href\s*=\s*["']https?:\/\//i.test(content) ||

@@ -29,7 +29,6 @@ interface RecentFilesHistoryProps {
 export const RecentFilesHistory: React.FC<RecentFilesHistoryProps> = ({
   onFileSelect,
   onFileDelete,
-  maxFiles = 50,
   className = ''
 }) => {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
@@ -61,60 +60,6 @@ export const RecentFilesHistory: React.FC<RecentFilesHistoryProps> = ({
       localStorage.setItem('svg-morph-recent-files', JSON.stringify(files));
     } catch (error) {
       console.error('Failed to save recent files:', error);
-    }
-  };
-
-  // Add file to recent history
-  const _addRecentFile = (file: Omit<RecentFile, 'id' | 'lastUsed' | 'isFavorite'>) => {
-    const newFile: RecentFile = {
-      ...file,
-      id: `recent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      lastUsed: new Date(),
-      isFavorite: false,
-      thumbnail: generateThumbnail(file.svgContent)
-    };
-
-    setRecentFiles(prev => {
-      // Remove existing file with same content
-      const filtered = prev.filter(f => f.svgContent !== file.svgContent);
-      // Add new file at the beginning
-      const updated = [newFile, ...filtered].slice(0, maxFiles);
-      saveRecentFiles(updated);
-      return updated;
-    });
-
-    return newFile;
-  };
-
-  // Generate thumbnail from SVG content
-  const generateThumbnail = (svgContent: string): string => {
-    try {
-      // Create a canvas to render the SVG
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      
-      canvas.width = 120;
-      canvas.height = 120;
-      
-      // Create SVG blob
-      const svgBlob = new Blob([svgContent], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(svgBlob);
-      
-      img.onload = () => {
-        if (ctx) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        }
-        URL.revokeObjectURL(url);
-      };
-      
-      img.src = url;
-      return canvas.toDataURL('image/png');
-    } catch (error) {
-      console.error('Failed to generate thumbnail:', error);
-      return '';
     }
   };
 

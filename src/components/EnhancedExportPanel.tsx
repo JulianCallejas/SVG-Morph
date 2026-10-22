@@ -52,7 +52,7 @@ export const EnhancedExportPanel: React.FC = () => {
     minified: false,
     includeTypeScript: false,
   });
-  const [videoOptions, setVideoOptions] = useState({
+  const [videoOptions] = useState({
     videoFormat: 'mp4' as 'gif' | 'mp4' | 'webm',
     width: 800,
     height: 600,
