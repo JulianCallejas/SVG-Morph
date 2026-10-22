@@ -11,6 +11,7 @@ import {
   sourceOpacityAt,
   type Point,
 } from './contourInterpolation';
+import { holeStructure } from './contourHoles';
 import { offscreenOffset, oppositeDirection, parseViewBox, slideOf, slideProgress } from './contourSlide';
 
 /**
@@ -175,61 +176,106 @@ export function buildTube(
   };
 }
 
+/** An inner outline of a solid, as the two shapes it morphs between (same number of nodes). */
+export interface SolidHole {
+  from: Point[];
+  to: Point[];
+}
+
+/**
+ * A morphing pair whose two contours are holes of the two contours of another morphing pair is not a
+ * solid of its own: it is cut out of that pair's solid, and morphs with it. A hole that is not part
+ * of a morphing pair (a swap, a fixed contour, or a hole on one side only) keeps being drawn as its
+ * own solid, which is a limit of a fixed triangle list: it cannot follow a part that appears or goes.
+ */
+function mergeHoles(specs: PartSpec[], sourceHoles: Map<string, string>, targetHoles: Map<string, string>): PartSpec[] {
+  const merged = new Set<PartSpec>();
+  for (const hole of specs) {
+    if (!hole.pair || hole.kind !== 'solid') continue;
+    const sourceHolder = sourceHoles.get(hole.pair.sourceId);
+    const targetHolder = targetHoles.get(hole.pair.targetId);
+    if (sourceHolder === undefined || targetHolder === undefined) continue;
+
+    const holder = specs.find(
+      (spec) =>
+        spec.kind === 'solid' && spec.pair?.sourceId === sourceHolder && spec.pair.targetId === targetHolder,
+    );
+    if (!holder) continue;
+    holder.holes = [...(holder.holes ?? []), { from: hole.from, to: hole.to }];
+    merged.add(hole);
+  }
+  return specs.filter((spec) => !merged.has(spec));
+}
+
 /**
  * A closed outline extruded by `depth` (centered on z = 0), morphing between two outlines with
  * the same number of nodes. The cap triangles come from the first outline and are reused for
- * the whole morph. Holes are not supported: an inner contour is drawn as its own solid.
+ * the whole morph. `holes` are inner outlines cut out of the caps and walled like the outline, so
+ * a ring is a ring and not a disc; each one morphs between its own two shapes. Vertices are laid
+ * out ring by ring (outline, then each hole), front cap first, then back cap, then the walls.
  */
-export function buildSolid(from: Point[], to: Point[], depth: number): MorphGeometryData {
-  const n = from.length;
-  const faces = ShapeUtils.triangulateShape(from.map((p) => new Vector2(p.x, p.y)), []);
+export function buildSolid(from: Point[], to: Point[], depth: number, holes: SolidHole[] = []): MorphGeometryData {
+  const rings = [{ from, to }, ...holes];
+  const total = rings.reduce((sum, ring) => sum + ring.from.length, 0);
+  const vec = (points: Point[]) => points.map((p) => new Vector2(p.x, p.y));
+  const faces = ShapeUtils.triangulateShape(vec(from), holes.map((hole) => vec(hole.from)));
 
   const indices: number[] = [];
-  for (const [a, b, c] of faces) indices.push(a, b, c, n + a, n + c, n + b);
+  for (const [a, b, c] of faces) indices.push(a, b, c, total + a, total + c, total + b);
   // each wall quad has its own four vertices (flat shading)
-  for (let i = 0; i < n; i++) {
-    const base = 2 * n + i * 4;
-    indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  let base = 2 * total;
+  for (const ring of rings) {
+    for (let i = 0; i < ring.from.length; i++) {
+      indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      base += 4;
+    }
   }
 
   return {
-    vertexCount: 6 * n,
+    vertexCount: 6 * total,
     index: Uint32Array.from(indices),
     // the cap triangles do not all wind the same way, so their averaged normals shade patchily
     fixNormals(normals) {
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < total; i++) {
         normals.set([0, 0, 1], i * 3);
-        normals.set([0, 0, -1], (n + i) * 3);
+        normals.set([0, 0, -1], (total + i) * 3);
       }
     },
     fill(progress, out) {
       const t = clamp01(progress);
-      const points = lerpPoints(from, to, t);
       const front = depth / 2;
       const back = -depth / 2;
+      const shapes = rings.map((ring) => lerpPoints(ring.from, ring.to, t));
       let v = 0;
-      for (const p of points) {
-        out[v++] = p.x;
-        out[v++] = p.y;
-        out[v++] = front;
+      for (const points of shapes) {
+        for (const p of points) {
+          out[v++] = p.x;
+          out[v++] = p.y;
+          out[v++] = front;
+        }
       }
-      for (const p of points) {
-        out[v++] = p.x;
-        out[v++] = p.y;
-        out[v++] = back;
+      for (const points of shapes) {
+        for (const p of points) {
+          out[v++] = p.x;
+          out[v++] = p.y;
+          out[v++] = back;
+        }
       }
-      for (let i = 0; i < n; i++) {
-        const p = points[i];
-        const q = points[(i + 1) % n];
-        for (const [x, y, z] of [
-          [p.x, p.y, front],
-          [q.x, q.y, front],
-          [q.x, q.y, back],
-          [p.x, p.y, back],
-        ]) {
-          out[v++] = x;
-          out[v++] = y;
-          out[v++] = z;
+      for (const points of shapes) {
+        const n = points.length;
+        for (let i = 0; i < n; i++) {
+          const p = points[i];
+          const q = points[(i + 1) % n];
+          for (const [x, y, z] of [
+            [p.x, p.y, front],
+            [q.x, q.y, front],
+            [q.x, q.y, back],
+            [p.x, p.y, back],
+          ]) {
+            out[v++] = x;
+            out[v++] = y;
+            out[v++] = z;
+          }
         }
       }
     },
@@ -254,6 +300,10 @@ interface PartSpec {
   visibility: (progress: number) => number;
   /** Slide offset in the SVG's units (y down); scaled and flipped with the rest of the drawing. */
   offset?: (progress: number) => { x: number; y: number };
+  /** For a morphing pair: the two contours it joins, to find out which pairs are holes of which. */
+  pair?: { sourceId: string; targetId: string };
+  /** Inner outlines cut out of a solid, filled in while the scene is assembled. */
+  holes?: SolidHole[];
 }
 
 const capOf = (contour: StyledContour): 'round' | 'flat' => (contour.strokeLinecap === 'round' ? 'round' : 'flat');
@@ -294,7 +344,7 @@ export function buildContourScene(
 
   const bounds = parseViewBox(source.viewBox, source.width, source.height);
 
-  const specs = plan.flatMap((entry): PartSpec[] => {
+  const allSpecs = plan.flatMap((entry): PartSpec[] => {
     const from = findContour(sourceContours, entry.sourceId, 'source');
     const to = findContour(targetContours, entry.targetId, 'target');
     if (!from && !to) throw new Error('A contour plan entry needs a source or a target contour');
@@ -323,6 +373,7 @@ export function buildContourScene(
           radiusTo: radiusOf(to),
           cap: capOf(from),
           visibility: ALWAYS,
+          pair: { sourceId: from.id, targetId: to.id },
         },
       ];
     }
@@ -357,6 +408,8 @@ export function buildContourScene(
     return parts;
   });
 
+  const specs = mergeHoles(allSpecs, holeStructure(sourceContours), holeStructure(targetContours));
+
   if (specs.length === 0) {
     throw new Error('The SVGs have no drawable contours for the 3D view');
   }
@@ -388,7 +441,12 @@ export function buildContourScene(
       const to = spec.to.map(place);
       const geometry =
         spec.kind === 'solid'
-          ? buildSolid(from, to, options.depth)
+          ? buildSolid(
+              from,
+              to,
+              options.depth,
+              spec.holes?.map((hole) => ({ from: hole.from.map(place), to: hole.to.map(place) })),
+            )
           : buildTube(from, to, spec.closed, spec.radiusFrom * scale, spec.radiusTo * scale, spec.cap);
       const offset = spec.offset;
       return {

@@ -155,6 +155,159 @@ describe('buildSolid', () => {
   });
 });
 
+describe('buildSolid with holes', () => {
+  const outer = [
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 10, y: 10 },
+    { x: 0, y: 10 },
+  ];
+  const hole = [
+    { x: 3, y: 3 },
+    { x: 7, y: 3 },
+    { x: 7, y: 7 },
+    { x: 3, y: 7 },
+  ];
+  const biggerHole = [
+    { x: 2, y: 2 },
+    { x: 8, y: 2 },
+    { x: 8, y: 8 },
+    { x: 2, y: 8 },
+  ];
+  const ring = { from: hole, to: biggerHole };
+
+  it('covers a donut with a ring of triangles, not a disc', () => {
+    const solid = buildSolid(outer, outer, 6, [ring]);
+    const front = positionsAt(solid, 0);
+    const triangles: number[][] = [];
+    for (let i = 0; i < solid.index.length; i += 3) triangles.push([solid.index[i], solid.index[i + 1], solid.index[i + 2]]);
+
+    // a front cap triangle uses only front vertices (z = +3); none may sit inside the hole
+    const caps = triangles.filter((t) => t.every((v) => front[v * 3 + 2] === 3));
+    expect(caps).toHaveLength(8);
+    for (const [a, b, c] of caps) {
+      const cx = (front[a * 3] + front[b * 3] + front[c * 3]) / 3;
+      const cy = (front[a * 3 + 1] + front[b * 3 + 1] + front[c * 3 + 1]) / 3;
+      expect(cx > 3 && cx < 7 && cy > 3 && cy < 7).toBe(false);
+    }
+  });
+
+  it('adds a wall around the hole as well as around the outline', () => {
+    const solid = buildSolid(outer, outer, 6, [ring]);
+
+    // 8 cap triangles on each side + 2 per wall quad, 4 quads around the outline and 4 around the hole
+    expect(solid.index.length / 3).toBe(2 * 8 + 8 * 2);
+    expect(solid.vertexCount).toBe(6 * 8);
+    expect(Math.max(...solid.index)).toBeLessThan(solid.vertexCount);
+  });
+
+  it('keeps the flat cap normals for the vertices of the outline and of the hole', () => {
+    const solid = buildSolid(outer, outer, 6, [ring]);
+    const normals = new Float32Array(solid.vertexCount * 3).fill(0.5);
+
+    solid.fixNormals!(normals);
+
+    // vertices 0..7 are the front cap (outline then hole), 8..15 the back cap
+    for (let v = 0; v < 8; v++) expect(normals[v * 3 + 2]).toBe(1);
+    for (let v = 8; v < 16; v++) expect(normals[v * 3 + 2]).toBe(-1);
+    expect(normals[16 * 3]).toBe(0.5);
+  });
+
+  it('morphs the hole with the outline, keeping the same triangles', () => {
+    const solid = buildSolid(outer, outer, 6, [ring]);
+    const start = positionsAt(solid, 0);
+    const end = positionsAt(solid, 1);
+
+    // the first hole vertex is the fifth front vertex
+    expect([start[4 * 3], start[4 * 3 + 1]]).toEqual([3, 3]);
+    expect([end[4 * 3], end[4 * 3 + 1]]).toEqual([2, 2]);
+    // the outline did not move
+    expect([end[0], end[1]]).toEqual([0, 0]);
+  });
+
+  it('gives finite positions at every progress, with several holes', () => {
+    const second = { from: hole.map((p) => ({ x: p.x + 20, y: p.y })), to: hole.map((p) => ({ x: p.x + 20, y: p.y })) };
+    const wide = outer.map((p) => ({ x: p.x * 3, y: p.y }));
+    const solid = buildSolid(wide, wide, 6, [ring, second]);
+
+    for (const t of [0, 0.25, 0.5, 1]) {
+      expect(positionsAt(solid, t).every(Number.isFinite)).toBe(true);
+    }
+    expect(solid.vertexCount).toBe(6 * 12);
+  });
+
+  it('behaves exactly as before when there are no holes', () => {
+    const plain = buildSolid(outer, outer, 6);
+    const empty = buildSolid(outer, outer, 6, []);
+
+    expect(Array.from(empty.index)).toEqual(Array.from(plain.index));
+    expect(empty.vertexCount).toBe(plain.vertexCount);
+    expect(Array.from(positionsAt(empty, 0.5))).toEqual(Array.from(positionsAt(plain, 0.5)));
+  });
+});
+
+describe('buildContourScene with holes', () => {
+  const donut = { ...svgData([{ d: 'M0 0 H100 V100 H0 Z M30 30 V70 H70 V30 Z', fill: '#ffffff' }]), viewBox: '0 0 100 100' };
+  const squareWithHole = {
+    ...svgData([{ d: 'M0 0 H100 V100 H0 Z M20 20 V80 H80 V20 Z', fill: '#ffffff' }]),
+    viewBox: '0 0 100 100',
+  };
+  const disc = { ...svgData([{ d: 'M0 0 H100 V100 H0 Z', fill: '#ffffff' }]), viewBox: '0 0 100 100' };
+  const morph = (id: string, to: string): ContourPlanEntry => ({
+    sourceId: id,
+    targetId: to,
+    mode: 'morph',
+    swapAt: 0.5,
+    fadeWindow: 0,
+  });
+
+  it('makes one ring of a donut and its hole, not two solids', () => {
+    const plan = [morph('s1.1', 't1.1'), morph('s1.2', 't1.2')];
+
+    const { parts } = buildContourScene(donut, squareWithHole, plan, { depth: 20 });
+
+    expect(parts).toHaveLength(1);
+    expect(parts[0].kind).toBe('solid');
+    // the hole adds its own ring of vertices, so a ring has more of them than a plain solid
+    const plain = buildContourScene(disc, disc, [morph('s1.1', 't1.1')], { depth: 20 }).parts[0];
+    expect(parts[0].geometry.vertexCount).toBeGreaterThan(plain.geometry.vertexCount);
+  });
+
+  it('morphs the hole with the ring, to finite positions at every progress', () => {
+    const plan = [morph('s1.1', 't1.1'), morph('s1.2', 't1.2')];
+    const { geometry } = buildContourScene(donut, squareWithHole, plan, { depth: 20 }).parts[0];
+
+    const start = positionsAt(geometry, 0);
+    const end = positionsAt(geometry, 1);
+
+    expect(start.every(Number.isFinite)).toBe(true);
+    expect(end.every(Number.isFinite)).toBe(true);
+    expect(Array.from(start)).not.toEqual(Array.from(end));
+  });
+
+  it('keeps a hole that does not morph as a solid of its own', () => {
+    // the target has no hole: the hole of the source is an unpaired contour that swaps
+    const plan: ContourPlanEntry[] = [
+      morph('s1.1', 't1.1'),
+      { sourceId: 's1.2', targetId: null, mode: 'swap', swapAt: 0.5, fadeWindow: 0 },
+    ];
+
+    const { parts } = buildContourScene(donut, disc, plan, { depth: 20 });
+
+    expect(parts).toHaveLength(2);
+  });
+
+  it('does not cut a hole in a pair whose other side has none', () => {
+    // s1.2 is a hole of s1.1 in the source, but t1.2 is a plain separate shape in the target
+    const apart = { ...svgData([{ d: 'M0 0 H40 V40 H0 Z M60 60 H100 V100 H60 Z', fill: '#ffffff' }]), viewBox: '0 0 100 100' };
+    const plan = [morph('s1.1', 't1.1'), morph('s1.2', 't1.2')];
+
+    const { parts } = buildContourScene(donut, apart, plan, { depth: 20 });
+
+    expect(parts).toHaveLength(2);
+  });
+});
+
 describe('buildContourScene', () => {
   const planned = planContours(icons.source, icons.target)!;
   const scene = buildContourScene(icons.source, icons.target, planned.plan, { depth: 20 });
