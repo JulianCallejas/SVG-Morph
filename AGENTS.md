@@ -60,6 +60,7 @@ src/
 - Exports are a public contract: users embed the output elsewhere. Do not change the shape of exported SVG, SMIL, CSS, JS or React output without saying so explicitly.
 - Choose the animation layer by context: SMIL for self-contained SVG (keeps running inside `<img>` or CSS backgrounds), CSS keyframes when the SVG is inlined and should sync with the page.
 - Verify exported animations in at least two browsers before calling export work done. If you cannot, say so.
+  `pnpm check:smil <export.svg>` does it for an exported SMIL SVG: it loads the file in Chrome and Firefox, freezes the animation at a few instants and compares where every path is and how opaque it is (see `scripts/check-smil.mjs`). It does not cover Safari.
 - Respect `prefers-reduced-motion` in any new UI animation and in generated output where feasible.
 - Prefer the libraries already installed (`svg-path-commander`, `d3-interpolate`) over new dependencies or hand-rolled path math.
 

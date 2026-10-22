@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:smil": "node scripts/check-smil.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
