@@ -8,6 +8,16 @@ import type { Contour } from './contours';
  */
 export type ContourMode = 'morph' | 'swap' | 'static';
 
+/**
+ * A hand-made correspondence inside a morphing pair: the point at `source` along the source
+ * contour meets the point at `target` along the target contour. Both are fractions (0..1) of the
+ * contour's length, so they survive a change of node count.
+ */
+export interface NodeAnchor {
+  source: number;
+  target: number;
+}
+
 export interface ContourPlanEntry {
   sourceId: string | null;
   targetId: string | null;
@@ -18,6 +28,8 @@ export interface ContourPlanEntry {
   fadeWindow: number;
   /** Nodes sampled along a morphing pair. Absent means automatic (see `autoNodeCount`). */
   nodeCount?: number;
+  /** Points the user matched by hand, sorted by `source`. Absent or empty means automatic alignment. */
+  anchors?: NodeAnchor[];
 }
 
 export const DEFAULT_SWAP_AT = 0.5;

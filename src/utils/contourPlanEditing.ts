@@ -3,8 +3,9 @@ import {
   DEFAULT_FADE_WINDOW,
   DEFAULT_SWAP_AT,
   type ContourPlanEntry,
+  type NodeAnchor,
 } from './contourPairing';
-import { MAX_NODE_COUNT, MIN_NODE_COUNT } from './contourInterpolation';
+import { MAX_NODE_COUNT, MIN_NODE_COUNT, anchorsRealizable } from './contourInterpolation';
 import type { StyledContour } from './contourSvg';
 
 /** Human label of a contour: `P2` for a path with one contour, `P2.1` when it has several. */
@@ -129,11 +130,80 @@ export function unpairEntry(
   const entry = plan[index];
   if (entry.sourceId === null || entry.targetId === null) return plan;
 
+  // the matched points only mean something while the two contours are together
+  const settings = { ...entry };
+  delete settings.anchors;
   const halves: ContourPlanEntry[] = [
-    { ...entry, targetId: null, mode: 'swap' },
-    { ...entry, sourceId: null, mode: 'swap' },
+    { ...settings, targetId: null, mode: 'swap' },
+    { ...settings, sourceId: null, mode: 'swap' },
   ];
   return sortPlan([...plan.slice(0, index), ...halves, ...plan.slice(index + 1)], source, target);
+}
+
+function pairedEntry(plan: ContourPlanEntry[], index: number): ContourPlanEntry {
+  if (index < 0 || index >= plan.length) throw new RangeError(`No plan entry at index ${index}`);
+  const entry = plan[index];
+  if (entry.sourceId === null || entry.targetId === null) {
+    throw new Error('Only a pair of contours has points to match');
+  }
+  return entry;
+}
+
+const withAnchors = (
+  plan: ContourPlanEntry[],
+  index: number,
+  anchors: NodeAnchor[],
+): ContourPlanEntry[] =>
+  plan.map((entry, i) => {
+    if (i !== index) return entry;
+    const next: ContourPlanEntry = { ...entry, anchors };
+    if (anchors.length === 0) delete next.anchors;
+    return next;
+  });
+
+/**
+ * Match a point of the source contour with a point of the target contour inside one pair. Matching
+ * a source point again replaces its partner. Throws when the points would cross the ones already
+ * matched (the plan is left as it was).
+ */
+export function setAnchor(
+  plan: ContourPlanEntry[],
+  index: number,
+  anchor: NodeAnchor,
+  source: StyledContour[],
+  target: StyledContour[],
+): ContourPlanEntry[] {
+  const entry = pairedEntry(plan, index);
+  if (![anchor.source, anchor.target].every((f) => Number.isFinite(f) && f >= 0 && f <= 1)) {
+    throw new RangeError('A matched point must sit between 0 and 1 along its contour');
+  }
+
+  const from = source.find((c) => c.id === entry.sourceId);
+  const to = target.find((c) => c.id === entry.targetId);
+  if (!from || !to) throw new Error('The pair refers to a contour that does not exist');
+
+  const kept = (entry.anchors ?? []).filter((a) => Math.abs(a.source - anchor.source) > 1e-9);
+  const anchors = [...kept, anchor].sort((a, b) => a.source - b.source);
+  if (!anchorsRealizable(from, to, anchors)) {
+    throw new Error('Those points cross points that are already matched; remove one of them first');
+  }
+  return withAnchors(plan, index, anchors);
+}
+
+/** Drop one matched point of a pair. */
+export function removeAnchor(plan: ContourPlanEntry[], index: number, anchorIndex: number): ContourPlanEntry[] {
+  const entry = pairedEntry(plan, index);
+  const anchors = entry.anchors ?? [];
+  if (anchorIndex < 0 || anchorIndex >= anchors.length) {
+    throw new RangeError(`No matched point at index ${anchorIndex}`);
+  }
+  return withAnchors(plan, index, anchors.filter((_, i) => i !== anchorIndex));
+}
+
+/** Back to the automatic alignment of a pair. */
+export function clearAnchors(plan: ContourPlanEntry[], index: number): ContourPlanEntry[] {
+  pairedEntry(plan, index);
+  return withAnchors(plan, index, []);
 }
 
 /** `nodeCount: null` goes back to automatic. */

@@ -4,6 +4,7 @@ import { pairContours, type ContourPlanEntry } from './contourPairing';
 import {
   MAX_NODE_COUNT,
   MIN_AUTO_NODE_COUNT,
+  anchorsRealizable,
   autoNodeCount,
   interpolateContours,
   pairNodes,
@@ -357,5 +358,127 @@ describe('interpolateContours: reference icons', () => {
     const items = interpolateContours(plan, iconSource, iconTarget, 0.9);
 
     expect(items.map((item) => item.id)).toEqual(['s1~t2', 's2~t1']);
+  });
+});
+
+describe('matching points by hand (anchors)', () => {
+  const square = (prefix: string) => splitContours('M0 0 L10 0 L10 10 L0 10 Z', prefix)[0];
+  const line = (d: string, prefix: string) => splitContours(d, prefix)[0];
+  const near = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    expect(a.x).toBeCloseTo(b.x, 1);
+    expect(a.y).toBeCloseTo(b.y, 1);
+  };
+
+  it('gives the same nodes as before when there are no anchors', () => {
+    const a = square('s');
+    const b = splitContours('M10 10 L0 10 L0 0 L10 0 Z', 't')[0];
+
+    expect(pairNodes(a, b, 8, [])).toEqual(pairNodes(a, b, 8));
+    expect(pairNodes(a, b, 8, undefined).to).toEqual(pairNodes(a, b, 8).to);
+  });
+
+  it('reports where each target node sits along the target', () => {
+    const a = line('M0 0 L10 0', 's');
+    const b = line('M10 5 L0 5', 't');
+
+    const { targetAt } = pairNodes(a, b, 4);
+
+    // the target is drawn the other way round, so the first source node meets the end of the target
+    expect(targetAt).toEqual([1, 0.75, 0.5, 0.25, 0]);
+  });
+
+  it('rotates a closed contour so one chosen point meets another', () => {
+    const a = square('s');
+    const b = square('t');
+
+    // the top-left corner of the source meets the bottom-right corner of the target (half way round)
+    const { from, to } = pairNodes(a, b, 8, [{ source: 0, target: 0.5 }]);
+
+    near(from[0], { x: 0, y: 0 });
+    near(to[0], { x: 10, y: 10 });
+  });
+
+  it('keeps every node on the target contour and closes the loop', () => {
+    const a = square('s');
+    const b = square('t');
+
+    const { to } = pairNodes(a, b, 8, [{ source: 0.25, target: 0.75 }]);
+
+    expect(to).toHaveLength(9);
+    near(to[8], to[0]);
+    for (const p of to) {
+      const onEdge = [p.x, p.y].some((v) => Math.abs(v) < 0.01 || Math.abs(v - 10) < 0.01);
+      expect(onEdge).toBe(true);
+    }
+  });
+
+  it('spreads the nodes between two anchors in proportion', () => {
+    const a = line('M0 0 L10 0', 's');
+    const b = line('M0 5 L100 5', 't');
+
+    // the middle of the source meets the quarter of the target
+    const { to, targetAt } = pairNodes(a, b, 4, [{ source: 0.5, target: 0.25 }]);
+
+    expect(targetAt[2]).toBeCloseTo(0.25, 6);
+    near(to[2], { x: 25, y: 5 });
+    // both ends stay where they were, and the nodes are evenly spread on each side of the anchor
+    near(to[0], { x: 0, y: 5 });
+    near(to[4], { x: 100, y: 5 });
+    near(to[1], { x: 12.5, y: 5 });
+    near(to[3], { x: 62.5, y: 5 });
+  });
+
+  it('picks the direction that untwists the morph when only one point is matched', () => {
+    const a = square('s');
+    const reversed = splitContours('M0 0 L0 10 L10 10 L10 0 Z', 't')[0];
+
+    const { from, to } = pairNodes(a, reversed, 8, [{ source: 0, target: 0 }]);
+
+    // the same corner anchored, and the rest follow the same way round, so every node is on its twin
+    from.forEach((p, i) => near(to[i], p));
+  });
+
+  it('follows the order of the matched points', () => {
+    const a = square('s');
+    const b = square('t');
+
+    // 0 -> 0 and 0.5 -> 0.5 keep the shape in place
+    const { from, to } = pairNodes(a, b, 8, [
+      { source: 0, target: 0 },
+      { source: 0.5, target: 0.5 },
+    ]);
+
+    from.forEach((p, i) => near(to[i], p));
+  });
+
+  it('is not realizable when two points land on the same spot or cross', () => {
+    const a = line('M0 0 L10 0', 's');
+    const b = line('M0 5 L10 5', 't');
+
+    expect(anchorsRealizable(a, b, [{ source: 0.2, target: 0.5 }, { source: 0.2, target: 0.6 }])).toBe(false);
+    expect(anchorsRealizable(a, b, [{ source: 0.2, target: 0.6 }, { source: 0.7, target: 0.5 }])).toBe(true);
+    expect(anchorsRealizable(a, b, [{ source: 0.2, target: 0.5 }, { source: 0.7, target: 0.5 }])).toBe(false);
+    expect(anchorsRealizable(a, b, [])).toBe(true);
+  });
+
+  it('falls back to the automatic alignment when the anchors cannot be honoured', () => {
+    const a = line('M0 0 L10 0', 's');
+    const b = line('M0 5 L10 5', 't');
+
+    const bad = pairNodes(a, b, 4, [{ source: 0.2, target: 0.5 }, { source: 0.2, target: 0.6 }]);
+
+    expect(bad.to).toEqual(pairNodes(a, b, 4).to);
+  });
+
+  it('feeds the morph: a matched point is where the two shapes meet', () => {
+    const a = line('M0 0 L10 0', 's');
+    const b = line('M0 5 L100 5', 't');
+    const plan = [entry({ anchors: [{ source: 0.5, target: 0.25 }] })];
+
+    const [item] = interpolateContours(plan, [a], [b], 1, { nodeCount: 4 });
+
+    // at the end of the morph the middle node sits on the quarter of the target
+    const xs = (item.d.match(/L?(-?\d+(\.\d+)?),/g) ?? []).map((m) => parseFloat(m.replace('L', '')));
+    expect(xs[2]).toBeCloseTo(25, 1);
   });
 });
