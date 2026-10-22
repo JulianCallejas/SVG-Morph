@@ -35,7 +35,7 @@ export const PlaygroundEnhanced: React.FC = () => {
     targetSVGData,
     processingState,
     manualModeEnabled,
-    toggleManualMode,
+    setManualMode,
     sourcePoints,
     targetPoints,
     nodeMatches,
@@ -185,18 +185,6 @@ export const PlaygroundEnhanced: React.FC = () => {
                 {label}
               </button>
             ))}
-
-            <div className="ml-auto">
-              <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={manualModeEnabled}
-                  onChange={toggleManualMode}
-                  className="h-5 w-5 accent-[rgb(var(--color-action))]"
-                />
-                Manual Mode
-              </label>
-            </div>
           </div>
         </div>
 
@@ -268,12 +256,33 @@ export const PlaygroundEnhanced: React.FC = () => {
               text="Configure how nodes between your SVGs are paired for smooth morphing"
             />
 
-            <ContourPlanPanel />
+            {/* One matching method at a time: the selected one is the one the animation and exports use. */}
+            <div role="tablist" aria-label="Matching method" className="flex flex-wrap gap-2">
+              {([
+                { manual: false, label: 'By sections (contours)' },
+                { manual: true, label: 'By points (whole SVG)' },
+              ] as const).map(({ manual, label }) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="tab"
+                  aria-selected={manualModeEnabled === manual}
+                  onClick={() => setManualMode(manual)}
+                  className={getTabClassName(manualModeEnabled === manual, true)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-            <NodePairingInterface
-              sourcePoints={sourcePoints}
-              targetPoints={targetPoints}
-            />
+            {manualModeEnabled ? (
+              <NodePairingInterface
+                sourcePoints={sourcePoints}
+                targetPoints={targetPoints}
+              />
+            ) : (
+              <ContourPlanPanel />
+            )}
 
             {canProceedToAnimation && (
               <Button variant="primary" onClick={() => setActiveTab('animate')}>

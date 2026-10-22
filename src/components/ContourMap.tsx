@@ -16,6 +16,16 @@ const parseViewBox = (viewBox: string, width: number, height: number): [number, 
     : [0, 0, width || 100, height || 100];
 };
 
+/** Nodes of one contour that can be clicked to match them with a node of the other side. */
+export interface NodePicking {
+  contourId: string;
+  /** Indexes of the nodes that already belong to a matched pair of points. */
+  matched: number[];
+  /** The node picked on this side, waiting for a partner on the other side. */
+  selected: number | null;
+  onPick: (nodeIndex: number) => void;
+}
+
 interface ContourMapProps {
   side: 'source' | 'target';
   viewBox: string;
@@ -31,6 +41,8 @@ interface ContourMapProps {
   hoveredEntry: number | null;
   /** The contour picked on this side, waiting for a partner on the other side. */
   selectedId: string | null;
+  /** When set, the nodes of that contour are clickable. Pointer only: the panel offers number fields too. */
+  picking?: NodePicking | null;
   onHover: (entryIndex: number | null) => void;
   onSelect: (contourId: string) => void;
 }
@@ -51,6 +63,7 @@ export const ContourMap: React.FC<ContourMapProps> = ({
   nodePoints,
   hoveredEntry,
   selectedId,
+  picking = null,
   onHover,
   onSelect,
 }) => {
@@ -154,6 +167,33 @@ export const ContourMap: React.FC<ContourMapProps> = ({
                   // the first node is where the contour starts: drawn larger so the direction reads
                   <circle key={i} cx={point.x} cy={point.y} r={i === 0 ? unit * 1.6 : unit * 0.7} />
                 ))}
+              </g>
+            )}
+            {picking?.contourId === contour.id && nodePoints.has(contour.id) && (
+              <g aria-hidden="true">
+                {(nodePoints.get(contour.id) as Point[])
+                  // a closed contour ends on the node it starts from: one node, not two
+                  .slice(0, contour.closed ? -1 : undefined)
+                  .map((point, i) => {
+                    const matched = picking.matched.includes(i);
+                    const chosen = picking.selected === i;
+                    return (
+                      <circle
+                        key={i}
+                        cx={point.x}
+                        cy={point.y}
+                        r={unit * (chosen || matched ? 2.2 : 1.8)}
+                        className={`cursor-pointer ${STROKE[slot]} ${chosen ? FILL[slot] : 'fill-transparent'}`}
+                        strokeWidth={chosen ? 3 : matched ? 2.5 : 0}
+                        vectorEffect="non-scaling-stroke"
+                        onClick={(event) => {
+                          // picking a node must not also pick the contour underneath
+                          event.stopPropagation();
+                          picking.onPick(i);
+                        }}
+                      />
+                    );
+                  })}
               </g>
             )}
             <text

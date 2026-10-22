@@ -235,3 +235,23 @@ describe('buildContourSMIL: static and document', () => {
     expect(() => buildContourSMIL(lineA, lineB, [entry({ sourceId: 'nope' })], options)).toThrow(/nope/);
   });
 });
+
+describe('buildContourSMIL: matched points', () => {
+  const long = svgData([{ d: 'M0 0 L10 0', stroke: '#000000', strokeWidth: 2, opacity: 1 }]);
+  const longer = svgData([{ d: 'M0 2 L100 2', stroke: '#000000', strokeWidth: 2, opacity: 1 }]);
+  const target = (anchors?: ContourPlanEntry['anchors']) => {
+    const plan = [entry({ mode: 'morph', nodeCount: 4, ...(anchors && { anchors }) })];
+    const doc = parse(buildContourSMIL(long, longer, plan, options));
+    return animation(doc.querySelector('path')!, 'd')!.getAttribute('values')!.split(';')[1];
+  };
+
+  it('keeps the export as it was without matched points', () => {
+    expect(target([])).toBe(target());
+  });
+
+  it('moves the end shape of the morph to honour a matched point', () => {
+    // the middle of the short line meets the quarter of the long one
+    expect(target([{ source: 0.5, target: 0.25 }])).not.toBe(target());
+    expect(target([{ source: 0.5, target: 0.25 }])).toMatch(/L25(\.0\d*)?,2/);
+  });
+});

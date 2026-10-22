@@ -117,6 +117,36 @@ describe('morphStore contour plan', () => {
     });
   });
 
+  describe('matching method', () => {
+    beforeEach(async () => {
+      await useMorphStore.getState().setSourceSVG(CLOUD_ARROW_SVG);
+      await useMorphStore.getState().setTargetSVG(CLOUD_BOLT_SVG);
+    });
+
+    it('uses the contour plan by default', async () => {
+      const contourPipeline = vi.spyOn(workerManager, 'createContourSVG');
+
+      await useMorphStore.getState().setProgress(0.5);
+
+      expect(useMorphStore.getState().manualModeEnabled).toBe(false);
+      expect(contourPipeline).toHaveBeenCalled();
+    });
+
+    it('leaves the contour plan out while the point method is selected, even without any pair', async () => {
+      const contourPipeline = vi.spyOn(workerManager, 'createContourSVG');
+
+      useMorphStore.getState().setManualMode(true);
+      await useMorphStore.getState().setProgress(0.5);
+
+      expect(contourPipeline).not.toHaveBeenCalled();
+
+      useMorphStore.getState().setManualMode(false);
+      await useMorphStore.getState().setProgress(0.5);
+
+      expect(contourPipeline).toHaveBeenCalled();
+    });
+  });
+
   it('falls back to the whole-path pipeline when a path cannot be split', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const broken = `<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L5 5 M" /></svg>`;

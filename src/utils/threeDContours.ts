@@ -298,7 +298,12 @@ export function buildContourScene(
     }
 
     if (entry.mode === 'morph' && from && to) {
-      const nodes = pairNodes(from, to, resolveNodeCount(entry, from, to, { nodeCount: options.nodeCount }));
+      const nodes = pairNodes(
+        from,
+        to,
+        resolveNodeCount(entry, from, to, { nodeCount: options.nodeCount }),
+        entry.anchors,
+      );
       const closed = from.closed && to.closed;
       return [
         {

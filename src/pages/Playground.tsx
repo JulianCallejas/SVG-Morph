@@ -46,8 +46,8 @@ export const Playground: React.FC = () => {
           </p>
         </header>
 
-        {/* One column on small screens (upload, preview, controls, export); on large screens the
-            preview spans the right two columns and stays in view while the left column scrolls. */}
+        {/* One column on small screens (upload, preview, contours, controls, export); on large screens
+            the preview and the contour plan stack in the right two columns beside the controls. */}
         <div className="grid gap-8 lg:grid-cols-3 lg:items-start">
           <Panel title="Upload SVGs" className="lg:col-start-1">
             <div className="space-y-4">
@@ -64,7 +64,7 @@ export const Playground: React.FC = () => {
             </div>
           </Panel>
 
-          <div className="lg:sticky lg:top-24 lg:col-span-2 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+          <div className="space-y-8 lg:col-span-2 lg:col-start-2 lg:row-span-3 lg:row-start-1">
             <Panel
               title="Preview"
               actions={
@@ -94,6 +94,9 @@ export const Playground: React.FC = () => {
                 animationSettings={animationSettings}
               />
             </Panel>
+
+            {/* Contour plan: what each outline does during the animation (renders nothing until both SVGs are loaded) */}
+            <ContourPlanPanel />
           </div>
 
           {/* Animation Controls */}
@@ -115,11 +118,6 @@ export const Playground: React.FC = () => {
               animationSettings={animationSettings}
             />
           </div>
-        </div>
-
-        {/* Contour plan: what each outline does during the animation (renders nothing until both SVGs are loaded) */}
-        <div className="mt-8">
-          <ContourPlanPanel />
         </div>
       </div>
     </div>

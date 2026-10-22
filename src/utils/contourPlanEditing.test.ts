@@ -11,7 +11,10 @@ import {
   colorIndexByContour,
   contourLabel,
   pairManually,
+  clearAnchors,
   pathBoxes,
+  removeAnchor,
+  setAnchor,
   unpairEntry,
   updateEntry,
 } from './contourPlanEditing';
@@ -231,5 +234,75 @@ describe('updateEntry', () => {
 
   it('throws for an index outside the plan', () => {
     expect(() => updateEntry(suggested, -1, { mode: 'static' })).toThrow(RangeError);
+  });
+});
+
+describe('matched points (anchors)', () => {
+  const pairIndex = suggested.findIndex((e) => e.mode === 'morph');
+  const entryOf = (plan: ContourPlanEntry[]) => plan[pairIndex];
+
+  it('adds a matched point to a pair, keeping the rest of the entry', () => {
+    const plan = setAnchor(suggested, pairIndex, { source: 0.25, target: 0.5 }, source, target);
+
+    expect(entryOf(plan).anchors).toEqual([{ source: 0.25, target: 0.5 }]);
+    expect(entryOf(plan).mode).toBe('morph');
+    expect(suggested[pairIndex].anchors).toBeUndefined();
+  });
+
+  it('keeps the matched points sorted by their source point', () => {
+    let plan = setAnchor(suggested, pairIndex, { source: 0.6, target: 0.7 }, source, target);
+    plan = setAnchor(plan, pairIndex, { source: 0.2, target: 0.3 }, source, target);
+
+    expect(entryOf(plan).anchors).toEqual([
+      { source: 0.2, target: 0.3 },
+      { source: 0.6, target: 0.7 },
+    ]);
+  });
+
+  it('replaces the partner when a source point is matched again', () => {
+    let plan = setAnchor(suggested, pairIndex, { source: 0.25, target: 0.5 }, source, target);
+    plan = setAnchor(plan, pairIndex, { source: 0.25, target: 0.4 }, source, target);
+
+    expect(entryOf(plan).anchors).toEqual([{ source: 0.25, target: 0.4 }]);
+  });
+
+  it('refuses points that cross the ones already matched and leaves the plan alone', () => {
+    const plan = setAnchor(suggested, pairIndex, { source: 0.25, target: 0.5 }, source, target);
+
+    expect(() => setAnchor(plan, pairIndex, { source: 0.75, target: 0.5 }, source, target)).toThrow(/cross/);
+    expect(entryOf(plan).anchors).toEqual([{ source: 0.25, target: 0.5 }]);
+  });
+
+  it('refuses a point outside the contour and a contour that is not paired', () => {
+    expect(() => setAnchor(suggested, pairIndex, { source: 1.5, target: 0.5 }, source, target)).toThrow(RangeError);
+    const loose = suggested.findIndex((e) => e.sourceId === null || e.targetId === null);
+    if (loose >= 0) {
+      expect(() => setAnchor(suggested, loose, { source: 0.1, target: 0.1 }, source, target)).toThrow(/pair/);
+    }
+  });
+
+  it('removes one matched point or all of them', () => {
+    let plan = setAnchor(suggested, pairIndex, { source: 0.2, target: 0.3 }, source, target);
+    plan = setAnchor(plan, pairIndex, { source: 0.6, target: 0.7 }, source, target);
+
+    expect(entryOf(removeAnchor(plan, pairIndex, 0)).anchors).toEqual([{ source: 0.6, target: 0.7 }]);
+    expect('anchors' in entryOf(clearAnchors(plan, pairIndex))).toBe(false);
+    expect(() => removeAnchor(plan, pairIndex, 5)).toThrow(RangeError);
+  });
+
+  it('forgets the matched points when the pair is split', () => {
+    const plan = setAnchor(suggested, pairIndex, { source: 0.25, target: 0.5 }, source, target);
+
+    const split = unpairEntry(plan, pairIndex, source, target);
+
+    expect(split.some((e) => e.anchors !== undefined)).toBe(false);
+  });
+
+  it('keeps them when only the mode or node count changes', () => {
+    const plan = setAnchor(suggested, pairIndex, { source: 0.25, target: 0.5 }, source, target);
+
+    expect(entryOf(updateEntry(plan, pairIndex, { nodeCount: 40 })).anchors).toEqual([
+      { source: 0.25, target: 0.5 },
+    ]);
   });
 });

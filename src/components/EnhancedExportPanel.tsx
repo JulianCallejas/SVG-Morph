@@ -112,13 +112,13 @@ export const EnhancedExportPanel: React.FC = () => {
       // Add manual node matches to export options if Manual Mode is enabled and pairs exist
       const shouldUseManualMatches = manualModeEnabled && nodeMatches.length > 0;
       // Same rule as the preview: the per-contour plan only applies to paths with several subpaths
-      // or a plan the user edited, and never together with manual node matches.
+      // or a plan the user edited, and never while the point-matching mode is selected.
       const activePlan = activeContourPlan(
         contourPlan,
         sourceContours,
         targetContours,
         contourPlanCustomized,
-        shouldUseManualMatches,
+        manualModeEnabled,
       );
       const optionsWithMatches = {
         ...options,
