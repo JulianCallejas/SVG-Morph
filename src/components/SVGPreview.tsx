@@ -10,6 +10,24 @@ interface SVGPreviewProps {
   animationSettings: { duration: number; easing: string; };
 }
 
+// Makes every injected SVG fit whole inside its box (scaled to the width or the height, whichever
+// is tighter), whatever size its own attributes ask for. Without a viewBox the size attributes
+// become one, so the drawing can scale at all.
+const fitSVGs = (root: HTMLElement) => {
+  root.querySelectorAll('svg').forEach((svg) => {
+    if (!svg.hasAttribute('viewBox')) {
+      const width = svg.getAttribute('width') ?? '';
+      const height = svg.getAttribute('height') ?? '';
+      if (!width.includes('%') && !height.includes('%') && parseFloat(width) > 0 && parseFloat(height) > 0) {
+        svg.setAttribute('viewBox', `0 0 ${parseFloat(width)} ${parseFloat(height)}`);
+      }
+    }
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+  });
+};
+
 export const SVGPreview: React.FC<SVGPreviewProps> = ({
   sourceSVG,
   targetSVG,
@@ -75,10 +93,10 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
       // Use interpolated SVG from Web Worker or fallback
       const displaySVG = safeInterpolated || `
         <div style="position: relative; width: 100%; height: 100%;">
-          <div style="position: absolute; opacity: ${1 - currentProgress};">
+          <div style="position: absolute; inset: 0; opacity: ${1 - currentProgress};">
             ${safeSource}
           </div>
-          <div style="position: absolute; opacity: ${currentProgress};">
+          <div style="position: absolute; inset: 0; opacity: ${currentProgress};">
             ${safeTarget}
           </div>
         </div>
@@ -104,6 +122,8 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
       container.appendChild(morphContainer);
       canvas.appendChild(container);
     }
+
+    fitSVGs(canvas);
   }, [sourceSVG, targetSVG, viewMode, currentProgress, interpolatedSVG]);
 
   if (!sourceSVG && !targetSVG) {
