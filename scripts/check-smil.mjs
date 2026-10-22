@@ -27,7 +27,11 @@ function parseArgs(argv) {
   const args = { file: null, duration: null, times: [0, 0.25, 0.5, 0.75, 1] };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--duration') args.duration = Number(argv[++i]);
-    else if (argv[i] === '--times') args.times = argv[++i].split(',').map(Number);
+    else if (argv[i] === '--times') {
+      const raw = argv[++i] ?? '';
+      // Number('') is 0, so an empty value or an empty item would pass for a time
+      args.times = raw.split(',').map((item) => (item.trim() === '' ? NaN : Number(item)));
+    }
     else if (!argv[i].startsWith('--')) args.file = argv[i];
     else throw new Error(`Unknown option ${argv[i]}\n${USAGE}`);
   }
@@ -250,12 +254,16 @@ async function main() {
     const differences = [];
     let compared = 0;
     args.times.forEach((time, row) => {
-      a.rows[row].forEach((cell, column) => {
+      // a path that only one browser reports counts as a difference too
+      const columns = Math.max(a.rows[row].length, b.rows[row].length);
+      for (let column = 0; column < columns; column++) {
         compared++;
+        const cell = a.rows[row][column] ?? 'missing';
         const other = b.rows[row][column] ?? 'missing';
         if (!same(cell, other)) differences.push({ time, [a.name]: cell, [b.name]: other });
-      });
+      }
     });
+    if (compared === 0) throw new Error('The SVG has no <path> to compare: this check follows paths.');
 
     console.log(`${args.file}: ${args.times.length} instants of a ${duration}s cycle, ${compared} paths compared`);
     console.log(`  ${a.name}  vs  ${b.name}`);

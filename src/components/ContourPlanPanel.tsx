@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMorphStore } from '../store/morphStore';
 import type { ContourMode, ContourPlanEntry, SlideDirection } from '../utils/contourPairing';
 import { SLIDE_DIRECTIONS } from '../utils/contourSlide';
@@ -73,6 +73,27 @@ export const ContourPlanPanel: React.FC = () => {
   const [pendingSource, setPendingSource] = useState<number | null>(null);
   const [pendingTarget, setPendingTarget] = useState<number | null>(null);
   const [pointsMessage, setPointsMessage] = useState<string | null>(null);
+
+  // What the boxes show is shared with the preview, so it must not outlive this panel
+  useEffect(
+    () => () => {
+      const { setContourHover, setContourSelection } = useMorphStore.getState();
+      setContourHover(null);
+      setContourSelection(null);
+    },
+    [],
+  );
+
+  // The pair being matched can disappear from the plan (a pairing made in the preview, a reset):
+  // its pending nodes and message go with it, so they do not come back if the pair is recreated
+  useEffect(() => {
+    if (matchingKey !== null && !contourPlan?.some((entry) => `${entry.sourceId}|${entry.targetId}` === matchingKey)) {
+      setMatchingKey(null);
+      setPendingSource(null);
+      setPendingTarget(null);
+      setPointsMessage(null);
+    }
+  }, [contourPlan, matchingKey]);
 
   if (!sourceSVGData || !targetSVGData || !contourPlan) return null;
 

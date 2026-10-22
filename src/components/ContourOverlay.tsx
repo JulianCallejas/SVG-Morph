@@ -60,7 +60,6 @@ export const ContourOverlay: React.FC<ContourOverlayProps> = ({ side, viewBox })
         selectedId={contourSelection?.side === side ? contourSelection.id : null}
         keyboard={false}
         showContourStroke={false}
-        showPathBoxes={false}
         onHover={setContourHover}
         onSelect={(id) => void selectContour(side, id)}
       />
