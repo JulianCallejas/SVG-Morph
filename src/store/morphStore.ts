@@ -16,6 +16,9 @@ import { CanvasRenderOptions } from '../utils/canvasRenderer';
 import { activeContourPlan, planContours, type StyledContour } from '../utils/contourSvg';
 import type { ContourPlanEntry } from '../utils/contourPairing';
 
+/** A contour picked on one side, waiting for a partner on the other side. */
+export type ContourSelection = { side: 'source' | 'target'; id: string } | null;
+
 export type LoopDirection = 'forward' | 'both';
 
 export interface AnimationSettings {
@@ -63,6 +66,13 @@ interface MorphState {
   targetContours: StyledContour[];
   contourPlan: ContourPlanEntry[] | null;
   contourPlanCustomized: boolean;
+  // What the contour boxes show, shared by the Contours panel and the boxes over the preview
+  /** Index of the plan entry under the pointer or focus. */
+  contourHover: number | null;
+  contourSelection: ContourSelection;
+  showContourNodes: boolean;
+  /** Boxes and labels over the SVGs of the split preview. */
+  showContourBoxes: boolean;
 
   // Phase 2 properties
   sourcePoints: Point[];
@@ -116,6 +126,10 @@ interface MorphState {
   // Contour plan actions
   setContourPlan: (plan: ContourPlanEntry[]) => Promise<void>;
   resetContourPlan: () => Promise<void>;
+  setContourHover: (entryIndex: number | null) => void;
+  setContourSelection: (selection: ContourSelection) => void;
+  setShowContourNodes: (show: boolean) => void;
+  setShowContourBoxes: (show: boolean) => void;
 
   // Phase 2 actions
   autoMatchNodes: () => void;
@@ -198,6 +212,10 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   targetContours: [],
   contourPlan: null,
   contourPlanCustomized: false,
+  contourHover: null,
+  contourSelection: null,
+  showContourNodes: true,
+  showContourBoxes: true,
 
   // Phase 2 state
   sourcePoints: [],
@@ -522,6 +540,9 @@ export const useMorphStore = create<MorphState>((set, get) => ({
         targetContours: planned?.targetContours ?? [],
         contourPlan: planned?.plan ?? null,
         contourPlanCustomized: false,
+        // the contours are new, so whatever pointed at the old ones is stale
+        contourHover: null,
+        contourSelection: null,
         processingState: {
           isProcessing: false,
           currentTask: null,
@@ -621,9 +642,16 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       targetContours: planned?.targetContours ?? [],
       contourPlan: planned?.plan ?? null,
       contourPlanCustomized: false,
+      contourHover: null,
+      contourSelection: null,
     });
     await get().generateInterpolatedSVG(get().currentProgress);
   },
+
+  setContourHover: (entryIndex) => set({ contourHover: entryIndex }),
+  setContourSelection: (selection) => set({ contourSelection: selection }),
+  setShowContourNodes: (show) => set({ showContourNodes: show }),
+  setShowContourBoxes: (show) => set({ showContourBoxes: show }),
 
   // Phase 2 actions
   autoMatchNodes: () => {

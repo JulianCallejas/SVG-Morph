@@ -47,8 +47,6 @@ const DEFAULT_FADE_ON = 0.2;
 
 const percent = (fraction: number): string => `${Math.round(fraction * 100)}%`;
 
-type Selection = { side: 'source' | 'target'; id: string } | null;
-
 /**
  * Lets the user decide, per contour, what happens during the animation: morph into a partner,
  * swap at a chosen point (hard cut or cross-fade), or stay fixed. Works on the plan in the store.
@@ -63,11 +61,13 @@ export const ContourPlanPanel: React.FC = () => {
     contourPlanCustomized,
     setContourPlan,
     resetContourPlan,
+    contourHover: hoveredEntry,
+    contourSelection: selection,
+    showContourNodes: showNodes,
+    setContourHover: setHoveredEntry,
+    setContourSelection: setSelection,
+    setShowContourNodes: setShowNodes,
   } = useMorphStore();
-
-  const [hoveredEntry, setHoveredEntry] = useState<number | null>(null);
-  const [selection, setSelection] = useState<Selection>(null);
-  const [showNodes, setShowNodes] = useState(true);
   // The pair whose points are being matched by hand, and the node waiting on each side for a partner
   const [matchingEntry, setMatchingEntry] = useState<number | null>(null);
   const [pendingSource, setPendingSource] = useState<number | null>(null);
