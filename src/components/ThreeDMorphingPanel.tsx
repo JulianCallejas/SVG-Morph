@@ -21,7 +21,6 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
 }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   
@@ -54,6 +53,13 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
   const { showSuccess, showError, showWarning } = useToast();
   // the contour plan chosen in the playground (morph / swap / static per contour)
   const contourPlan = useMorphStore((state) => state.contourPlan);
+  // The scene follows the playground's animation, so playing it here is playing that animation.
+  const isAnimating = useMorphStore((state) => state.isAnimating);
+  const reverse = useMorphStore((state) => state.animationSettings.reverse);
+  const startAnimation = useMorphStore((state) => state.startAnimation);
+  const pauseAnimation = useMorphStore((state) => state.pauseAnimation);
+  const resetAnimation = useMorphStore((state) => state.resetAnimation);
+  const setProgress = useMorphStore((state) => state.setProgress);
 
   // Initialize 3D scene
   const initialize3DScene = useCallback(async () => {
@@ -158,6 +164,26 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
       actions={
         <div className="flex items-center gap-2">
           <Button
+            variant="primary"
+            size="icon"
+            onClick={isAnimating ? pauseAnimation : startAnimation}
+            disabled={!isInitialized}
+            title={isAnimating ? 'Pause animation' : 'Play animation'}
+            aria-label={isAnimating ? 'Pause animation' : 'Play animation'}
+          >
+            {isAnimating ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={resetAnimation}
+            disabled={!isInitialized}
+            title="Reset animation"
+            aria-label="Reset animation"
+          >
+            <RotateCcw className="h-5 w-5" />
+          </Button>
+          <Button
             variant="ghost"
             size="icon"
             onClick={() => setShowControls(!showControls)}
@@ -224,6 +250,24 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
               </div>
             )}
           </div>
+          {isInitialized && (
+            <div className="mt-3">
+              <Field label={<>Progress: {Math.round(morphProgress * 100)}%</>}>
+                <Slider
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={morphProgress}
+                  onChange={(e) => {
+                    // dragging takes over from a running animation; the store flips the value when "reverse" is on
+                    if (isAnimating) pauseAnimation();
+                    const value = parseFloat(e.target.value);
+                    void setProgress(reverse ? 1 - value : value);
+                  }}
+                />
+              </Field>
+            </div>
+          )}
         </div>
 
         {/* Controls Panel */}
