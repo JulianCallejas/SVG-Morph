@@ -245,6 +245,55 @@ describe('buildContourScene', () => {
       expect(hardCut[0].visibility(0.6)).toBe(0);
     });
 
+    describe('sliding contours', () => {
+      const a = { ...svgData([{ d: 'M10 40 L30 40', stroke: '#fff' }]), viewBox: '0 0 100 100' };
+      const b = { ...svgData([{ d: 'M70 40 L90 40', stroke: '#fff' }]), viewBox: '0 0 100 100' };
+      const slidePlan = (fade: boolean): ContourPlanEntry[] => [
+        {
+          sourceId: 's1.1',
+          targetId: 't1.1',
+          mode: 'swap',
+          swapAt: 0.5,
+          fadeWindow: 0.4,
+          transition: { type: 'slide', direction: 'left', fade },
+        },
+      ];
+      const parts = buildContourScene(a, b, slidePlan(false), { depth: 20 }).parts;
+
+      it('gives only the sliding parts an offset, moving the source out and the target in', () => {
+        expect(parts).toHaveLength(2);
+        expect(parts[0].offset!(0).x).toBeCloseTo(0, 6);
+        expect(parts[0].offset!(0).y).toBeCloseTo(0, 6);
+        expect(parts[0].offset!(1).x).toBeLessThan(0);
+        expect(parts[1].offset!(0).x).toBeGreaterThan(0);
+        expect(parts[1].offset!(1).x).toBeCloseTo(0, 6);
+        expect(scene.parts.every((part) => part.offset === undefined)).toBe(true);
+      });
+
+      it('shows each side only while it is inside the drawing, with no fade', () => {
+        expect(parts[0].visibility(0.2)).toBe(1);
+        expect(parts[0].visibility(0.9)).toBe(0);
+        expect(parts[1].visibility(0.2)).toBe(0);
+        expect(parts[1].visibility(0.9)).toBe(1);
+        expect(parts[0].visibility(0.5)).toBe(1);
+        expect(parts[1].visibility(0.5)).toBe(1);
+      });
+
+      it('also fades them when asked', () => {
+        const faded = buildContourScene(a, b, slidePlan(true), { depth: 20 }).parts;
+
+        expect(faded[0].visibility(0.5)).toBeCloseTo(0.5, 5);
+        expect(faded[1].visibility(0.5)).toBeCloseTo(0.5, 5);
+      });
+
+      it('flips y into scene space: an upward slide moves up, which is positive y', () => {
+        const up = buildContourScene(a, b, [{ ...slidePlan(false)[0], transition: { type: 'slide', direction: 'up', fade: false } }], { depth: 20 }).parts;
+
+        expect(up[0].offset!(1).y).toBeGreaterThan(0);
+        expect(up[0].offset!(1).x).toBeCloseTo(0, 6);
+      });
+    });
+
     it('cross-fades both sides of a swap', () => {
       const a = svgData([{ d: 'M0 0 L10 0', stroke: '#fff' }]);
       const b = svgData([{ d: 'M50 50 L60 60', stroke: '#fff' }]);

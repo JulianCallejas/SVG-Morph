@@ -13,6 +13,11 @@ export interface ExportOptions {
   duration: number;
   easing: string;
   loop: boolean;
+  /**
+   * SVG and SMIL only, and only with `loop`: `forward` repeats source → target, `both` (the default
+   * and what every cycle did before) runs source → target → source.
+   */
+  loopDirection?: 'forward' | 'both';
   filename?: string;
   nodeMatches?: NodeMatch[];
   useManualMatching?: boolean;
@@ -351,13 +356,16 @@ function ${options.functionName}(containerId, userOptions = {}) {
         await workerManager.parseSVG(sourceSVG),
         await workerManager.parseSVG(targetSVG),
         options.contourPlan,
-        { duration: options.duration, loop: options.loop },
+        { duration: options.duration, loop: options.loop, direction: options.loopDirection },
       );
     }
 
     try {
       const duration = `${options.duration}s`;
       const repeatCount = options.loop ? 'indefinite' : '1';
+      // a cycle that does not repeat always runs the whole way there and back
+      const forward = options.loop && options.loopDirection === 'forward';
+      const cycle = (a: string | number, b: string | number) => (forward ? `${a};${b}` : `${a};${b};${a}`);
       
       // Parse SVGs to get path data
       const sourceSVGData = await workerManager.parseSVG(sourceSVG);
@@ -439,12 +447,12 @@ function ${options.functionName}(containerId, userOptions = {}) {
         pathElement += `
           <animate
             attributeName="d"
-            values="${normalizedSource};${normalizedTarget};${normalizedSource}"
+            values="${cycle(normalizedSource, normalizedTarget)}"
             dur="${duration}"
             repeatCount="${repeatCount}"
             calcMode="spline"
-            keySplines="0.4 0 0.6 1;0.4 0 0.6 1"
-            keyTimes="0;0.5;1"
+            keySplines="${forward ? '0.4 0 0.6 1' : '0.4 0 0.6 1;0.4 0 0.6 1'}"
+            keyTimes="${forward ? '0;1' : '0;0.5;1'}"
           />`;
         
         // Add fill animation only if both paths have fill values and they're different
@@ -453,7 +461,7 @@ function ${options.functionName}(containerId, userOptions = {}) {
           pathElement += `
           <animate
             attributeName="fill"
-            values="${sourcePath.fill};${targetPath.fill};${sourcePath.fill}"
+            values="${cycle(sourcePath.fill, targetPath.fill)}"
             dur="${duration}"
             repeatCount="${repeatCount}"
           />`;
@@ -466,7 +474,7 @@ function ${options.functionName}(containerId, userOptions = {}) {
           pathElement += `
           <animate
             attributeName="stroke-width"
-            values="${sourceStrokeWidth};${targetStrokeWidth};${sourceStrokeWidth}"
+            values="${cycle(sourceStrokeWidth, targetStrokeWidth)}"
             dur="${duration}"
             repeatCount="${repeatCount}"
           />`;
@@ -479,7 +487,7 @@ function ${options.functionName}(containerId, userOptions = {}) {
           pathElement += `
           <animate
             attributeName="opacity"
-            values="${sourceOpacity};${targetOpacity};${sourceOpacity}"
+            values="${cycle(sourceOpacity, targetOpacity)}"
             dur="${duration}"
             repeatCount="${repeatCount}"
           />`;
@@ -506,6 +514,7 @@ function ${options.functionName}(containerId, userOptions = {}) {
   private generateOpacityFallbackSVG(sourceSVG: string, targetSVG: string, options: ExportOptions): string {
     const duration = `${options.duration}s`;
     const repeatCount = options.loop ? 'indefinite' : '1';
+    const forward = options.loop && options.loopDirection === 'forward';
 
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
@@ -513,7 +522,7 @@ function ${options.functionName}(containerId, userOptions = {}) {
           <g opacity="1">
             <animate
               attributeName="opacity"
-              values="1;0;1"
+              values="${forward ? '1;0' : '1;0;1'}"
               dur="${duration}"
               repeatCount="${repeatCount}"
             />
@@ -522,7 +531,7 @@ function ${options.functionName}(containerId, userOptions = {}) {
           <g opacity="0">
             <animate
               attributeName="opacity"
-              values="0;1;0"
+              values="${forward ? '0;1' : '0;1;0'}"
               dur="${duration}"
               repeatCount="${repeatCount}"
             />

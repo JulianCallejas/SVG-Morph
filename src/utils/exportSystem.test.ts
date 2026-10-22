@@ -54,6 +54,43 @@ describe('ExportSystem with a contour plan', () => {
     expect(pathCount(result.content as string)).toBe(4);
   });
 
+  describe('loop direction', () => {
+    const run = async (svgs: [string, string], overrides = {}) =>
+      (await system.exportAnimation(svgs[0], svgs[1], smil(overrides))).content as string;
+
+    it('keeps both-ways output byte for byte for the whole path and for a plan', async () => {
+      const whole = await run([SQUARE_SVG, DIAMOND_SVG], { loop: true });
+
+      expect(await run([SQUARE_SVG, DIAMOND_SVG], { loop: true, loopDirection: 'both' })).toBe(whole);
+      expect(whole).toContain('keyTimes="0;0.5;1"');
+      const contours = await run([CLOUD_ARROW_SVG, CLOUD_BOLT_SVG], { loop: true, contourPlan: plan });
+      expect(await run([CLOUD_ARROW_SVG, CLOUD_BOLT_SVG], { loop: true, loopDirection: 'both', contourPlan: plan })).toBe(contours);
+    });
+
+    it('goes source to target only in a forward loop of the whole path', async () => {
+      const content = await run([SQUARE_SVG, DIAMOND_SVG], { loop: true, loopDirection: 'forward' });
+
+      expect(content).toContain('keyTimes="0;1"');
+      expect(content).toContain('keySplines="0.4 0 0.6 1"');
+      expect(content).toContain('repeatCount="indefinite"');
+      expect(content).not.toContain('keyTimes="0;0.5;1"');
+    });
+
+    it('goes source to target only in a forward loop of a contour plan', async () => {
+      const content = await run([CLOUD_ARROW_SVG, CLOUD_BOLT_SVG], { loop: true, loopDirection: 'forward', contourPlan: plan });
+
+      // the morph of the paired contours (the swaps keep their own key times)
+      expect(content).toMatch(/attributeName="d"[^>]*keyTimes="0;1"/);
+      expect(content).not.toMatch(/attributeName="d"[^>]*keyTimes="0;0\.5;1"/);
+    });
+
+    it('ignores the direction when the animation does not loop', async () => {
+      const once = await run([SQUARE_SVG, DIAMOND_SVG], { loop: false });
+
+      expect(await run([SQUARE_SVG, DIAMOND_SVG], { loop: false, loopDirection: 'forward' })).toBe(once);
+    });
+  });
+
   it('keeps the whole-path output when there is no plan', async () => {
     const result = await system.exportAnimation(SQUARE_SVG, DIAMOND_SVG, smil());
     const content = result.content as string;

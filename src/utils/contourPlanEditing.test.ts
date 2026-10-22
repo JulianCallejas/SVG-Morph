@@ -306,3 +306,35 @@ describe('matched points (anchors)', () => {
     ]);
   });
 });
+
+describe('slide transition', () => {
+  const swapIndex = suggested.findIndex((e) => e.mode === 'swap');
+
+  it('sets a slide on a swapped contour and goes back to the fade', () => {
+    const slid = updateEntry(suggested, swapIndex, {
+      transition: { type: 'slide', direction: 'up-left', fade: true },
+    });
+
+    expect(slid[swapIndex].transition).toEqual({ type: 'slide', direction: 'up-left', fade: true });
+    expect('transition' in updateEntry(slid, swapIndex, { transition: null })[swapIndex]).toBe(false);
+    expect(suggested[swapIndex].transition).toBeUndefined();
+  });
+
+  it('keeps the rest of the entry and refuses a direction that does not exist', () => {
+    const slid = updateEntry(suggested, swapIndex, { transition: { type: 'slide', direction: 'left', fade: false } });
+
+    expect(slid[swapIndex].swapAt).toBe(suggested[swapIndex].swapAt);
+    expect(() =>
+      updateEntry(suggested, swapIndex, { transition: { type: 'slide', direction: 'sideways' as never, fade: false } }),
+    ).toThrow(RangeError);
+  });
+
+  it('keeps the slide when a pair is split, as it keeps the other settings', () => {
+    const pairIndex = suggested.findIndex((e) => e.mode === 'morph');
+    const withSlide = updateEntry(suggested, pairIndex, { transition: { type: 'slide', direction: 'down', fade: false } });
+
+    const split = unpairEntry(withSlide, pairIndex, source, target);
+
+    expect(split.filter((e) => e.transition?.direction === 'down')).toHaveLength(2);
+  });
+});

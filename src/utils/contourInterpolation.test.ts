@@ -482,3 +482,77 @@ describe('matching points by hand (anchors)', () => {
     expect(xs[2]).toBeCloseTo(25, 1);
   });
 });
+
+describe('interpolateContours: slide', () => {
+  const left = splitContours('M10 40 L30 40 L30 50 L10 50 Z', 's');
+  const right = splitContours('M70 40 L90 40 L90 50 L70 50 Z', 't');
+  const bounds = { x: 0, y: 0, width: 100, height: 100 };
+  const slide = (overrides: Partial<ContourPlanEntry> = {}) =>
+    entry({
+      mode: 'swap',
+      swapAt: 0.5,
+      fadeWindow: 0.2,
+      transition: { type: 'slide', direction: 'left', fade: false },
+      ...overrides,
+    });
+  const at = (progress: number, e = slide()) => interpolateContours([e], left, right, progress, { bounds });
+
+  it('shows only the source in place before the slide starts', () => {
+    const [item, ...rest] = at(0.2);
+
+    expect(rest).toHaveLength(0);
+    expect(item.id).toBe('s1');
+    expect(item.offset).toEqual({ x: 0, y: 0 });
+    expect(item.opacity).toBe(1);
+  });
+
+  it('moves the source out toward the direction and the target in from the opposite side', () => {
+    const [source, target] = at(0.5);
+
+    expect(source.offset!.x).toBeLessThan(0);
+    expect(target.offset!.x).toBeGreaterThan(0);
+    expect(source.offset!.y).toBe(0);
+    // both keep moving the same way as the slide goes on
+    const [earlySource, earlyTarget] = at(0.45);
+    const [lateSource, lateTarget] = at(0.55);
+    expect(lateSource.offset!.x).toBeLessThan(earlySource.offset!.x);
+    expect(lateTarget.offset!.x).toBeLessThan(earlyTarget.offset!.x);
+    expect(lateTarget.offset!.x).toBeGreaterThan(0);
+  });
+
+  it('shows only the target in place after the slide', () => {
+    const [item, ...rest] = at(0.9);
+
+    expect(rest).toHaveLength(0);
+    expect(item.id).toBe('t1');
+    expect(item.offset).toEqual({ x: 0, y: 0 });
+  });
+
+  it('keeps both shapes opaque unless the slide also fades', () => {
+    expect(at(0.5).map((i) => i.opacity)).toEqual([1, 1]);
+
+    const faded = at(0.5, slide({ transition: { type: 'slide', direction: 'left', fade: true } }));
+    expect(faded.map((i) => i.opacity)).toEqual([0.5, 0.5]);
+  });
+
+  it('slides along both axes for a diagonal', () => {
+    const [source] = at(0.5, slide({ transition: { type: 'slide', direction: 'up-left', fade: false } }));
+
+    expect(source.offset!.x).toBeLessThan(0);
+    expect(source.offset!.y).toBeLessThan(0);
+  });
+
+  it('keeps the plain fade, with no offset, when there is no slide', () => {
+    const items = at(0.5, slide({ transition: undefined }));
+
+    expect(items.every((i) => i.offset === undefined)).toBe(true);
+    expect(items.map((i) => i.opacity)).toEqual([0.5, 0.5]);
+  });
+
+  it('finds its own bounds when none are given', () => {
+    const [source] = interpolateContours([slide()], left, right, 0.5);
+
+    expect(source.offset!.x).toBeLessThan(0);
+    expect(Number.isFinite(source.offset!.x)).toBe(true);
+  });
+});

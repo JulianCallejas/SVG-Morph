@@ -201,3 +201,34 @@ describe('React component without a contour plan', () => {
     expect(component).not.toContain('<animate');
   });
 });
+
+describe('React component with sliding contours', () => {
+  const sliding = plan.map((entry) =>
+    entry.mode === 'swap'
+      ? { ...entry, fadeWindow: 0.2, transition: { type: 'slide' as const, direction: 'left' as const, fade: false } }
+      : entry,
+  );
+  const code = reactComponentGenerator.generateComponent(forReact(source), forReact(target), options(), sliding).component;
+
+  it('moves the contours with animateTransform and clips them to the drawing', () => {
+    expect(code).toContain('<animateTransform');
+    expect(code).toContain('type="translate"');
+    expect(code).toContain('<clipPath id="svgmorph-view">');
+    expect(code).toContain('<g clipPath="url(#svgmorph-view)">');
+  });
+
+  it('compiles and renders with the clip around its paths', () => {
+    const html = render(load(code).default);
+
+    expect(html).toContain('<clipPath id="svgmorph-view">');
+    expect(html).toContain('clip-path="url(#svgmorph-view)"');
+    expect(html).toContain('<animateTransform');
+  });
+
+  it('leaves a component without slides with no clip and no transform animation', () => {
+    const plain = reactComponentGenerator.generateComponent(forReact(source), forReact(target), options(), plan).component;
+
+    expect(plain).not.toContain('animateTransform');
+    expect(plain).not.toContain('clipPath');
+  });
+});

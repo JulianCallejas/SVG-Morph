@@ -8,6 +8,7 @@ import {
   type InterpolateContoursOptions,
   type RenderedContour,
 } from './contourInterpolation';
+import { VIEW_CLIP_ID, clipPathTag, parseViewBox, planSlides } from './contourSlide';
 
 /** A contour plus the style of the `<path>` it was split from. */
 export interface StyledContour extends Contour {
@@ -136,9 +137,12 @@ function pathElement(
     (caps.strokeLinecap ? ` stroke-linecap="${escapeAttr(caps.strokeLinecap)}"` : '') +
     (caps.strokeLinejoin ? ` stroke-linejoin="${escapeAttr(caps.strokeLinejoin)}"` : '');
 
+  // a sliding shape is moved, not redrawn
+  const move = item.offset ? ` transform="translate(${round4(item.offset.x)} ${round4(item.offset.y)})"` : '';
+
   return (
     `<path d="${escapeAttr(item.d)}" fill="${escapeAttr(fill)}" stroke="${escapeAttr(stroke)}"` +
-    ` stroke-width="${round4(strokeWidth)}" opacity="${opacity}"${capAttrs} />`
+    ` stroke-width="${round4(strokeWidth)}" opacity="${opacity}"${capAttrs}${move} />`
   );
 }
 
@@ -156,7 +160,8 @@ export function buildContourSVG(
 ): string {
   const sourceContours = contoursFromSVGData(source, 'source');
   const targetContours = contoursFromSVGData(target, 'target');
-  const items = interpolateContours(plan, sourceContours, targetContours, progress, options);
+  const bounds = parseViewBox(source.viewBox, source.width, source.height);
+  const items = interpolateContours(plan, sourceContours, targetContours, progress, { bounds, ...options });
 
   const sourceById = new Map(sourceContours.map((c) => [c.id, c]));
   const targetById = new Map(targetContours.map((c) => [c.id, c]));
@@ -171,9 +176,14 @@ export function buildContourSVG(
     ),
   );
 
+  // a slide leaves the drawing through its edge: whatever is outside the viewBox stays hidden
+  const body = planSlides(plan)
+    ? `<defs>${clipPathTag(bounds)}</defs><g clip-path="url(#${VIEW_CLIP_ID})">${paths.join('')}</g>`
+    : paths.join('');
+
   const { viewBox, width, height } = source;
   return (
     `<svg width="${escapeAttr(String(width))}" height="${escapeAttr(String(height))}"` +
-    ` viewBox="${escapeAttr(viewBox)}" xmlns="http://www.w3.org/2000/svg">${paths.join('')}</svg>`
+    ` viewBox="${escapeAttr(viewBox)}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`
   );
 }

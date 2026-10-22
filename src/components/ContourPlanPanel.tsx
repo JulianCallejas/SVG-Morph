@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMorphStore } from '../store/morphStore';
-import type { ContourMode, ContourPlanEntry } from '../utils/contourPairing';
+import type { ContourMode, ContourPlanEntry, SlideDirection } from '../utils/contourPairing';
+import { SLIDE_DIRECTIONS } from '../utils/contourSlide';
 import {
   MAX_NODE_COUNT,
   MIN_NODE_COUNT,
@@ -18,7 +19,7 @@ import {
   updateEntry,
 } from '../utils/contourPlanEditing';
 import { Button } from './ui/Button';
-import { CheckRow, Field, Slider } from './ui/Fields';
+import { CheckRow, Field, Select, Slider } from './ui/Fields';
 import { Panel } from './ui/Panel';
 import { Segmented } from './ui/Segmented';
 import { ContourMap, type NodePicking } from './ContourMap';
@@ -28,6 +29,17 @@ const MODE_LABELS: Record<ContourMode, string> = {
   morph: 'Morph',
   swap: 'Swap',
   static: 'Fixed',
+};
+
+const SLIDE_LABELS: Record<SlideDirection, string> = {
+  left: 'Left',
+  right: 'Right',
+  up: 'Up',
+  down: 'Down',
+  'up-left': 'Up and left',
+  'up-right': 'Up and right',
+  'down-left': 'Down and left',
+  'down-right': 'Down and right',
 };
 
 // Fade length offered when the user turns the cross-fade on, as a fraction of the animation.
@@ -437,44 +449,118 @@ export const ContourPlanPanel: React.FC = () => {
                 )}
 
                 {entry.mode === 'swap' && (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label={`Change at ${percent(entry.swapAt)}`}>
-                      <Slider
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={entry.swapAt}
-                        onChange={(event) =>
-                          apply(updateEntry(contourPlan, index, { swapAt: Number(event.target.value) }))
-                        }
-                      />
-                    </Field>
-                    <div className="space-y-3">
-                      <CheckRow
-                        label="Fade between the two"
-                        checked={entry.fadeWindow > 0}
-                        onChange={(event) =>
-                          apply(
-                            updateEntry(contourPlan, index, {
-                              fadeWindow: event.target.checked ? DEFAULT_FADE_ON : 0,
-                            }),
-                          )
-                        }
-                      />
-                      {entry.fadeWindow > 0 && (
-                        <Field label={`Fade length ${percent(entry.fadeWindow)}`}>
-                          <Slider
-                            min={0.05}
-                            max={0.5}
-                            step={0.05}
-                            value={entry.fadeWindow}
+                  <div className="space-y-4">
+                    <Segmented
+                      label={`How ${title} changes over`}
+                      value={entry.transition ? 'slide' : 'fade'}
+                      options={[
+                        { id: 'fade', label: 'Fade' },
+                        { id: 'slide', label: 'Slide' },
+                      ]}
+                      onChange={(choice) =>
+                        apply(
+                          choice === 'fade'
+                            ? updateEntry(contourPlan, index, { transition: null })
+                            : updateEntry(contourPlan, index, {
+                                transition: { type: 'slide', direction: 'left', fade: false },
+                                // a slide moves over the transition length, so it needs one
+                                fadeWindow: entry.fadeWindow > 0 ? entry.fadeWindow : DEFAULT_FADE_ON,
+                              }),
+                        )
+                      }
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label={`Change at ${percent(entry.swapAt)}`}>
+                        <Slider
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={entry.swapAt}
+                          onChange={(event) =>
+                            apply(updateEntry(contourPlan, index, { swapAt: Number(event.target.value) }))
+                          }
+                        />
+                      </Field>
+                      {entry.transition ? (
+                        <div className="space-y-3">
+                          <Field label="Slide toward (the new one comes in from the opposite side)">
+                            <Select
+                              value={entry.transition.direction}
+                              onChange={(event) =>
+                                apply(
+                                  updateEntry(contourPlan, index, {
+                                    transition: {
+                                      ...(entry.transition as NonNullable<typeof entry.transition>),
+                                      direction: event.target.value as SlideDirection,
+                                    },
+                                  }),
+                                )
+                              }
+                            >
+                              {SLIDE_DIRECTIONS.map((direction) => (
+                                <option key={direction} value={direction}>
+                                  {SLIDE_LABELS[direction]}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                          <CheckRow
+                            label="Fade while sliding"
+                            checked={entry.transition.fade}
                             onChange={(event) =>
                               apply(
-                                updateEntry(contourPlan, index, { fadeWindow: Number(event.target.value) }),
+                                updateEntry(contourPlan, index, {
+                                  transition: {
+                                    ...(entry.transition as NonNullable<typeof entry.transition>),
+                                    fade: event.target.checked,
+                                  },
+                                }),
                               )
                             }
                           />
-                        </Field>
+                          <Field label={`Slide length ${percent(entry.fadeWindow)}`}>
+                            <Slider
+                              min={0.05}
+                              max={0.5}
+                              step={0.05}
+                              value={Math.max(0.05, entry.fadeWindow)}
+                              onChange={(event) =>
+                                apply(
+                                  updateEntry(contourPlan, index, { fadeWindow: Number(event.target.value) }),
+                                )
+                              }
+                            />
+                          </Field>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <CheckRow
+                            label="Fade between the two"
+                            checked={entry.fadeWindow > 0}
+                            onChange={(event) =>
+                              apply(
+                                updateEntry(contourPlan, index, {
+                                  fadeWindow: event.target.checked ? DEFAULT_FADE_ON : 0,
+                                }),
+                              )
+                            }
+                          />
+                          {entry.fadeWindow > 0 && (
+                            <Field label={`Fade length ${percent(entry.fadeWindow)}`}>
+                              <Slider
+                                min={0.05}
+                                max={0.5}
+                                step={0.05}
+                                value={entry.fadeWindow}
+                                onChange={(event) =>
+                                  apply(
+                                    updateEntry(contourPlan, index, { fadeWindow: Number(event.target.value) }),
+                                  )
+                                }
+                              />
+                            </Field>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>

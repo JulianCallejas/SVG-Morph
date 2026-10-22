@@ -1,10 +1,13 @@
 import { getPointAtLength, getTotalLength, parsePathString } from 'svg-path-commander';
 import type { Contour } from './contours';
 import type { ContourPlanEntry, NodeAnchor } from './contourPairing';
+import { oppositeDirection, offscreenOffset, slideOf, slideProgress, type Bounds } from './contourSlide';
 
 export interface InterpolateContoursOptions {
   /** Nodes for every morphing pair that does not set its own. Absent means automatic. */
   nodeCount?: number;
+  /** The area a slide has to leave or enter. Absent means the box around every contour. */
+  bounds?: Bounds;
 }
 
 // Bounds of a manual node count, and of the automatic one (a straight line still needs enough
@@ -23,6 +26,8 @@ export interface RenderedContour {
   targetId: string | null;
   d: string;
   opacity: number;
+  /** Translation of a sliding shape, in the SVG's units. Absent when it is in place. */
+  offset?: { x: number; y: number };
 }
 
 export interface Point {
@@ -350,12 +355,65 @@ export function sourceOpacityAt(progress: number, swapAt: number, fadeWindow: nu
   return roundTo(clamp01((swapAt + window / 2 - progress) / window), 4);
 }
 
+// A swap that slides: the source moves out toward the direction while the target comes in from the
+// opposite side, each fully outside the bounds at its far end.
+function slideContours(
+  source: Contour | undefined,
+  target: Contour | undefined,
+  entry: ContourPlanEntry,
+  progress: number,
+  bounds: Bounds,
+): RenderedContour[] {
+  const slide = slideOf(entry);
+  if (!slide) return [];
+  const moved = slideProgress(progress, clamp01(entry.swapAt), entry.fadeWindow);
+
+  const items: RenderedContour[] = [];
+  if (source && moved < 1) {
+    const out = offscreenOffset(source.bbox, bounds, slide.direction);
+    items.push({
+      id: source.id,
+      sourceId: source.id,
+      targetId: null,
+      d: source.d,
+      opacity: slide.fade ? roundTo(1 - moved, 4) : 1,
+      offset: { x: roundTo(out.x * moved, 4) || 0, y: roundTo(out.y * moved, 4) || 0 },
+    });
+  }
+  if (target && moved > 0) {
+    const into = offscreenOffset(target.bbox, bounds, oppositeDirection(slide.direction));
+    const left = 1 - moved;
+    items.push({
+      id: target.id,
+      sourceId: null,
+      targetId: target.id,
+      d: target.d,
+      opacity: slide.fade ? moved : 1,
+      offset: { x: roundTo(into.x * left, 4) || 0, y: roundTo(into.y * left, 4) || 0 },
+    });
+  }
+  return items;
+}
+
+// the box around every contour of both sides, for slides when the caller gives no bounds
+function boundsOf(contours: Contour[]): Bounds {
+  const boxes = contours.map((c) => c.bbox);
+  const x = Math.min(...boxes.map((b) => b.x));
+  const y = Math.min(...boxes.map((b) => b.y));
+  const right = Math.max(...boxes.map((b) => b.x + b.width));
+  const bottom = Math.max(...boxes.map((b) => b.y + b.height));
+  return { x, y, width: right - x, height: bottom - y };
+}
+
 function swapContours(
   source: Contour | undefined,
   target: Contour | undefined,
   entry: ContourPlanEntry,
   progress: number,
+  bounds: () => Bounds,
 ): RenderedContour[] {
+  if (slideOf(entry)) return slideContours(source, target, entry, progress, bounds());
+
   const fromOpacity = sourceOpacityAt(progress, clamp01(entry.swapAt), entry.fadeWindow);
   const toOpacity = roundTo(1 - fromOpacity, 4);
 
@@ -390,6 +448,8 @@ export function interpolateContours(
   options: InterpolateContoursOptions = {},
 ): RenderedContour[] {
   const t = clamp01(progress);
+  let bounds = options.bounds;
+  const slideBounds = (): Bounds => (bounds ??= boundsOf([...source, ...target]));
 
   return plan.flatMap((entry): RenderedContour[] => {
     const from = findContour(source, entry.sourceId, 'source');
@@ -406,6 +466,6 @@ export function interpolateContours(
       return [morphContour(from, to, t, resolveNodeCount(entry, from, to, options), entry.anchors)];
     }
     // a swap, or a morph that lost one of its sides
-    return swapContours(from, to, entry, t);
+    return swapContours(from, to, entry, t, slideBounds);
   });
 }

@@ -4,6 +4,7 @@ import type { AnimationSettings } from '../store/morphStore';
 import { Button } from './ui/Button';
 import { CheckRow, Field, Select, Slider } from './ui/Fields';
 import { Panel } from './ui/Panel';
+import { Segmented } from './ui/Segmented';
 
 interface AnimationControlsProps {
   settings: AnimationSettings;
@@ -66,6 +67,20 @@ export const AnimationControls: React.FC<AnimationControlsProps> = ({
           </Select>
         </Field>
 
+        {/* Loop: off, the forward pass again, or forward then backward */}
+        <Segmented
+          label="Loop"
+          value={settings.loop ? settings.loopDirection : 'off'}
+          options={[
+            { id: 'off', label: 'Off' },
+            { id: 'forward', label: 'Forward' },
+            { id: 'both', label: 'Both ways' },
+          ]}
+          onChange={(choice) =>
+            onUpdateSettings(choice === 'off' ? { loop: false } : { loop: true, loopDirection: choice })
+          }
+        />
+
         {/* Toggle Options */}
         <div className="space-y-2 pt-2">
           <CheckRow
@@ -77,11 +92,6 @@ export const AnimationControls: React.FC<AnimationControlsProps> = ({
             label="Stroke Width Animation"
             checked={settings.strokeWidthInterpolation}
             onChange={(e) => onUpdateSettings({ strokeWidthInterpolation: e.target.checked })}
-          />
-          <CheckRow
-            label="Loop Animation"
-            checked={settings.loop}
-            onChange={(e) => onUpdateSettings({ loop: e.target.checked })}
           />
           <CheckRow
             label="Reverse Animation"
