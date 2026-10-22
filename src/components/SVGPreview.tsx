@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useMorphStore } from '../store/morphStore';
 import { sanitizeSVG } from '../utils/sanitizeSVG';
+import { fitSVGs } from '../utils/fitSVG';
 
 interface SVGPreviewProps {
   sourceSVG: string | null;
@@ -75,10 +76,10 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
       // Use interpolated SVG from Web Worker or fallback
       const displaySVG = safeInterpolated || `
         <div style="position: relative; width: 100%; height: 100%;">
-          <div style="position: absolute; opacity: ${1 - currentProgress};">
+          <div style="position: absolute; inset: 0; opacity: ${1 - currentProgress};">
             ${safeSource}
           </div>
-          <div style="position: absolute; opacity: ${currentProgress};">
+          <div style="position: absolute; inset: 0; opacity: ${currentProgress};">
             ${safeTarget}
           </div>
         </div>
@@ -104,6 +105,8 @@ export const SVGPreview: React.FC<SVGPreviewProps> = ({
       container.appendChild(morphContainer);
       canvas.appendChild(container);
     }
+
+    fitSVGs(canvas);
   }, [sourceSVG, targetSVG, viewMode, currentProgress, interpolatedSVG]);
 
   if (!sourceSVG && !targetSVG) {
