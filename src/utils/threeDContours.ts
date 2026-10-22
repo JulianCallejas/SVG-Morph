@@ -11,6 +11,7 @@ import {
   sourceOpacityAt,
   type Point,
 } from './contourInterpolation';
+import { offscreenOffset, oppositeDirection, parseViewBox, slideOf, slideProgress } from './contourSlide';
 
 /**
  * The geometry of one contour as flat typed arrays, with a fixed triangle list. Positions are
@@ -36,6 +37,8 @@ export interface ScenePart {
   geometry: MorphGeometryData;
   /** How visible the part is at this progress: 1 shown, 0 hidden, in between during a fade. */
   visibility: (progress: number) => number;
+  /** Where the part sits at this progress, in scene units, for contours that slide. Absent: in place. */
+  offset?: (progress: number) => { x: number; y: number };
 }
 
 export interface ContourScene {
@@ -249,6 +252,8 @@ interface PartSpec {
   radiusTo: number;
   cap: 'round' | 'flat';
   visibility: (progress: number) => number;
+  /** Slide offset in the SVG's units (y down); scaled and flipped with the rest of the drawing. */
+  offset?: (progress: number) => { x: number; y: number };
 }
 
 const capOf = (contour: StyledContour): 'round' | 'flat' => (contour.strokeLinecap === 'round' ? 'round' : 'flat');
@@ -287,6 +292,8 @@ export function buildContourScene(
   const sourceContours = contoursFromSVGData(source, 'source');
   const targetContours = contoursFromSVGData(target, 'target');
 
+  const bounds = parseViewBox(source.viewBox, source.width, source.height);
+
   const specs = plan.flatMap((entry): PartSpec[] => {
     const from = findContour(sourceContours, entry.sourceId, 'source');
     const to = findContour(targetContours, entry.targetId, 'target');
@@ -318,6 +325,28 @@ export function buildContourScene(
           visibility: ALWAYS,
         },
       ];
+    }
+
+    // a swap that slides moves its two sides; it shows each one only while it is inside the drawing
+    const slide = slideOf(entry);
+    if (slide) {
+      const moved = (progress: number): number => slideProgress(clamp01(progress), clamp01(entry.swapAt), entry.fadeWindow);
+      const sliding: PartSpec[] = [];
+      if (from) {
+        const out = offscreenOffset(from.bbox, bounds, slide.direction);
+        sliding.push({
+          ...singleSide(from, from.id, (p) => (slide.fade ? 1 - moved(p) : moved(p) < 1 ? 1 : 0)),
+          offset: (p) => ({ x: out.x * moved(p), y: out.y * moved(p) }),
+        });
+      }
+      if (to) {
+        const into = offscreenOffset(to.bbox, bounds, oppositeDirection(slide.direction));
+        sliding.push({
+          ...singleSide(to, to.id, (p) => (slide.fade ? moved(p) : moved(p) > 0 ? 1 : 0)),
+          offset: (p) => ({ x: into.x * (1 - moved(p)), y: into.y * (1 - moved(p)) }),
+        });
+      }
+      return sliding;
     }
 
     // a swap, or a morph that lost one of its sides
@@ -361,7 +390,19 @@ export function buildContourScene(
         spec.kind === 'solid'
           ? buildSolid(from, to, options.depth)
           : buildTube(from, to, spec.closed, spec.radiusFrom * scale, spec.radiusTo * scale, spec.cap);
-      return { id: spec.id, kind: spec.kind, geometry, visibility: spec.visibility };
+      const offset = spec.offset;
+      return {
+        id: spec.id,
+        kind: spec.kind,
+        geometry,
+        visibility: spec.visibility,
+        ...(offset && {
+          offset: (progress: number) => {
+            const o = offset(progress);
+            return { x: o.x * scale, y: -o.y * scale };
+          },
+        }),
+      };
     }),
   };
 }

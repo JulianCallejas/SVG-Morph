@@ -57,6 +57,13 @@ describe('offscreenOffset', () => {
     }
   });
 
+  it('does not move a shape that is already outside the bounds, and never the wrong way', () => {
+    const outside = { x: 150, y: 30, width: 20, height: 10 };
+
+    expect(offscreenOffset(outside, bounds, 'right').x).toBe(0);
+    expect(offscreenOffset(outside, bounds, 'left').x).toBeLessThan(-170);
+  });
+
   it('combines both axes for a diagonal', () => {
     const { x, y } = offscreenOffset(box, bounds, 'down-right');
 

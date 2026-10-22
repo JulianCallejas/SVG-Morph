@@ -56,17 +56,18 @@ export function offscreenOffset(
 ): { x: number; y: number } {
   const [stepX, stepY] = STEP[direction];
   const margin = Math.max(bounds.width, bounds.height) * EDGE_MARGIN;
+  // a shape already past the edge it heads for has nowhere to go: never move it the wrong way
   const x =
     stepX < 0
-      ? -(bbox.x + bbox.width - bounds.x + margin)
+      ? Math.min(0, -(bbox.x + bbox.width - bounds.x + margin))
       : stepX > 0
-        ? bounds.x + bounds.width - bbox.x + margin
+        ? Math.max(0, bounds.x + bounds.width - bbox.x + margin)
         : 0;
   const y =
     stepY < 0
-      ? -(bbox.y + bbox.height - bounds.y + margin)
+      ? Math.min(0, -(bbox.y + bbox.height - bounds.y + margin))
       : stepY > 0
-        ? bounds.y + bounds.height - bbox.y + margin
+        ? Math.max(0, bounds.y + bounds.height - bbox.y + margin)
         : 0;
   return { x: round4(x), y: round4(y) };
 }

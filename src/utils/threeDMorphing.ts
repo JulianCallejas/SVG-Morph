@@ -388,6 +388,10 @@ export class ThreeDMorphingEngine {
         mesh.geometry.attributes.normal.needsUpdate = true;
       }
 
+      // a contour that slides is moved as a whole, not rebuilt
+      const offset = part.offset?.(progress);
+      mesh.position.set(offset?.x ?? 0, offset?.y ?? 0, 0);
+
       const visibility = part.visibility(progress);
       mesh.visible = visibility > 0;
       mesh.material.opacity = baseOpacity * visibility;
@@ -400,7 +404,11 @@ export class ThreeDMorphingEngine {
     const visible = live.filter(({ mesh }) => mesh.visible);
     if (visible.length === 0) return null;
 
-    const geometry = this.THREE.mergeGeometries(visible.map(({ mesh }) => mesh.geometry.clone()), false);
+    // the clones carry the position a sliding contour has right now
+    const geometry = this.THREE.mergeGeometries(
+      visible.map(({ mesh }) => mesh.geometry.clone().translate(mesh.position.x, mesh.position.y, 0)),
+      false,
+    );
     return geometry ? { geometry, material: visible[0].mesh.material } : null;
   }
 
