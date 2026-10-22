@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { Code, Download, Settings, Zap, Copy, Eye } from 'lucide-react';
+import { Code, Download, Settings, Zap, Copy } from 'lucide-react';
 import { reactComponentGenerator, ReactComponentOptions } from '../utils/reactComponentGenerator';
-import { SVGData } from '../types/svg';
+import type { SVGData } from '../workers/pathProcessor';
 import { useToast } from '../contexts/ToastContext';
 import { useMorphStore } from '../store/morphStore';
 import { activeContourPlan } from '../utils/contourSvg';

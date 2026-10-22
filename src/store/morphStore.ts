@@ -4,7 +4,6 @@ import { SVGData } from '../workers/pathProcessor';
 import { NodeMatcher, MatchingOptions, NodeMatch } from '../utils/nodeMatching';
 import { Point } from '../utils/kdTree';
 import { BezierCurve } from '../components/BezierEasingEditor';
-import { Keyframe } from '../components/KeyframeTimeline';
 import { RecentFile } from '../components/RecentFilesHistory';
 import { GradientMorphOptions } from '../utils/gradientMorphing';
 import { TextMorphOptions } from '../utils/textPathMorphing';
@@ -19,6 +18,13 @@ import { pairManually } from '../utils/contourPlanEditing';
 
 /** A contour picked on one side, waiting for a partner on the other side. */
 export type ContourSelection = { side: 'source' | 'target'; id: string } | null;
+
+/** A point of the morph progress over time (both 0-1), kept in the store for the timeline state. */
+export interface Keyframe {
+  id: string;
+  time: number; // 0-1 (percentage of total duration)
+  value: number; // 0-1 (morph progress)
+}
 
 export type LoopDirection = 'forward' | 'both';
 
@@ -891,8 +897,6 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   },
   
   shareToSocial: async (platform: string) => {
-    const _state = get();
-    
     try {
       set({
         processingState: {

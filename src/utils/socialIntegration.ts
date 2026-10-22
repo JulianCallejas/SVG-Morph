@@ -323,7 +323,7 @@ export class SocialIntegrator {
     });
   }
 
-  private async shareToTwitter(options: ShareOptions, platform: SocialPlatform): Promise<ShareResult> {
+  private async shareToTwitter(options: ShareOptions, _platform: SocialPlatform): Promise<ShareResult> {
     const text = this.buildTwitterText(options);
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     
@@ -336,7 +336,7 @@ export class SocialIntegrator {
     };
   }
 
-  private async shareToFacebook(options: ShareOptions, platform: SocialPlatform): Promise<ShareResult> {
+  private async shareToFacebook(options: ShareOptions, _platform: SocialPlatform): Promise<ShareResult> {
     const url = options.url || window.location.href;
     const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
     
@@ -349,7 +349,7 @@ export class SocialIntegrator {
     };
   }
 
-  private async shareToInstagram(options: ShareOptions, platform: SocialPlatform): Promise<ShareResult> {
+  private async shareToInstagram(_options: ShareOptions, _platform: SocialPlatform): Promise<ShareResult> {
     // Instagram doesn't support direct web sharing, so we provide instructions
     return {
       success: true,
@@ -358,7 +358,7 @@ export class SocialIntegrator {
     };
   }
 
-  private async shareToLinkedIn(options: ShareOptions, platform: SocialPlatform): Promise<ShareResult> {
+  private async shareToLinkedIn(options: ShareOptions, _platform: SocialPlatform): Promise<ShareResult> {
     const url = options.url || window.location.href;
     const title = options.title || 'SVG Morph Animation';
     const summary = options.description || 'Check out this amazing SVG morphing animation!';
@@ -374,7 +374,7 @@ export class SocialIntegrator {
     };
   }
 
-  private async shareToPinterest(options: ShareOptions, platform: SocialPlatform): Promise<ShareResult> {
+  private async shareToPinterest(options: ShareOptions, _platform: SocialPlatform): Promise<ShareResult> {
     const url = options.url || window.location.href;
     const description = options.description || 'Amazing SVG morphing animation created with SVG Morph';
     
@@ -390,7 +390,7 @@ export class SocialIntegrator {
     };
   }
 
-  private async shareToReddit(options: ShareOptions, platform: SocialPlatform): Promise<ShareResult> {
+  private async shareToReddit(options: ShareOptions, _platform: SocialPlatform): Promise<ShareResult> {
     const url = options.url || window.location.href;
     const title = options.title || 'Amazing SVG Morphing Animation';
     
@@ -405,7 +405,7 @@ export class SocialIntegrator {
     };
   }
 
-  private async shareToTumblr(options: ShareOptions, platform: SocialPlatform): Promise<ShareResult> {
+  private async shareToTumblr(options: ShareOptions, _platform: SocialPlatform): Promise<ShareResult> {
     const url = options.url || window.location.href;
     const caption = options.description || 'Check out this SVG morphing animation!';
     

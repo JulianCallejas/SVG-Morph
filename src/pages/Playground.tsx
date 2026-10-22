@@ -25,11 +25,11 @@ export const Playground: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<'split' | 'overlay'>('split');
 
-  const handleSourceUpload = useCallback(async (file: File, content: string) => {
+  const handleSourceUpload = useCallback(async (_file: File, content: string) => {
     await setSourceSVG(content);
   }, [setSourceSVG]);
 
-  const handleTargetUpload = useCallback(async (file: File, content: string) => {
+  const handleTargetUpload = useCallback(async (_file: File, content: string) => {
     await setTargetSVG(content);
   }, [setTargetSVG]);
 

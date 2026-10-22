@@ -10,7 +10,9 @@ const toNumber = (value: unknown): number | undefined => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 };
-const toMorphData = (svg: SVGData): MorphSVGData => ({
+// the studio hands over the parsers' data; older callers still use the string-typed shape
+type AnySVGData = SVGData | MorphSVGData;
+const toMorphData = (svg: AnySVGData): MorphSVGData => ({
   ...svg,
   paths: svg.paths.map((path) => ({
     ...path,
@@ -67,8 +69,8 @@ export class ReactComponentGenerator {
    * instead of pairing whole paths; see `generateContourComponent`.
    */
   generateComponent(
-    sourceSVG: SVGData,
-    targetSVG: SVGData,
+    sourceSVG: AnySVGData,
+    targetSVG: AnySVGData,
     options: ReactComponentOptions,
     contourPlan?: ContourPlanEntry[]
   ): {
@@ -103,8 +105,8 @@ export class ReactComponentGenerator {
    * references a contour that does not exist.
    */
   private generateContourComponent(
-    sourceSVG: SVGData,
-    targetSVG: SVGData,
+    sourceSVG: AnySVGData,
+    targetSVG: AnySVGData,
     options: ReactComponentOptions,
     plan: ContourPlanEntry[]
   ): { component: string; types?: string; dependencies: string[]; usage: string } {
@@ -366,8 +368,8 @@ export {{EXPORT_TYPE}} {{COMPONENT_NAME}};
   }
 
   private buildComponent(
-    sourceSVG: SVGData,
-    targetSVG: SVGData,
+    sourceSVG: AnySVGData,
+    targetSVG: AnySVGData,
     options: ReactComponentOptions,
     template: ComponentTemplate
   ): string {
@@ -420,7 +422,7 @@ export {{EXPORT_TYPE}} {{COMPONENT_NAME}};
     return options.typescript ? `{ ${props.join(', ')} }: ${options.componentName}Props` : `{ ${props.join(', ')} }`;
   }
 
-  private generatePaths(sourceSVG: SVGData, targetSVG: SVGData, options: ReactComponentOptions): string {
+  private generatePaths(sourceSVG: AnySVGData, targetSVG: AnySVGData, _options: ReactComponentOptions): string {
     return sourceSVG.paths.map((path, index) => {
       const targetPath = targetSVG.paths[index] || path;
       
@@ -440,9 +442,8 @@ export {{EXPORT_TYPE}} {{COMPONENT_NAME}};
     }).join('\n        ');
   }
 
-  private generateAnimatedPaths(sourceSVG: SVGData, targetSVG: SVGData, options: ReactComponentOptions): string {
+  private generateAnimatedPaths(sourceSVG: AnySVGData, _targetSVG: AnySVGData, _options: ReactComponentOptions): string {
     return sourceSVG.paths.map((path, index) => {
-      const targetPath = targetSVG.paths[index] || path;
       
       return `
           <motion.path
@@ -460,7 +461,7 @@ export {{EXPORT_TYPE}} {{COMPONENT_NAME}};
     }).join('\n          ');
   }
 
-  private generateControls(options: ReactComponentOptions): string {
+  private generateControls(_options: ReactComponentOptions): string {
     return `
       <div className="morph-controls">
         <button onClick={() => setIsAnimating(!isAnimating)}>

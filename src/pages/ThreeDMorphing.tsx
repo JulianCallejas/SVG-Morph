@@ -46,7 +46,7 @@ export const ThreeDMorphing: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
-  const { showSuccess, showError, showWarning } = useToast();
+  const { showSuccess, showError } = useToast();
   const {
     sourceSVG,
     targetSVG,
@@ -180,7 +180,7 @@ export const ThreeDMorphing: React.FC = () => {
               <h3 className="text-lg font-medium mb-4">Source SVG</h3>
               <FileUploadZone
                 label="Drop source SVG here"
-                onUpload={async (file, content) => {
+                onUpload={async (_file, content) => {
                   await setSourceSVG(content);
                 }}
                 hasFile={!!sourceSVG}
@@ -190,7 +190,7 @@ export const ThreeDMorphing: React.FC = () => {
               <h3 className="text-lg font-medium mb-4">Target SVG</h3>
               <FileUploadZone
                 label="Drop target SVG here"
-                onUpload={async (file, content) => {
+                onUpload={async (_file, content) => {
                   await setTargetSVG(content);
                 }}
                 hasFile={!!targetSVG}

@@ -1,5 +1,5 @@
 import { interpolate } from 'd3-interpolate';
-import { SVGPathCommander } from 'svg-path-commander';
+import SVGPathCommander from 'svg-path-commander';
 
 export interface SVGPath {
   id: string;

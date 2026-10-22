@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Settings, Play, Pause, RotateCcw, Download, Maximize, Minimize } from 'lucide-react';
 import { threeDMorphing, ThreeDMorphingOptions, DEFAULT_MATERIAL_COLOR } from '../utils/threeDMorphing';
-import { SVGData } from '../types/svg';
+import type { SVGData } from '../workers/pathProcessor';
 import { useToast } from '../contexts/ToastContext';
 import { useMorphStore } from '../store/morphStore';
 import { Button } from './ui/Button';
@@ -95,7 +95,7 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
   // Update morphing progress
   useEffect(() => {
     if (isInitialized && sceneRef.current) {
-      threeDMorphing.updateMorphing(morphProgress, targetSVG);
+      threeDMorphing.updateMorphing(morphProgress, targetSVG ?? undefined);
     }
   }, [morphProgress, targetSVG, isInitialized]);
 

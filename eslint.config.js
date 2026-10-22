@@ -19,6 +19,17 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // The code already marks what it deliberately ignores with a leading underscore (the compiler
+      // honours that for parameters), so the linter does too.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

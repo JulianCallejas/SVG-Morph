@@ -37,13 +37,6 @@ export class PhysicsSimulator {
 
   constructor(options: Partial<PhysicsOptions> = {}) {
     this.options = {
-      springConfig: {
-        stiffness: 100,
-        damping: 10,
-        mass: 1,
-        precision: 0.01,
-        velocity: 0,
-      },
       enableGravity: false,
       gravityStrength: 9.81,
       enableFriction: false,
@@ -329,7 +322,6 @@ export class PhysicsSimulator {
     const normalized: PhysicsPoint[] = [];
     
     for (let i = 0; i < maxLength; i++) {
-      const _sourcePoint = sourcePoints[i] || sourcePoints[sourcePoints.length - 1];
       const targetPoint = targetPoints[i] || targetPoints[targetPoints.length - 1];
       
       normalized.push({
