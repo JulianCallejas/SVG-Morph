@@ -93,7 +93,7 @@ interface MorphState {
   setSourceSVG: (svg: string) => Promise<void>;
   setTargetSVG: (svg: string) => Promise<void>;
   updateAnimationSettings: (settings: Partial<AnimationSettings>) => void;
-  toggleManualMode: () => void;
+  setManualMode: (enabled: boolean) => void;
   addNodePair: (pair: NodePair) => void;
   removeNodePair: (pairId: string) => void;
   clearNodePairs: () => void;
@@ -299,8 +299,8 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       animationSettings: { ...state.animationSettings, ...settings },
     })),
 
-  toggleManualMode: () =>
-    set((state) => ({ manualModeEnabled: !state.manualModeEnabled })),
+  // false = pair by contours (the plan), true = pair by points of the whole SVG; exactly one is active
+  setManualMode: (enabled) => set({ manualModeEnabled: enabled }),
 
   addNodePair: (pair) =>
     set((state) => {
@@ -549,13 +549,13 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       }
       
       // Contour pipeline: only for paths with several subpaths or a plan the user edited, and
-      // never together with manual node matches. Everything else keeps the whole-path pipeline.
+      // never while the point-matching mode is selected. Everything else keeps the whole-path pipeline.
       const plan = activeContourPlan(
         state.contourPlan,
         state.sourceContours,
         state.targetContours,
         state.contourPlanCustomized,
-        shouldUseManualMatches,
+        state.manualModeEnabled,
       );
 
       const interpolatedSVG = plan

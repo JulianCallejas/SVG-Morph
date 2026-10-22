@@ -40,15 +40,15 @@ export const ReactComponentExportPanel: React.FC<ReactComponentExportPanelProps>
   const { showSuccess, showError, showWarning } = useToast();
 
   // Same rule as the preview and the other exports: the per-contour plan applies to paths with
-  // several subpaths or a plan the user edited, and never together with manual node matches.
-  const { sourceContours, targetContours, contourPlan, contourPlanCustomized, manualModeEnabled, nodeMatches } =
+  // several subpaths or a plan the user edited, and never while the point-matching mode is selected.
+  const { sourceContours, targetContours, contourPlan, contourPlanCustomized, manualModeEnabled } =
     useMorphStore();
   const activePlan = activeContourPlan(
     contourPlan,
     sourceContours,
     targetContours,
     contourPlanCustomized,
-    manualModeEnabled && nodeMatches.length > 0,
+    manualModeEnabled,
   );
 
   const handleGenerate = useCallback(() => {
