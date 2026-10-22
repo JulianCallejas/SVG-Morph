@@ -135,7 +135,7 @@ export class ExportSystem {
       content,
       filename,
       mimeType,
-      size: content instanceof Blob ? content.size : new Blob([content]).size,
+      size: new Blob([content]).size,
     };
 
     // Add to history

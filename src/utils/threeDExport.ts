@@ -16,6 +16,34 @@ export interface ExportResult {
   size: number;
 }
 
+
+// The parts of a glTF document this exporter writes. Typed here because the accessors and buffer
+// views grow after the object is built (normals, indices, the embedded buffer).
+interface GltfAccessor {
+  bufferView: number;
+  componentType: number;
+  count: number;
+  type: string;
+  max?: number[];
+  min?: number[];
+}
+
+interface GltfDocument {
+  asset: { version: string; generator: string };
+  scene: number;
+  scenes: Array<{ nodes: number[] }>;
+  nodes: Array<{ mesh: number }>;
+  meshes: Array<{
+    primitives: Array<{ attributes: { POSITION: number; NORMAL?: number }; indices?: number; material: number }>;
+  }>;
+  materials: Array<{
+    pbrMetallicRoughness: { baseColorFactor: number[]; metallicFactor: number; roughnessFactor: number };
+  }>;
+  accessors: GltfAccessor[];
+  bufferViews: Array<{ buffer: number; byteOffset: number; byteLength: number }>;
+  buffers: Array<{ byteLength: number; uri?: string }>;
+}
+
 export class ThreeDExporter {
   private scene: ThreeDScene | null = null;
 
@@ -164,7 +192,7 @@ export class ThreeDExporter {
    * Export as STL format (Stereolithography)
    * Compatible with: Paint 3D, 3D printing software, CAD programs
    */
-  private exportSTL(geometry: any, options: ThreeDExportOptions): ExportResult {
+  private exportSTL(geometry: any, _options: ThreeDExportOptions): ExportResult {
     const vertices = geometry.attributes.position.array;
     const normals = geometry.attributes.normal?.array;
     const indices = geometry.index ? geometry.index.array : null;
@@ -336,14 +364,13 @@ export class ThreeDExporter {
    * Export as GLTF format (GL Transmission Format)
    * Compatible with: Web applications, Three.js, modern 3D software
    */
-  private exportGLTF(geometry: any, mesh: any, options: ThreeDExportOptions): ExportResult {
+  private exportGLTF(geometry: any, mesh: any, _options: ThreeDExportOptions): ExportResult {
     const vertices = geometry.attributes.position.array;
     const normals = geometry.attributes.normal?.array;
-    const uvs = geometry.attributes.uv?.array;
     const indices = geometry.index ? geometry.index.array : null;
 
     // Create GLTF structure
-    const gltf = {
+    const gltf: GltfDocument = {
       asset: {
         version: '2.0',
         generator: 'SVG-Morph 3D Exporter'
@@ -404,14 +431,15 @@ export class ThreeDExporter {
       ]
     };
 
-    // Calculate bounds
+    // Calculate bounds (the position accessor is the first one and always has them)
+    const { max, min } = gltf.accessors[0] as Required<GltfAccessor>;
     for (let i = 0; i < vertices.length; i += 3) {
-      gltf.accessors[0].max[0] = Math.max(gltf.accessors[0].max[0], vertices[i]);
-      gltf.accessors[0].max[1] = Math.max(gltf.accessors[0].max[1], vertices[i + 1]);
-      gltf.accessors[0].max[2] = Math.max(gltf.accessors[0].max[2], vertices[i + 2]);
-      gltf.accessors[0].min[0] = Math.min(gltf.accessors[0].min[0], vertices[i]);
-      gltf.accessors[0].min[1] = Math.min(gltf.accessors[0].min[1], vertices[i + 1]);
-      gltf.accessors[0].min[2] = Math.min(gltf.accessors[0].min[2], vertices[i + 2]);
+      max[0] = Math.max(max[0], vertices[i]);
+      max[1] = Math.max(max[1], vertices[i + 1]);
+      max[2] = Math.max(max[2], vertices[i + 2]);
+      min[0] = Math.min(min[0], vertices[i]);
+      min[1] = Math.min(min[1], vertices[i + 1]);
+      min[2] = Math.min(min[2], vertices[i + 2]);
     }
 
     // Add normals if available

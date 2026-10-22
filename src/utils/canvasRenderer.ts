@@ -485,8 +485,10 @@ export class CanvasRenderer {
     }
     
     // Estimate memory usage (simplified)
-    if (performance.memory) {
-      this.renderStats.memoryUsage = performance.memory.usedJSHeapSize;
+    // `performance.memory` only exists in Chromium, so it is not in the standard typings
+    const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
+    if (memory) {
+      this.renderStats.memoryUsage = memory.usedJSHeapSize;
     }
   }
 
