@@ -18,6 +18,28 @@ export interface NodeAnchor {
   target: number;
 }
 
+/** Where a sliding contour leaves toward; the one that replaces it comes in from the opposite side. */
+export type SlideDirection =
+  | 'left'
+  | 'right'
+  | 'up'
+  | 'down'
+  | 'up-left'
+  | 'up-right'
+  | 'down-left'
+  | 'down-right';
+
+/**
+ * A swap that moves instead of only fading: the source slides out toward `direction` while the
+ * target slides in from the opposite side, over the entry's `fadeWindow`, around `swapAt`.
+ */
+export interface SlideTransition {
+  type: 'slide';
+  direction: SlideDirection;
+  /** Also cross-fade the two while they move. */
+  fade: boolean;
+}
+
 export interface ContourPlanEntry {
   sourceId: string | null;
   targetId: string | null;
@@ -28,6 +50,8 @@ export interface ContourPlanEntry {
   fadeWindow: number;
   /** Nodes sampled along a morphing pair. Absent means automatic (see `autoNodeCount`). */
   nodeCount?: number;
+  /** How a `swap` changes over. Absent means the opacity fade (a hard cut when `fadeWindow` is 0). */
+  transition?: SlideTransition;
   /** Points the user matched by hand, sorted by `source`. Absent or empty means automatic alignment. */
   anchors?: NodeAnchor[];
 }

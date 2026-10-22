@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SVGData } from './svgMorphing';
+import type { ContourPlanEntry } from './contourPairing';
 import {
   activeContourPlan,
   buildContourSVG,
@@ -218,5 +219,35 @@ describe('buildContourSVG', () => {
     const badPlan = [{ sourceId: 'nope', targetId: null, mode: 'swap' as const, swapAt: 0.5, fadeWindow: 0 }];
 
     expect(() => buildContourSVG(iconArrow, iconBolt, badPlan, 0.5)).toThrow(/nope/);
+  });
+});
+
+describe('buildContourSVG: slide', () => {
+  const sourceData: SVGData = { paths: [{ d: 'M10 40 L30 40 L30 50 L10 50 Z', fill: '#000000' }], viewBox: '0 0 100 100', width: 100, height: 100 };
+  const targetData: SVGData = { paths: [{ d: 'M70 40 L90 40 L90 50 L70 50 Z', fill: '#000000' }], viewBox: '0 0 100 100', width: 100, height: 100 };
+  const swap = (overrides = {}): ContourPlanEntry => ({
+    sourceId: 's1.1',
+    targetId: 't1.1',
+    mode: 'swap',
+    swapAt: 0.5,
+    fadeWindow: 0.2,
+    transition: { type: 'slide', direction: 'left', fade: false },
+    ...overrides,
+  });
+
+  it('moves the shapes with a translate and clips the drawing to its viewBox', () => {
+    const svg = buildContourSVG(sourceData, targetData, [swap()], 0.5);
+
+    expect(svg).toMatch(/<path [^>]*transform="translate\(-?\d+(\.\d+)? 0\)"/);
+    expect(svg).toContain('<clipPath id="svgmorph-view"><rect x="0" y="0" width="100" height="100" /></clipPath>');
+    expect(svg).toContain('<g clip-path="url(#svgmorph-view)">');
+    expect((svg.match(/<path /g) ?? [])).toHaveLength(2);
+  });
+
+  it('leaves the output of a fade exactly as it was, with no clip and no transform', () => {
+    const svg = buildContourSVG(sourceData, targetData, [swap({ transition: undefined })], 0.5);
+
+    expect(svg).not.toContain('clip');
+    expect(svg).not.toContain('transform');
   });
 });
