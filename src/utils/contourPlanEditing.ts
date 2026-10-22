@@ -4,7 +4,9 @@ import {
   DEFAULT_SWAP_AT,
   type ContourPlanEntry,
   type NodeAnchor,
+  type SlideTransition,
 } from './contourPairing';
+import { SLIDE_DIRECTIONS } from './contourSlide';
 import { MAX_NODE_COUNT, MIN_NODE_COUNT, anchorsRealizable } from './contourInterpolation';
 import type { StyledContour } from './contourSvg';
 
@@ -206,13 +208,14 @@ export function clearAnchors(plan: ContourPlanEntry[], index: number): ContourPl
   return withAnchors(plan, index, []);
 }
 
-/** `nodeCount: null` goes back to automatic. */
+/** `nodeCount: null` goes back to automatic, `transition: null` back to the plain fade. */
 export type EntryPatch = Partial<Pick<ContourPlanEntry, 'mode' | 'swapAt' | 'fadeWindow'>> & {
   nodeCount?: number | null;
+  transition?: SlideTransition | null;
 };
 
 /**
- * Change the mode, swap point, fade window or node count of one entry. swapAt and fadeWindow are
+ * Change the mode, swap point, fade window, slide or node count of one entry. swapAt and fadeWindow are
  * clamped to 0..1, a manual node count to a whole number within the allowed range.
  */
 export function updateEntry(
@@ -233,6 +236,14 @@ export function updateEntry(
     ...(patch.swapAt !== undefined && { swapAt: clamp01(patch.swapAt) }),
     ...(patch.fadeWindow !== undefined && { fadeWindow: clamp01(patch.fadeWindow) }),
   };
+  if (patch.transition === null) {
+    delete next.transition;
+  } else if (patch.transition !== undefined) {
+    if (patch.transition.type !== 'slide' || !SLIDE_DIRECTIONS.includes(patch.transition.direction)) {
+      throw new RangeError('A slide goes left, right, up, down or along a diagonal');
+    }
+    next.transition = { type: 'slide', direction: patch.transition.direction, fade: patch.transition.fade === true };
+  }
   if (patch.nodeCount === null) {
     delete next.nodeCount;
   } else if (patch.nodeCount !== undefined) {
