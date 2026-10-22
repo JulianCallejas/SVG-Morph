@@ -18,6 +18,7 @@ import {
 import { Button } from './ui/Button';
 import { Panel } from './ui/Panel';
 import { Field, Select, CheckRow } from './ui/Fields';
+import { Segmented } from './ui/Segmented';
 
 const INPUT_CLASS = 'h-11 w-full bg-raised px-3 text-content placeholder:text-muted';
 
@@ -268,6 +269,18 @@ export const EnhancedExportPanel: React.FC = () => {
                   loop: e.target.checked
                 }))}
               />
+
+              {exportOptions.loop && (
+                <Segmented
+                  label="Loop direction (SVG and SMIL)"
+                  value={exportOptions.loopDirection ?? 'both'}
+                  options={[
+                    { id: 'both', label: 'Both ways' },
+                    { id: 'forward', label: 'Forward' },
+                  ]}
+                  onChange={(loopDirection) => setExportOptions(prev => ({ ...prev, loopDirection }))}
+                />
+              )}
 
               <CheckRow
                 label="Optimize SVG"

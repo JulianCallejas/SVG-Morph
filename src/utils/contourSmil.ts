@@ -4,10 +4,19 @@ import { contoursFromSVGData, escapeAttr, type StyledContour } from './contourSv
 import { findContour, pairNodes, pointsToPath, resolveNodeCount } from './contourInterpolation';
 import type { StrokeLinecap, StrokeLinejoin } from './strokeStyle';
 
+/**
+ * What one cycle of the animation runs: `both` goes source → target → source (the default, and what
+ * every cycle does when the animation does not loop), `forward` goes source → target and, looping,
+ * starts again from the source.
+ */
+export type SmilDirection = 'both' | 'forward';
+
 export interface ContourSmilOptions {
-  /** Seconds for one full source → target → source cycle. */
+  /** Seconds for one cycle (see `direction`). */
   duration: number;
   loop: boolean;
+  /** Only meaningful with `loop`: a non-looping animation always runs the full cycle. Default `both`. */
+  direction?: SmilDirection;
   /** Nodes for every morphing pair that does not set its own. Absent means automatic. */
   nodeCount?: number;
 }
@@ -47,6 +56,10 @@ const num = (value: number): string => String(round4(value));
 
 // Same easing the whole-path SMIL export uses for a morph.
 const SPLINES = '0.4 0 0.6 1;0.4 0 0.6 1';
+const SPLINE = '0.4 0 0.6 1';
+
+// `a;b;a` for a cycle that comes back, `a;b` for one that only goes forward
+const cycleValues = (a: string, b: string, forward: boolean): string => (forward ? `${a};${b}` : `${a};${b};${a}`);
 
 type Curve = Array<[time: number, visibility: number]>;
 
@@ -56,12 +69,19 @@ type Curve = Array<[time: number, visibility: number]>;
  * so the cut happens twice. A fade is a linear ramp around each crossing, a hard cut a
  * discrete jump. Times are rounded and consecutive duplicates collapsed.
  */
-function sourceCurve(entry: ContourPlanEntry): { mode: 'discrete' | 'linear'; points: Curve } {
+function sourceCurve(
+  entry: ContourPlanEntry,
+  forward = false,
+): { mode: 'discrete' | 'linear'; points: Curve } {
   const swapAt = clamp01(entry.swapAt);
   const fade = clamp01(entry.fadeWindow);
 
-  const raw: Curve =
-    fade === 0
+  // a forward-only cycle is progress itself: the cut happens once, at time `swapAt`
+  const raw: Curve = forward
+    ? fade === 0
+      ? [[0, 1], [swapAt, 0], [1, 0]]
+      : [[0, 1], [clamp01(swapAt - fade / 2), 1], [clamp01(swapAt + fade / 2), 0], [1, 0]]
+    : fade === 0
       ? [[0, 1], [swapAt / 2, 0], [1 - swapAt / 2, 1], [1, 1]]
       : (() => {
           const goStart = clamp01(swapAt - fade / 2) / 2;
@@ -78,23 +98,28 @@ function sourceCurve(entry: ContourPlanEntry): { mode: 'discrete' | 'linear'; po
   return { mode: fade === 0 ? 'discrete' : 'linear', points };
 }
 
-const animateNumbers = (attribute: string, a: number, b: number): SmilAnimation[] =>
-  a === b ? [] : [{ attributeName: attribute, values: `${num(a)};${num(b)};${num(a)}` }];
+const animateNumbers = (attribute: string, a: number, b: number, forward: boolean): SmilAnimation[] =>
+  a === b ? [] : [{ attributeName: attribute, values: cycleValues(num(a), num(b), forward) }];
 
 // colors blend; to or from "none" the value switches when progress crosses one half
-function animatePaint(attribute: string, a: string | undefined, b: string | undefined): SmilAnimation[] {
+function animatePaint(
+  attribute: string,
+  a: string | undefined,
+  b: string | undefined,
+  forward: boolean,
+): SmilAnimation[] {
   const from = a ?? 'none';
   const to = b ?? 'none';
   if (from === to) return [];
   if (from !== 'none' && to !== 'none') {
-    return [{ attributeName: attribute, values: `${from};${to};${from}` }];
+    return [{ attributeName: attribute, values: cycleValues(from, to, forward) }];
   }
   return [
     {
       attributeName: attribute,
       calcMode: 'discrete',
-      values: `${from};${to};${from};${from}`,
-      keyTimes: '0;0.25;0.75;1',
+      values: forward ? `${from};${to};${to}` : `${from};${to};${from};${from}`,
+      keyTimes: forward ? '0;0.5;1' : '0;0.25;0.75;1',
     },
   ];
 }
@@ -141,8 +166,9 @@ export function buildContourSmilModel(
   source: SVGData,
   target: SVGData,
   plan: ContourPlanEntry[],
-  options: { nodeCount?: number } = {},
+  options: { nodeCount?: number; direction?: SmilDirection } = {},
 ): SmilModel {
+  const forward = options.direction === 'forward';
   const sourceContours = contoursFromSVGData(source, 'source');
   const targetContours = contoursFromSVGData(target, 'target');
 
@@ -169,21 +195,21 @@ export function buildContourSmilModel(
       const animations: SmilAnimation[] = [
         {
           attributeName: 'd',
-          values: `${dFrom};${dTo};${dFrom}`,
+          values: cycleValues(dFrom, dTo, forward),
           calcMode: 'spline',
-          keySplines: SPLINES,
-          keyTimes: '0;0.5;1',
+          keySplines: forward ? SPLINE : SPLINES,
+          keyTimes: forward ? '0;1' : '0;0.5;1',
         },
-        ...animatePaint('fill', from.fill, to.fill),
-        ...animatePaint('stroke', from.stroke, to.stroke),
-        ...animateNumbers('stroke-width', from.strokeWidth ?? 1, to.strokeWidth ?? 1),
-        ...animateNumbers('opacity', from.opacity ?? 1, to.opacity ?? 1),
+        ...animatePaint('fill', from.fill, to.fill, forward),
+        ...animatePaint('stroke', from.stroke, to.stroke, forward),
+        ...animateNumbers('stroke-width', from.strokeWidth ?? 1, to.strokeWidth ?? 1, forward),
+        ...animateNumbers('opacity', from.opacity ?? 1, to.opacity ?? 1, forward),
       ];
       return [smilPath(`contour-${index}`, dFrom, from, from.opacity ?? 1, animations)];
     }
 
     // a swap, or a morph that lost one of its sides
-    const curve = sourceCurve(entry);
+    const curve = sourceCurve(entry, forward);
     const result: SmilPath[] = [];
     if (from) {
       const opacity = from.opacity ?? 1;
@@ -221,7 +247,11 @@ export function buildContourSMIL(
   plan: ContourPlanEntry[],
   options: ContourSmilOptions,
 ): string {
-  const model = buildContourSmilModel(source, target, plan, { nodeCount: options.nodeCount });
+  const model = buildContourSmilModel(source, target, plan, {
+    nodeCount: options.nodeCount,
+    // a cycle that does not repeat always runs the whole way there and back
+    direction: options.loop && options.direction === 'forward' ? 'forward' : 'both',
+  });
   const timing = `dur="${options.duration}s" repeatCount="${options.loop ? 'indefinite' : '1'}"`;
 
   const paths = model.paths.map((path) => {
