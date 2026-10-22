@@ -3,18 +3,12 @@ import type { ContourPlanEntry } from '../utils/contourPairing';
 import type { StyledContour } from '../utils/contourSvg';
 import { colorIndexByContour, contourLabel, pathBoxes } from '../utils/contourPlanEditing';
 import type { Point } from '../utils/contourInterpolation';
+import { parseViewBox, viewBoxAttr } from '../utils/contourSlide';
 import { CONTOUR_FILL, CONTOUR_SOFT_FILL, CONTOUR_STROKE, colorSlot } from './contourColors';
 
 const STROKE = CONTOUR_STROKE;
 const SOFT_FILL = CONTOUR_SOFT_FILL;
 const FILL = CONTOUR_FILL;
-
-const parseViewBox = (viewBox: string, width: number, height: number): [number, number, number, number] => {
-  const parts = viewBox.trim().split(/[\s,]+/).map(Number);
-  return parts.length === 4 && parts.every(Number.isFinite) && parts[2] > 0 && parts[3] > 0
-    ? [parts[0], parts[1], parts[2], parts[3]]
-    : [0, 0, width || 100, height || 100];
-};
 
 /** Nodes of one contour that can be clicked to match them with a node of the other side. */
 export interface NodePicking {
@@ -26,7 +20,7 @@ export interface NodePicking {
   onPick: (nodeIndex: number) => void;
 }
 
-interface ContourMapProps {
+export interface ContourLayerProps {
   side: 'source' | 'target';
   viewBox: string;
   width: number;
@@ -43,16 +37,24 @@ interface ContourMapProps {
   selectedId: string | null;
   /** When set, the nodes of that contour are clickable. Pointer only: the panel offers number fields too. */
   picking?: NodePicking | null;
+  /** False draws only: the boxes ignore the pointer. Default true. */
+  interactive?: boolean;
+  /** False keeps the boxes out of the tab order and the accessibility tree (pointer only). Default true. */
+  keyboard?: boolean;
+  /** Draw each contour's own outline in its color. Off over a drawing that is already visible. Default true. */
+  showContourStroke?: boolean;
+  /** Draw the thin box of every path that holds several contours. Default true. */
+  showPathBoxes?: boolean;
   onHover: (entryIndex: number | null) => void;
   onSelect: (contourId: string) => void;
 }
 
 /**
- * The contours of one SVG drawn as a map: every contour gets a labelled box and the color of its
- * plan entry, so pairs can be told apart and picked. Paths with several subpaths also get a
- * thin box for the whole path. Rendered with React (not innerHTML), so no SVG markup is injected.
+ * The boxes, labels, outlines and nodes of the contours of one SVG, as SVG elements to place inside
+ * an `<svg>` whose viewBox is the drawing's. Rendered with React (not innerHTML), so no SVG markup
+ * is injected. `ContourMap` frames them on their own; `ContourOverlay` puts them over the drawing.
  */
-export const ContourMap: React.FC<ContourMapProps> = ({
+export const ContourLayer: React.FC<ContourLayerProps> = ({
   side,
   viewBox,
   width,
@@ -64,10 +66,14 @@ export const ContourMap: React.FC<ContourMapProps> = ({
   hoveredEntry,
   selectedId,
   picking = null,
+  interactive = true,
+  keyboard = true,
+  showContourStroke = true,
+  showPathBoxes = true,
   onHover,
   onSelect,
 }) => {
-  const [minX, minY, vbWidth, vbHeight] = parseViewBox(viewBox, width, height);
+  const { x: minX, y: minY, width: vbWidth, height: vbHeight } = parseViewBox(viewBox, width, height);
   // Sizes are relative to the drawing so labels and padding look the same for any viewBox.
   const unit = Math.max(vbWidth, vbHeight) / 100;
   const pad = unit * 1.5;
@@ -83,13 +89,8 @@ export const ContourMap: React.FC<ContourMapProps> = ({
   };
 
   return (
-    <svg
-      viewBox={`${minX} ${minY} ${vbWidth} ${vbHeight}`}
-      className="aspect-square w-full bg-canvas"
-      role="group"
-      aria-label={`${side} contours`}
-    >
-      {pathBoxes(contours)
+    <>
+      {showPathBoxes && pathBoxes(contours)
         .filter((box) => contours.filter((c) => c.pathIndex === box.pathIndex).length > 1)
         .map((box) => (
           <g key={`path-${box.pathIndex}`} aria-hidden="true">
@@ -125,14 +126,14 @@ export const ContourMap: React.FC<ContourMapProps> = ({
         return (
           <g
             key={contour.id}
-            role="button"
-            tabIndex={0}
-            aria-pressed={selected}
-            aria-label={describe(contour)}
-            className="cursor-pointer outline-none"
+            {...(keyboard
+              ? { role: 'button', tabIndex: 0, 'aria-pressed': selected, 'aria-label': describe(contour) }
+              : { 'aria-hidden': true })}
+            className={`${interactive ? 'cursor-pointer' : ''} outline-none`}
+            pointerEvents={interactive ? undefined : 'none'}
             onClick={() => onSelect(contour.id)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
+              if (keyboard && (event.key === 'Enter' || event.key === ' ')) {
                 event.preventDefault();
                 onSelect(contour.id);
               }
@@ -152,15 +153,17 @@ export const ContourMap: React.FC<ContourMapProps> = ({
               strokeDasharray={several ? '5 3' : undefined}
               vectorEffect="non-scaling-stroke"
             />
-            <path
-              d={contour.d}
-              fill="none"
-              className={STROKE[slot]}
-              strokeWidth={active ? 3.5 : 2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
+            {showContourStroke && (
+              <path
+                d={contour.d}
+                fill="none"
+                className={STROKE[slot]}
+                strokeWidth={active ? 3.5 : 2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
             {nodePoints.has(contour.id) && (
               <g className={FILL[slot]} aria-hidden="true">
                 {(nodePoints.get(contour.id) as Point[]).map((point, i) => (
@@ -211,6 +214,24 @@ export const ContourMap: React.FC<ContourMapProps> = ({
           </g>
         );
       })}
-    </svg>
+    </>
   );
 };
+
+type ContourMapProps = Omit<ContourLayerProps, 'interactive' | 'keyboard' | 'showContourStroke' | 'showPathBoxes'>;
+
+/**
+ * The contours of one SVG drawn as a map: every contour gets a labelled box and the color of its
+ * plan entry, so pairs can be told apart and picked. Paths with several subpaths also get a
+ * thin box for the whole path.
+ */
+export const ContourMap: React.FC<ContourMapProps> = (props) => (
+  <svg
+    viewBox={viewBoxAttr(props.viewBox, props.width, props.height)}
+    className="aspect-square w-full bg-canvas"
+    role="group"
+    aria-label={`${props.side} contours`}
+  >
+    <ContourLayer {...props} />
+  </svg>
+);

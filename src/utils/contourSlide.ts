@@ -106,3 +106,9 @@ export const VIEW_CLIP_ID = 'svgmorph-view';
 /** `<clipPath>` that keeps the drawing inside its box, for plans that slide. Numbers only, nothing to escape. */
 export const clipPathTag = (bounds: Bounds): string =>
   `<clipPath id="${VIEW_CLIP_ID}"><rect x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" /></clipPath>`;
+
+/** The `viewBox` attribute that frames a drawing the way its contours are measured. */
+export const viewBoxAttr = (viewBox: string | undefined, width: number, height: number): string => {
+  const b = parseViewBox(viewBox, width, height);
+  return `${b.x} ${b.y} ${b.width} ${b.height}`;
+};

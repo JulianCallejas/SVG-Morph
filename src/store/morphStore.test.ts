@@ -217,3 +217,101 @@ describe('morphStore contour plan', () => {
     expect(useMorphStore.getState().processingState.error).toBeNull();
   });
 });
+
+describe('contour UI state', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    useMorphStore.setState(initialState, true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('starts with the boxes and the nodes shown and nothing hovered or picked', () => {
+    const state = useMorphStore.getState();
+
+    expect(state.showContourBoxes).toBe(true);
+    expect(state.showContourNodes).toBe(true);
+    expect(state.contourHover).toBeNull();
+    expect(state.contourSelection).toBeNull();
+  });
+
+  it('keeps what the panel and the preview share in the store', () => {
+    const store = useMorphStore.getState();
+
+    store.setContourHover(2);
+    store.setContourSelection({ side: 'source', id: 's1.2' });
+    store.setShowContourNodes(false);
+    store.setShowContourBoxes(false);
+
+    expect(useMorphStore.getState()).toMatchObject({
+      contourHover: 2,
+      contourSelection: { side: 'source', id: 's1.2' },
+      showContourNodes: false,
+      showContourBoxes: false,
+    });
+  });
+
+  it('forgets a hovered or picked contour when new SVGs bring new contours', async () => {
+    await useMorphStore.getState().setSourceSVG(CLOUD_ARROW_SVG);
+    await useMorphStore.getState().setTargetSVG(CLOUD_BOLT_SVG);
+    useMorphStore.getState().setContourHover(1);
+    useMorphStore.getState().setContourSelection({ side: 'target', id: 't1.1' });
+
+    await useMorphStore.getState().setSourceSVG(SQUARE_SVG);
+
+    expect(useMorphStore.getState().contourHover).toBeNull();
+    expect(useMorphStore.getState().contourSelection).toBeNull();
+  });
+
+  describe('selectContour', () => {
+    beforeEach(async () => {
+      await useMorphStore.getState().setSourceSVG(CLOUD_ARROW_SVG);
+      await useMorphStore.getState().setTargetSVG(CLOUD_BOLT_SVG);
+    });
+
+    it('picks a contour and drops the pick when it is chosen again', async () => {
+      await useMorphStore.getState().selectContour('source', 's1.3');
+      expect(useMorphStore.getState().contourSelection).toEqual({ side: 'source', id: 's1.3' });
+
+      await useMorphStore.getState().selectContour('source', 's1.3');
+      expect(useMorphStore.getState().contourSelection).toBeNull();
+    });
+
+    it('moves the pick to another contour of the same side', async () => {
+      await useMorphStore.getState().selectContour('source', 's1.3');
+      await useMorphStore.getState().selectContour('source', 's1.4');
+
+      expect(useMorphStore.getState().contourSelection).toEqual({ side: 'source', id: 's1.4' });
+    });
+
+    it('pairs the two contours when the second pick is on the other side', async () => {
+      await useMorphStore.getState().selectContour('source', 's1.3');
+      await useMorphStore.getState().selectContour('target', 't1.2');
+
+      const state = useMorphStore.getState();
+      expect(state.contourSelection).toBeNull();
+      expect(state.contourPlanCustomized).toBe(true);
+      expect(state.contourPlan!.some((e) => e.sourceId === 's1.3' && e.targetId === 't1.2' && e.mode === 'morph')).toBe(true);
+    });
+
+    it('does nothing when there is no plan', async () => {
+      useMorphStore.setState({ contourPlan: null });
+
+      await useMorphStore.getState().selectContour('source', 's1.1');
+
+      expect(useMorphStore.getState().contourSelection).toBeNull();
+    });
+  });
+
+  it('keeps the hover while the plan is edited, so a slider does not lose its highlight', async () => {
+    await useMorphStore.getState().setSourceSVG(CLOUD_ARROW_SVG);
+    await useMorphStore.getState().setTargetSVG(CLOUD_BOLT_SVG);
+    useMorphStore.getState().setContourHover(1);
+
+    await useMorphStore.getState().setContourPlan(useMorphStore.getState().contourPlan!);
+
+    expect(useMorphStore.getState().contourHover).toBe(1);
+  });
+});

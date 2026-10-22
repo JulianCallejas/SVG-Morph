@@ -10,6 +10,8 @@ import { MAX_NODE_COUNT, MIN_NODE_COUNT } from './contourInterpolation';
 import {
   colorIndexByContour,
   contourLabel,
+  nodeCountOfEntry,
+  pairNodePoints,
   pairManually,
   clearAnchors,
   pathBoxes,
@@ -336,5 +338,47 @@ describe('slide transition', () => {
     const split = unpairEntry(withSlide, pairIndex, source, target);
 
     expect(split.filter((e) => e.transition?.direction === 'down')).toHaveLength(2);
+  });
+});
+
+describe('pairNodePoints', () => {
+  const morphIndexes = suggested.flatMap((e, i) => (e.mode === 'morph' ? [i] : []));
+
+  it('gives the nodes of every morphing pair on both sides, and nothing for the other contours', () => {
+    const { source: from, target: to } = pairNodePoints(suggested, source, target);
+
+    expect(from.size).toBe(morphIndexes.length);
+    expect(to.size).toBe(morphIndexes.length);
+    for (const index of morphIndexes) {
+      const entry = suggested[index];
+      const count = nodeCountOfEntry(entry, source, target)!;
+      expect(from.get(entry.sourceId!)).toHaveLength(count + 1);
+      expect(to.get(entry.targetId!)).toHaveLength(count + 1);
+    }
+    const loose = suggested.find((e) => e.mode === 'swap')!;
+    expect(from.has(loose.sourceId ?? '')).toBe(false);
+  });
+
+  it('limits itself to the entries it is asked for', () => {
+    const only = pairNodePoints(suggested, source, target, (i) => i === morphIndexes[0]);
+
+    expect(only.source.size).toBe(1);
+    expect(only.target.size).toBe(1);
+    expect(pairNodePoints([], source, target).source.size).toBe(0);
+  });
+
+  it('follows the matched points of a pair', () => {
+    const index = morphIndexes[0];
+    const anchored = setAnchor(suggested, index, { source: 0.25, target: 0.6 }, source, target);
+    const before = pairNodePoints(suggested, source, target).target.get(suggested[index].targetId!)!;
+    const after = pairNodePoints(anchored, source, target).target.get(suggested[index].targetId!)!;
+
+    expect(after).not.toEqual(before);
+  });
+
+  it('has no node count for something that does not morph', () => {
+    const loose = suggested.find((e) => e.mode === 'swap')!;
+
+    expect(nodeCountOfEntry(loose, source, target)).toBeNull();
   });
 });
