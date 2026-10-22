@@ -16,12 +16,16 @@ import { CanvasRenderOptions } from '../utils/canvasRenderer';
 import { activeContourPlan, planContours, type StyledContour } from '../utils/contourSvg';
 import type { ContourPlanEntry } from '../utils/contourPairing';
 
+export type LoopDirection = 'forward' | 'both';
+
 export interface AnimationSettings {
   duration: number;
   easing: 'linear' | 'easeInOut' | 'easeIn' | 'easeOut' | 'bounce' | 'elastic' | 'custom';
   colorInterpolation: boolean;
   strokeWidthInterpolation: boolean;
   loop: boolean;
+  /** What a loop repeats: the forward pass again, or forward then backward. Only used when `loop` is on. */
+  loopDirection: LoopDirection;
   reverse: boolean;
   customEasing?: BezierCurve;
   playbackSpeed?: number;
@@ -98,6 +102,8 @@ interface MorphState {
   removeNodePair: (pairId: string) => void;
   clearNodePairs: () => void;
   startAnimation: () => void;
+  /** One pass of the animation, forward or backward; a loop chains passes. Use `startAnimation` from the UI. */
+  playPass: (backward: boolean) => void;
   pauseAnimation: () => void;
   resetAnimation: () => void;
   setProgress: (progress: number) => Promise<void>;
@@ -155,6 +161,7 @@ const defaultAnimationSettings: AnimationSettings = {
   colorInterpolation: true,
   strokeWidthInterpolation: true,
   loop: false,
+  loopDirection: 'forward',
   reverse: false,
   playbackSpeed: 1,
 };
@@ -364,14 +371,19 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       nodeMatches: []
     }),
 
-  startAnimation: () => {
+  startAnimation: () => get().playPass(false),
+
+  playPass: (backward) => {
     const state = get();
     if (state.animationId) {
       cancelAnimationFrame(state.animationId);
     }
 
+    const { loop, loopDirection } = state.animationSettings;
+    const bothWays = loop && loopDirection === 'both';
     const startTime = performance.now();
-    const duration = state.animationSettings.duration * 1000;
+    // The duration is one full cycle: with both ways that is a forward leg plus a backward leg.
+    const duration = (state.animationSettings.duration * 1000) / (bothWays ? 2 : 1);
 
     const animate = async (currentTime: number) => {
       const elapsed = currentTime - startTime;
@@ -379,6 +391,11 @@ export const useMorphStore = create<MorphState>((set, get) => ({
 
       // Apply easing
       progress = applyEasing(progress, state.animationSettings.easing, state.animationSettings.customEasing);
+
+      // The backward leg of a both-ways loop plays the morph the other way round
+      if (backward) {
+        progress = 1 - progress;
+      }
 
       // Apply reverse if enabled
       if (state.animationSettings.reverse) {
@@ -395,10 +412,10 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       if (elapsed >= duration) {
         set({ isAnimating: false, animationId: null });
         
-        if (state.animationSettings.loop) {
-          // Restart animation after a brief pause
+        if (loop) {
+          // Next pass after a brief pause: the other way for a both-ways loop, else forward again
           setTimeout(() => {
-            get().startAnimation();
+            get().playPass(bothWays ? !backward : false);
           }, 100);
         }
       } else {

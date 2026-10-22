@@ -147,6 +147,64 @@ describe('morphStore contour plan', () => {
     });
   });
 
+  describe('loop direction', () => {
+    // plays the animation on fake timers and records which passes ran, in order
+    const passesAfter = (ms: number): boolean[] => {
+      const passes: boolean[] = [];
+      const original = useMorphStore.getState().playPass;
+      useMorphStore.setState({
+        playPass: (backward: boolean) => {
+          passes.push(backward);
+          original(backward);
+        },
+      });
+      useMorphStore.getState().startAnimation();
+      vi.advanceTimersByTime(ms);
+      useMorphStore.getState().pauseAnimation();
+      return passes;
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'setTimeout', 'performance'] });
+      useMorphStore.getState().updateAnimationSettings({ duration: 1 });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('plays a single pass when there is no loop', () => {
+      expect(passesAfter(3000)).toEqual([false]);
+    });
+
+    it('repeats the forward pass in a forward loop', () => {
+      useMorphStore.getState().updateAnimationSettings({ loop: true, loopDirection: 'forward' });
+
+      expect(passesAfter(2500).slice(0, 3)).toEqual([false, false, false]);
+    });
+
+    it('alternates forward and backward in a both-ways loop, each leg half of the duration', () => {
+      useMorphStore.getState().updateAnimationSettings({ loop: true, loopDirection: 'both' });
+
+      // a leg lasts 0.5 s (+ the 0.1 s pause): three legs fit in 2 s
+      expect(passesAfter(2000).slice(0, 3)).toEqual([false, true, false]);
+    });
+
+    it('runs the backward leg from the target back to the source', () => {
+      useMorphStore.getState().updateAnimationSettings({ loop: true, loopDirection: 'both', easing: 'linear' });
+      const seen: number[] = [];
+      const unsubscribe = useMorphStore.subscribe((state) => seen.push(state.currentProgress));
+
+      passesAfter(1400);
+      unsubscribe();
+
+      expect(Math.max(...seen)).toBe(1);
+      // after reaching the target the progress comes back down
+      const peak = seen.indexOf(1);
+      expect(seen.slice(peak + 1).some((p) => p < 0.9)).toBe(true);
+    });
+  });
+
   it('falls back to the whole-path pipeline when a path cannot be split', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const broken = `<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L5 5 M" /></svg>`;
