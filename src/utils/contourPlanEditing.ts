@@ -7,8 +7,51 @@ import {
   type SlideTransition,
 } from './contourPairing';
 import { SLIDE_DIRECTIONS } from './contourSlide';
-import { MAX_NODE_COUNT, MIN_NODE_COUNT, anchorsRealizable } from './contourInterpolation';
+import {
+  MAX_NODE_COUNT,
+  MIN_NODE_COUNT,
+  anchorsRealizable,
+  pairNodes,
+  resolveNodeCount,
+  type Point,
+} from './contourInterpolation';
 import type { StyledContour } from './contourSvg';
+
+/** Nodes of a morphing pair, which both sides share. Null for an entry that does not morph. */
+export function nodeCountOfEntry(
+  entry: ContourPlanEntry,
+  source: StyledContour[],
+  target: StyledContour[],
+): number | null {
+  if (entry.mode !== 'morph' || entry.sourceId === null || entry.targetId === null) return null;
+  const from = source.find((c) => c.id === entry.sourceId);
+  const to = target.find((c) => c.id === entry.targetId);
+  return from && to ? resolveNodeCount(entry, from, to) : null;
+}
+
+/**
+ * The nodes of every morphing pair, per contour id. The target nodes are the aligned ones, so the
+ * larger start node shows where each pair really meets. `include` limits it to some entries.
+ */
+export function pairNodePoints(
+  plan: ContourPlanEntry[],
+  source: StyledContour[],
+  target: StyledContour[],
+  include: (entryIndex: number) => boolean = () => true,
+): { source: Map<string, Point[]>; target: Map<string, Point[]> } {
+  const result = { source: new Map<string, Point[]>(), target: new Map<string, Point[]>() };
+  plan.forEach((entry, index) => {
+    if (!include(index)) return;
+    const count = nodeCountOfEntry(entry, source, target);
+    const from = source.find((c) => c.id === entry.sourceId);
+    const to = target.find((c) => c.id === entry.targetId);
+    if (count === null || !from || !to) return;
+    const nodes = pairNodes(from, to, count, entry.anchors);
+    result.source.set(from.id, nodes.from);
+    result.target.set(to.id, nodes.to);
+  });
+  return result;
+}
 
 /** Human label of a contour: `P2` for a path with one contour, `P2.1` when it has several. */
 export function contourLabel(id: string, contours: StyledContour[]): string {

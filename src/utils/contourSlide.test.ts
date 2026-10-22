@@ -5,6 +5,7 @@ import {
   offscreenOffset,
   oppositeDirection,
   parseViewBox,
+  viewBoxAttr,
   planSlides,
   slideOf,
   slideProgress,
@@ -114,5 +115,13 @@ describe('parseViewBox', () => {
   it('falls back to the size when the viewBox is missing or unusable', () => {
     expect(parseViewBox(undefined, 300, 150)).toEqual({ x: 0, y: 0, width: 300, height: 150 });
     expect(parseViewBox('0 0 0 0', 300, 150)).toEqual({ x: 0, y: 0, width: 300, height: 150 });
+  });
+});
+
+describe('viewBoxAttr', () => {
+  it('frames a drawing the way its contours are measured', () => {
+    expect(viewBoxAttr('0 0 24 24', 800, 800)).toBe('0 0 24 24');
+    expect(viewBoxAttr('-5,-5,10,20', 1, 1)).toBe('-5 -5 10 20');
+    expect(viewBoxAttr(undefined, 300, 150)).toBe('0 0 300 150');
   });
 });

@@ -265,6 +265,46 @@ describe('contour UI state', () => {
     expect(useMorphStore.getState().contourSelection).toBeNull();
   });
 
+  describe('selectContour', () => {
+    beforeEach(async () => {
+      await useMorphStore.getState().setSourceSVG(CLOUD_ARROW_SVG);
+      await useMorphStore.getState().setTargetSVG(CLOUD_BOLT_SVG);
+    });
+
+    it('picks a contour and drops the pick when it is chosen again', async () => {
+      await useMorphStore.getState().selectContour('source', 's1.3');
+      expect(useMorphStore.getState().contourSelection).toEqual({ side: 'source', id: 's1.3' });
+
+      await useMorphStore.getState().selectContour('source', 's1.3');
+      expect(useMorphStore.getState().contourSelection).toBeNull();
+    });
+
+    it('moves the pick to another contour of the same side', async () => {
+      await useMorphStore.getState().selectContour('source', 's1.3');
+      await useMorphStore.getState().selectContour('source', 's1.4');
+
+      expect(useMorphStore.getState().contourSelection).toEqual({ side: 'source', id: 's1.4' });
+    });
+
+    it('pairs the two contours when the second pick is on the other side', async () => {
+      await useMorphStore.getState().selectContour('source', 's1.3');
+      await useMorphStore.getState().selectContour('target', 't1.2');
+
+      const state = useMorphStore.getState();
+      expect(state.contourSelection).toBeNull();
+      expect(state.contourPlanCustomized).toBe(true);
+      expect(state.contourPlan!.some((e) => e.sourceId === 's1.3' && e.targetId === 't1.2' && e.mode === 'morph')).toBe(true);
+    });
+
+    it('does nothing when there is no plan', async () => {
+      useMorphStore.setState({ contourPlan: null });
+
+      await useMorphStore.getState().selectContour('source', 's1.1');
+
+      expect(useMorphStore.getState().contourSelection).toBeNull();
+    });
+  });
+
   it('keeps the hover while the plan is edited, so a slider does not lose its highlight', async () => {
     await useMorphStore.getState().setSourceSVG(CLOUD_ARROW_SVG);
     await useMorphStore.getState().setTargetSVG(CLOUD_BOLT_SVG);

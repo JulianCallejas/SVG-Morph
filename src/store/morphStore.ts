@@ -15,6 +15,7 @@ import { ShareOptions } from '../utils/socialIntegration';
 import { CanvasRenderOptions } from '../utils/canvasRenderer';
 import { activeContourPlan, planContours, type StyledContour } from '../utils/contourSvg';
 import type { ContourPlanEntry } from '../utils/contourPairing';
+import { pairManually } from '../utils/contourPlanEditing';
 
 /** A contour picked on one side, waiting for a partner on the other side. */
 export type ContourSelection = { side: 'source' | 'target'; id: string } | null;
@@ -128,6 +129,8 @@ interface MorphState {
   resetContourPlan: () => Promise<void>;
   setContourHover: (entryIndex: number | null) => void;
   setContourSelection: (selection: ContourSelection) => void;
+  /** Pick a contour: the second pick, on the other side, pairs the two as a morph. */
+  selectContour: (side: 'source' | 'target', id: string) => Promise<void>;
   setShowContourNodes: (show: boolean) => void;
   setShowContourBoxes: (show: boolean) => void;
 
@@ -650,6 +653,17 @@ export const useMorphStore = create<MorphState>((set, get) => ({
 
   setContourHover: (entryIndex) => set({ contourHover: entryIndex }),
   setContourSelection: (selection) => set({ contourSelection: selection }),
+  selectContour: async (side, id) => {
+    const { contourSelection, contourPlan, sourceContours, targetContours } = get();
+    if (!contourPlan) return;
+    if (contourSelection && contourSelection.side !== side) {
+      const [sourceId, targetId] = side === 'source' ? [id, contourSelection.id] : [contourSelection.id, id];
+      await get().setContourPlan(pairManually(contourPlan, sourceId, targetId, sourceContours, targetContours));
+      set({ contourSelection: null });
+      return;
+    }
+    set({ contourSelection: contourSelection?.id === id ? null : { side, id } });
+  },
   setShowContourNodes: (show) => set({ showContourNodes: show }),
   setShowContourBoxes: (show) => set({ showContourBoxes: show }),
 

@@ -6,13 +6,12 @@ import {
   MAX_NODE_COUNT,
   MIN_NODE_COUNT,
   pairNodes,
-  resolveNodeCount,
-  type Point,
 } from '../utils/contourInterpolation';
 import {
   clearAnchors,
   contourLabel,
-  pairManually,
+  nodeCountOfEntry,
+  pairNodePoints,
   removeAnchor,
   setAnchor,
   unpairEntry,
@@ -65,40 +64,32 @@ export const ContourPlanPanel: React.FC = () => {
     contourSelection: selection,
     showContourNodes: showNodes,
     setContourHover: setHoveredEntry,
-    setContourSelection: setSelection,
+    selectContour,
     setShowContourNodes: setShowNodes,
   } = useMorphStore();
-  // The pair whose points are being matched by hand, and the node waiting on each side for a partner
-  const [matchingEntry, setMatchingEntry] = useState<number | null>(null);
+  // The pair whose points are being matched by hand (by its contours, not its position: editing the
+  // plan from the preview renumbers entries), and the node waiting on each side for a partner
+  const [matchingKey, setMatchingKey] = useState<string | null>(null);
   const [pendingSource, setPendingSource] = useState<number | null>(null);
   const [pendingTarget, setPendingTarget] = useState<number | null>(null);
   const [pointsMessage, setPointsMessage] = useState<string | null>(null);
 
   if (!sourceSVGData || !targetSVGData || !contourPlan) return null;
 
+  const keyOf = (entry: ContourPlanEntry): string => `${entry.sourceId}|${entry.targetId}`;
+  const matchingIndex = matchingKey === null ? -1 : contourPlan.findIndex((entry) => keyOf(entry) === matchingKey);
+  const matchingEntry = matchingIndex >= 0 ? matchingIndex : null;
+
   // Nodes only exist for morphing pairs; both sides of a pair share the same count.
-  const nodeCountOf = (entry: ContourPlanEntry): number | null => {
-    if (entry.mode !== 'morph' || entry.sourceId === null || entry.targetId === null) return null;
-    const from = sourceContours.find((c) => c.id === entry.sourceId);
-    const to = targetContours.find((c) => c.id === entry.targetId);
-    return from && to ? resolveNodeCount(entry, from, to) : null;
-  };
-  // The target nodes are the aligned ones, so the larger start node shows where each pair really meets.
-  const sourceNodes = new Map<string, Point[]>();
-  const targetNodes = new Map<string, Point[]>();
-  if (showNodes || matchingEntry !== null) {
-    for (const [index, entry] of contourPlan.entries()) {
-      if (!showNodes && index !== matchingEntry) continue;
-      const count = nodeCountOf(entry);
-      const from = sourceContours.find((c) => c.id === entry.sourceId);
-      const to = targetContours.find((c) => c.id === entry.targetId);
-      if (count !== null && from && to) {
-        const nodes = pairNodes(from, to, count, entry.anchors);
-        sourceNodes.set(from.id, nodes.from);
-        targetNodes.set(to.id, nodes.to);
-      }
-    }
-  }
+  const nodeCountOf = (entry: ContourPlanEntry): number | null =>
+    nodeCountOfEntry(entry, sourceContours, targetContours);
+  // The pair being matched stays shown, nodes switch or not, so its nodes can be picked.
+  const shownNodes = pairNodePoints(showNodes ? contourPlan : [], sourceContours, targetContours);
+  const matchingNodes = matchingEntry === null
+    ? null
+    : pairNodePoints(contourPlan, sourceContours, targetContours, (index) => index === matchingEntry);
+  const sourceNodes = new Map([...shownNodes.source, ...(matchingNodes?.source ?? [])]);
+  const targetNodes = new Map([...shownNodes.target, ...(matchingNodes?.target ?? [])]);
 
   const sourceLabel = (id: string) => contourLabel(id, sourceContours);
   const targetLabel = (id: string) => contourLabel(id, targetContours);
@@ -115,7 +106,7 @@ export const ContourPlanPanel: React.FC = () => {
   };
 
   function stopMatching() {
-    setMatchingEntry(null);
+    setMatchingKey(null);
     setPendingSource(null);
     setPendingTarget(null);
     setPointsMessage(null);
@@ -186,13 +177,9 @@ export const ContourPlanPanel: React.FC = () => {
   };
 
   const handleSelect = (side: 'source' | 'target', id: string) => {
-    if (selection && selection.side !== side) {
-      const [sourceId, targetId] = side === 'source' ? [id, selection.id] : [selection.id, id];
-      apply(pairManually(contourPlan, sourceId, targetId, sourceContours, targetContours));
-      setSelection(null);
-      return;
-    }
-    setSelection(selection?.id === id ? null : { side, id });
+    // a second pick pairs two contours, which renumbers the plan: the point matching of a pair ends
+    if (selection && selection.side !== side) stopMatching();
+    void selectContour(side, id);
   };
 
   const status = selection
@@ -352,7 +339,7 @@ export const ContourPlanPanel: React.FC = () => {
                         onClick={() => {
                           const open = matchingEntry === index;
                           stopMatching();
-                          if (!open) setMatchingEntry(index);
+                          if (!open) setMatchingKey(keyOf(entry));
                         }}
                       >
                         Match points
