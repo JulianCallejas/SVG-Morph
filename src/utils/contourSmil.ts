@@ -3,6 +3,16 @@ import type { ContourPlanEntry } from './contourPairing';
 import { contoursFromSVGData, escapeAttr, type StyledContour } from './contourSvg';
 import { findContour, pairNodes, pointsToPath, resolveNodeCount } from './contourInterpolation';
 import type { StrokeLinecap, StrokeLinejoin } from './strokeStyle';
+import {
+  VIEW_CLIP_ID,
+  clipPathTag,
+  offscreenOffset,
+  oppositeDirection,
+  parseViewBox,
+  planSlides,
+  slideOf,
+  type Bounds,
+} from './contourSlide';
 
 /**
  * What one cycle of the animation runs: `both` goes source → target → source (the default, and what
@@ -21,9 +31,14 @@ export interface ContourSmilOptions {
   nodeCount?: number;
 }
 
-/** One `<animate>`, without its timing (`dur` / `repeatCount`), which the output format supplies. */
+/**
+ * One `<animate>` (or, with `transform`, one `<animateTransform>`), without its timing
+ * (`dur` / `repeatCount`), which the output format supplies.
+ */
 export interface SmilAnimation {
   attributeName: string;
+  /** Set for an `<animateTransform type="translate">`; `values` are then `x y` pairs. */
+  transform?: 'translate';
   values: string;
   calcMode?: 'linear' | 'discrete' | 'spline';
   keyTimes?: string;
@@ -47,6 +62,8 @@ export interface SmilModel {
   width: number;
   height: number;
   viewBox: string;
+  /** Present when a contour slides: the drawing is clipped to this box so the slide leaves through its edge. */
+  clip?: Bounds;
   paths: SmilPath[];
 }
 
@@ -133,6 +150,23 @@ function animateOpacity(curve: ReturnType<typeof sourceCurve>, scale: number, fl
   };
 }
 
+// Offset of a sliding shape along the cycle: `offset` when its side is fully away (visibility 0),
+// none when it is in place. `shown` is the visibility of the side the shape belongs to.
+function animateTranslate(
+  curve: ReturnType<typeof sourceCurve>,
+  offset: { x: number; y: number },
+  isSourceSide: boolean,
+): SmilAnimation {
+  const away = (visibility: number) => (isSourceSide ? 1 - visibility : visibility);
+  return {
+    attributeName: 'transform',
+    transform: 'translate',
+    calcMode: curve.mode,
+    values: curve.points.map(([, v]) => `${num(offset.x * away(v))} ${num(offset.y * away(v))}`).join(';'),
+    keyTimes: curve.points.map(([t]) => num(t)).join(';'),
+  };
+}
+
 function smilPath(
   id: string,
   d: string,
@@ -169,6 +203,7 @@ export function buildContourSmilModel(
   options: { nodeCount?: number; direction?: SmilDirection } = {},
 ): SmilModel {
   const forward = options.direction === 'forward';
+  const bounds = parseViewBox(source.viewBox, source.width, source.height);
   const sourceContours = contoursFromSVGData(source, 'source');
   const targetContours = contoursFromSVGData(target, 'target');
 
@@ -210,25 +245,49 @@ export function buildContourSmilModel(
 
     // a swap, or a morph that lost one of its sides
     const curve = sourceCurve(entry, forward);
+    const slide = slideOf(entry);
     const result: SmilPath[] = [];
     if (from) {
       const opacity = from.opacity ?? 1;
-      result.push(smilPath(`contour-${index}`, from.d, from, opacity, [animateOpacity(curve, opacity, false)]));
+      const animations = slide
+        ? [
+            animateTranslate(curve, offscreenOffset(from.bbox, bounds, slide.direction), true),
+            ...(slide.fade ? [animateOpacity(curve, opacity, false)] : []),
+          ]
+        : [animateOpacity(curve, opacity, false)];
+      result.push(smilPath(`contour-${index}`, from.d, from, opacity, animations));
     }
     if (to) {
       const opacity = to.opacity ?? 1;
-      // hidden at rest: the cycle ends back on the source, so the target is not shown after it
-      result.push(smilPath(`contour-${index}-target`, to.d, to, 0, [animateOpacity(curve, opacity, true)]));
+      // hidden at rest: the cycle ends back on the source, so the target is not shown after it. A slide
+      // without fade hides it by position instead: it starts, and ends, outside the clipped drawing.
+      const animations = slide
+        ? [
+            animateTranslate(curve, offscreenOffset(to.bbox, bounds, oppositeDirection(slide.direction)), false),
+            ...(slide.fade ? [animateOpacity(curve, opacity, true)] : []),
+          ]
+        : [animateOpacity(curve, opacity, true)];
+      result.push(
+        smilPath(`contour-${index}-target`, to.d, to, slide && !slide.fade ? opacity : 0, animations),
+      );
     }
     return result;
   });
 
-  return { width: source.width, height: source.height, viewBox: source.viewBox, paths };
+  return {
+    width: source.width,
+    height: source.height,
+    viewBox: source.viewBox,
+    ...(planSlides(plan) && { clip: bounds }),
+    paths,
+  };
 }
 
 function animateTag(animation: SmilAnimation, timing: string): string {
   return (
-    `<animate attributeName="${animation.attributeName}"` +
+    (animation.transform ? '<animateTransform' : '<animate') +
+    ` attributeName="${animation.attributeName}"` +
+    (animation.transform ? ` type="${animation.transform}"` : '') +
     (animation.calcMode ? ` calcMode="${animation.calcMode}"` : '') +
     ` values="${escapeAttr(animation.values)}"` +
     (animation.keyTimes ? ` keyTimes="${animation.keyTimes}"` : '') +
@@ -268,6 +327,10 @@ export function buildContourSMIL(
 
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${escapeAttr(String(model.width))}"` +
-    ` height="${escapeAttr(String(model.height))}" viewBox="${escapeAttr(model.viewBox)}">${paths.join('')}</svg>`
+    ` height="${escapeAttr(String(model.height))}" viewBox="${escapeAttr(model.viewBox)}">${
+      model.clip
+        ? `<defs>${clipPathTag(model.clip)}</defs><g clip-path="url(#${VIEW_CLIP_ID})">${paths.join('')}</g>`
+        : paths.join('')
+    }</svg>`
   );
 }

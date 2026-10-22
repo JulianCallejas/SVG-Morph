@@ -133,7 +133,10 @@ export class ReactComponentGenerator {
         'dur={dur}',
         'repeatCount={repeatCount}',
       ].filter(Boolean);
-      return `<animate ${attrs.join(' ')} />`;
+      // a slide moves a shape with <animateTransform>; everything else animates an attribute
+      return animation.transform
+        ? `<animateTransform ${attrs.join(' ')} type=${literal(animation.transform)} />`
+        : `<animate ${attrs.join(' ')} />`;
     };
 
     const pathJsx = (path: SmilPath): string => {
@@ -205,7 +208,16 @@ export class ReactComponentGenerator {
       '  return (',
       '    <div className="svg-morph-container">',
       `      <svg ref={svgRef} width={width} height={height} viewBox=${literal(model.viewBox)}${svgProps}${accessibility}>`,
-      ...model.paths.map((path) => indent(pathJsx(path), 8)),
+      ...(model.clip
+        ? [
+            '        <defs>',
+            `          <clipPath id="svgmorph-view"><rect x={${finite(model.clip.x, 0)}} y={${finite(model.clip.y, 0)}} width={${finite(model.clip.width, 100)}} height={${finite(model.clip.height, 100)}} /></clipPath>`,
+            '        </defs>',
+            '        <g clipPath="url(#svgmorph-view)">',
+            ...model.paths.map((path) => indent(pathJsx(path), 10)),
+            '        </g>',
+          ]
+        : model.paths.map((path) => indent(pathJsx(path), 8))),
       '      </svg>',
       ...controls,
       '    </div>',

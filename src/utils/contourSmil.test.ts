@@ -313,3 +313,78 @@ describe('buildContourSMIL: loop direction', () => {
     expect(attr(opacity, 'values')).toBe('1;1;0;0');
   });
 });
+
+describe('buildContourSMIL: slide', () => {
+  const left = svgData([{ d: 'M10 40 L30 40 L30 50 L10 50 Z', fill: '#000000', stroke: 'none', strokeWidth: 0, opacity: 1 }]);
+  const right = svgData([{ d: 'M70 40 L90 40 L90 50 L70 50 Z', fill: '#000000', stroke: 'none', strokeWidth: 0, opacity: 1 }]);
+  const wide = { ...left, viewBox: '0 0 100 100' };
+  const slidePlan = (overrides: Partial<ContourPlanEntry> = {}): ContourPlanEntry[] => [
+    entry({
+      sourceId: 's1.1',
+      targetId: 't1.1',
+      mode: 'swap',
+      swapAt: 0.5,
+      fadeWindow: 0.2,
+      transition: { type: 'slide', direction: 'left', fade: false },
+      ...overrides,
+    }),
+  ];
+  const render = (plan: ContourPlanEntry[], direction?: 'both' | 'forward') =>
+    parse(buildContourSMIL(wide, { ...right, viewBox: '0 0 100 100' }, plan, { duration: 2, loop: true, direction }));
+  const translate = (el: Element) =>
+    [...el.querySelectorAll('animateTransform')].find((a) => a.getAttribute('attributeName') === 'transform')!;
+
+  it('moves both shapes with animateTransform and clips the drawing to its box', () => {
+    const doc = render(slidePlan());
+
+    expect(doc.querySelector('clipPath#svgmorph-view rect')?.getAttribute('width')).toBe('100');
+    expect(doc.querySelector('g[clip-path="url(#svgmorph-view)"]')).not.toBeNull();
+    expect(translate(doc.querySelector('#contour-0')!).getAttribute('type')).toBe('translate');
+    expect(translate(doc.querySelector('#contour-0-target')!).getAttribute('type')).toBe('translate');
+    expect(buildContourSMIL(wide, right, slidePlan(), { duration: 2, loop: true })).not.toMatch(/<set[\s>]/);
+  });
+
+  it('starts the source in place and the target outside, and swaps them at the cut', () => {
+    const doc = render(slidePlan(), 'forward');
+    const source = translate(doc.querySelector('#contour-0')!);
+    const target = translate(doc.querySelector('#contour-0-target')!);
+
+    expect(source.getAttribute('keyTimes')).toBe('0;0.4;0.6;1');
+    const sourceValues = source.getAttribute('values')!.split(';');
+    const targetValues = target.getAttribute('values')!.split(';');
+    expect(sourceValues[0]).toBe('0 0');
+    expect(sourceValues[1]).toBe('0 0');
+    expect(parseFloat(sourceValues[2])).toBeLessThan(0);
+    // the target is where the source is not: outside at the start, in place once the slide is done
+    expect(parseFloat(targetValues[0])).toBeGreaterThan(0);
+    expect(targetValues[2]).toBe('0 0');
+    expect(sourceValues[3]).toBe(sourceValues[2]);
+  });
+
+  it('comes back in a both-ways cycle', () => {
+    const doc = render(slidePlan());
+    const values = translate(doc.querySelector('#contour-0')!).getAttribute('values')!.split(';');
+
+    expect(values[0]).toBe('0 0');
+    expect(values[values.length - 1]).toBe('0 0');
+    expect(values.length).toBe(6);
+  });
+
+  it('only animates opacity when the slide also fades, and keeps the target visible otherwise', () => {
+    const plain = render(slidePlan());
+    expect(animation(plain.querySelector('#contour-0')!, 'opacity')).toBeNull();
+    expect(plain.querySelector('#contour-0-target')!.getAttribute('opacity')).toBe('1');
+
+    const faded = render(slidePlan({ transition: { type: 'slide', direction: 'left', fade: true } }));
+    expect(animation(faded.querySelector('#contour-0')!, 'opacity')).not.toBeNull();
+    expect(animation(faded.querySelector('#contour-0-target')!, 'opacity')).not.toBeNull();
+    expect(faded.querySelector('#contour-0-target')!.getAttribute('opacity')).toBe('0');
+  });
+
+  it('keeps a plain fade exactly as before: no clip, no transform', () => {
+    const svg = buildContourSMIL(wide, right, slidePlan({ transition: undefined }), { duration: 2, loop: true });
+
+    expect(svg).not.toContain('clip');
+    expect(svg).not.toContain('animateTransform');
+  });
+});
