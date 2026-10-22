@@ -8,12 +8,20 @@ import {
   resolveNodeCount,
   type Point,
 } from '../utils/contourInterpolation';
-import { contourLabel, pairManually, unpairEntry, updateEntry } from '../utils/contourPlanEditing';
+import {
+  clearAnchors,
+  contourLabel,
+  pairManually,
+  removeAnchor,
+  setAnchor,
+  unpairEntry,
+  updateEntry,
+} from '../utils/contourPlanEditing';
 import { Button } from './ui/Button';
 import { CheckRow, Field, Slider } from './ui/Fields';
 import { Panel } from './ui/Panel';
 import { Segmented } from './ui/Segmented';
-import { ContourMap } from './ContourMap';
+import { ContourMap, type NodePicking } from './ContourMap';
 import { CONTOUR_SWATCH, colorSlot } from './contourColors';
 
 const MODE_LABELS: Record<ContourMode, string> = {
@@ -48,6 +56,11 @@ export const ContourPlanPanel: React.FC = () => {
   const [hoveredEntry, setHoveredEntry] = useState<number | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const [showNodes, setShowNodes] = useState(true);
+  // The pair whose points are being matched by hand, and the node waiting on each side for a partner
+  const [matchingEntry, setMatchingEntry] = useState<number | null>(null);
+  const [pendingSource, setPendingSource] = useState<number | null>(null);
+  const [pendingTarget, setPendingTarget] = useState<number | null>(null);
+  const [pointsMessage, setPointsMessage] = useState<string | null>(null);
 
   if (!sourceSVGData || !targetSVGData || !contourPlan) return null;
 
@@ -61,13 +74,14 @@ export const ContourPlanPanel: React.FC = () => {
   // The target nodes are the aligned ones, so the larger start node shows where each pair really meets.
   const sourceNodes = new Map<string, Point[]>();
   const targetNodes = new Map<string, Point[]>();
-  if (showNodes) {
-    for (const entry of contourPlan) {
+  if (showNodes || matchingEntry !== null) {
+    for (const [index, entry] of contourPlan.entries()) {
+      if (!showNodes && index !== matchingEntry) continue;
       const count = nodeCountOf(entry);
       const from = sourceContours.find((c) => c.id === entry.sourceId);
       const to = targetContours.find((c) => c.id === entry.targetId);
       if (count !== null && from && to) {
-        const nodes = pairNodes(from, to, count);
+        const nodes = pairNodes(from, to, count, entry.anchors);
         sourceNodes.set(from.id, nodes.from);
         targetNodes.set(to.id, nodes.to);
       }
@@ -81,8 +95,82 @@ export const ContourPlanPanel: React.FC = () => {
       entry.targetId ? targetLabel(entry.targetId) : 'nothing'
     }`;
 
-  const apply = (plan: ContourPlanEntry[]) => {
+  // Changing the plan renumbers its entries, so the point matching of one of them ends with it,
+  // except when the change is a matched point of that very pair.
+  const apply = (plan: ContourPlanEntry[], keepMatching = false) => {
+    if (!keepMatching) stopMatching();
     void setContourPlan(plan);
+  };
+
+  function stopMatching() {
+    setMatchingEntry(null);
+    setPendingSource(null);
+    setPendingTarget(null);
+    setPointsMessage(null);
+  }
+
+  const matching = matchingEntry === null ? undefined : contourPlan[matchingEntry];
+  const matchingCount = matching ? nodeCountOf(matching) : null;
+  const matchingContours =
+    matching && matchingCount !== null
+      ? {
+          from: sourceContours.find((c) => c.id === matching.sourceId),
+          to: targetContours.find((c) => c.id === matching.targetId),
+        }
+      : null;
+  // Nodes a person can pick: a closed contour ends on the node it starts from
+  const pickableNodes = matchingContours?.from && matchingContours.to && matchingCount !== null
+    ? {
+        source: matchingContours.from.closed ? matchingCount : matchingCount + 1,
+        target: matchingContours.to.closed ? matchingCount : matchingCount + 1,
+      }
+    : null;
+
+  const matchPoints = (sourceNode: number, targetNode: number) => {
+    if (matchingEntry === null || !matching || !matchingContours?.from || !matchingContours.to || matchingCount === null) {
+      return;
+    }
+    const nodes = pairNodes(matchingContours.from, matchingContours.to, matchingCount, matching.anchors);
+    try {
+      apply(
+        setAnchor(
+          contourPlan,
+          matchingEntry,
+          { source: sourceNode / matchingCount, target: nodes.targetAt[targetNode] },
+          sourceContours,
+          targetContours,
+        ),
+        true,
+      );
+      setPointsMessage(null);
+    } catch (error) {
+      setPointsMessage(error instanceof Error ? error.message : 'Those points cannot be matched');
+    }
+    setPendingSource(null);
+    setPendingTarget(null);
+  };
+
+  const pickNode = (side: 'source' | 'target', nodeIndex: number) => {
+    const sourceNode = side === 'source' ? (pendingSource === nodeIndex ? null : nodeIndex) : pendingSource;
+    const targetNode = side === 'target' ? (pendingTarget === nodeIndex ? null : nodeIndex) : pendingTarget;
+    if (sourceNode !== null && targetNode !== null) {
+      matchPoints(sourceNode, targetNode);
+      return;
+    }
+    setPendingSource(sourceNode);
+    setPendingTarget(targetNode);
+  };
+
+  const picking = (side: 'source' | 'target'): NodePicking | null => {
+    if (!matching || matchingCount === null) return null;
+    const contourId = side === 'source' ? matching.sourceId : matching.targetId;
+    if (contourId === null) return null;
+    return {
+      contourId,
+      matched: (matching.anchors ?? []).map((a) => Math.round(a.source * matchingCount)),
+      selected: side === 'source' ? pendingSource : pendingTarget,
+      onPick: (nodeIndex) => pickNode(side, nodeIndex),
+    };
   };
 
   const handleSelect = (side: 'source' | 'target', id: string) => {
@@ -141,6 +229,7 @@ export const ContourPlanPanel: React.FC = () => {
             nodePoints={sourceNodes}
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'source' ? selection.id : null}
+            picking={picking('source')}
             onHover={setHoveredEntry}
             onSelect={(id) => handleSelect('source', id)}
           />
@@ -158,6 +247,7 @@ export const ContourPlanPanel: React.FC = () => {
             nodePoints={targetNodes}
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'target' ? selection.id : null}
+            picking={picking('target')}
             onHover={setHoveredEntry}
             onSelect={(id) => handleSelect('target', id)}
           />
@@ -236,6 +326,112 @@ export const ContourPlanPanel: React.FC = () => {
                           }
                         />
                       </Field>
+                    )}
+                  </div>
+                )}
+
+                {entry.mode === 'morph' && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        variant={matchingEntry === index ? 'primary' : 'secondary'}
+                        aria-pressed={matchingEntry === index}
+                        aria-label={`Match points of ${title}`}
+                        onClick={() => {
+                          const open = matchingEntry === index;
+                          stopMatching();
+                          if (!open) setMatchingEntry(index);
+                        }}
+                      >
+                        Match points
+                      </Button>
+                      <p className="text-sm text-muted">
+                        {entry.anchors?.length
+                          ? `${entry.anchors.length} matched ${entry.anchors.length === 1 ? 'point' : 'points'}`
+                          : 'Points are matched automatically'}
+                      </p>
+                    </div>
+
+                    {matchingEntry === index && pickableNodes && (
+                      <div className="space-y-3 bg-surface p-4">
+                        <p className="max-w-[70ch] text-sm text-muted">
+                          Pick a node on the source map and then one on the target map, or type their
+                          numbers. The nodes in between are spread evenly. Matched points are ringed.
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                          <Field label="Source node">
+                            <input
+                              type="number"
+                              min={1}
+                              max={pickableNodes.source}
+                              value={pendingSource === null ? '' : pendingSource + 1}
+                              onChange={(event) => {
+                                const value = Math.round(Number(event.target.value));
+                                setPendingSource(
+                                  event.target.value === '' || value < 1 || value > pickableNodes.source
+                                    ? null
+                                    : value - 1,
+                                );
+                              }}
+                              className="h-11 w-full bg-raised px-3 text-content"
+                            />
+                          </Field>
+                          <Field label="Target node">
+                            <input
+                              type="number"
+                              min={1}
+                              max={pickableNodes.target}
+                              value={pendingTarget === null ? '' : pendingTarget + 1}
+                              onChange={(event) => {
+                                const value = Math.round(Number(event.target.value));
+                                setPendingTarget(
+                                  event.target.value === '' || value < 1 || value > pickableNodes.target
+                                    ? null
+                                    : value - 1,
+                                );
+                              }}
+                              className="h-11 w-full bg-raised px-3 text-content"
+                            />
+                          </Field>
+                          <Button
+                            disabled={pendingSource === null || pendingTarget === null}
+                            onClick={() => {
+                              if (pendingSource !== null && pendingTarget !== null) {
+                                matchPoints(pendingSource, pendingTarget);
+                              }
+                            }}
+                          >
+                            Match these points
+                          </Button>
+                        </div>
+                        {pointsMessage && (
+                          <p role="alert" className="text-sm font-medium text-danger">
+                            {pointsMessage}
+                          </p>
+                        )}
+                        {entry.anchors && entry.anchors.length > 0 && (
+                          <ul className="space-y-2">
+                            {entry.anchors.map((anchor, anchorIndex) => (
+                              <li key={`${anchor.source}-${anchor.target}`} className="flex flex-wrap items-center gap-3 text-sm">
+                                <span>
+                                  Source {percent(anchor.source)} ↔ target {percent(anchor.target)} along the outline
+                                </span>
+                                <Button
+                                  aria-label={`Remove matched point ${anchorIndex + 1} of ${title}`}
+                                  onClick={() => apply(removeAnchor(contourPlan, index, anchorIndex), true)}
+                                >
+                                  Remove
+                                </Button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {entry.anchors && entry.anchors.length > 0 && (
+                          <Button onClick={() => apply(clearAnchors(contourPlan, index), true)}>
+                            Back to automatic
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
