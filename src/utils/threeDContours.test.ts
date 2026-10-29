@@ -464,3 +464,45 @@ describe('buildContourScene', () => {
     });
   });
 });
+
+describe('buildContourScene with filled contours that are not closed', () => {
+  // no closing Z, like the Phosphor icons: a renderer fills each subpath as if it were closed
+  const open = (d: string, fill = '#ffffff') => ({ ...svgData([{ d, fill }]), viewBox: '0 0 100 100' });
+  const donut = open('M0 0 H100 V100 H0 M30 30 V70 H70 V30');
+  const other = open('M0 0 H100 V100 H0 M20 20 V80 H80 V20');
+  const morph = (id: string, to: string): ContourPlanEntry => ({
+    sourceId: id,
+    targetId: to,
+    mode: 'morph',
+    swapAt: 0.5,
+    fadeWindow: 0,
+  });
+  const plan = [morph('s1.1', 't1.1'), morph('s1.2', 't1.2')];
+
+  it('extrudes them as one ring with its hole, not as wires', () => {
+    const { parts } = buildContourScene(donut, other, plan, { depth: 20 });
+
+    expect(parts).toHaveLength(1);
+    expect(parts[0].kind).toBe('solid');
+    const plain = buildContourScene(open('M0 0 H100 V100 H0'), open('M0 0 H100 V100 H0'), [morph('s1.1', 't1.1')], {
+      depth: 20,
+    }).parts[0];
+    expect(plain.kind).toBe('solid');
+    expect(parts[0].geometry.vertexCount).toBeGreaterThan(plain.geometry.vertexCount);
+  });
+
+  it('gives finite positions at every progress', () => {
+    const { geometry } = buildContourScene(donut, other, plan, { depth: 20 }).parts[0];
+    for (const progress of [0, 0.5, 1]) {
+      expect(positionsAt(geometry, progress).every(Number.isFinite)).toBe(true);
+    }
+  });
+
+  it('still draws an open contour without fill as a tube', () => {
+    const line = open('M0 0 H100 V100', 'none');
+
+    const { parts } = buildContourScene(line, line, [morph('s1.1', 't1.1')], { depth: 20 });
+
+    expect(parts[0].kind).toBe('tube');
+  });
+});

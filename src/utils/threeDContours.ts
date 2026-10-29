@@ -285,8 +285,16 @@ export function buildSolid(from: Point[], to: Point[], depth: number, holes: Sol
 // An unset fill counts as no fill, like everywhere else in the app.
 const isFilled = (contour: StyledContour): boolean => contour.fill !== undefined && contour.fill !== 'none';
 
-// Nodes of a closed contour repeat the first one at the end; geometry wants each node once.
-const distinct = (points: Point[], closed: boolean): Point[] => (closed ? points.slice(0, -1) : points);
+// A renderer fills an open subpath as if it were closed, and icon sets such as Phosphor leave out the
+// closing Z, so a filled contour is a closed outline for the 3D view whether or not it says so.
+const fillsClosed = (contour: StyledContour): boolean => contour.closed || isFilled(contour);
+
+const coincide = (a: Point, b: Point): boolean => Math.hypot(a.x - b.x, a.y - b.y) < 1e-6;
+
+// Nodes of a closed contour repeat the first one at the end; geometry wants each node once. A contour that
+// only counts as closed because it is filled repeats it just when it ends where it started.
+const distinct = (points: Point[], closed: boolean, repeats = closed): Point[] =>
+  closed && repeats ? points.slice(0, -1) : points;
 
 interface PartSpec {
   id: string;
@@ -311,8 +319,9 @@ const radiusOf = (contour: StyledContour): number => (contour.strokeWidth ?? 1) 
 const ALWAYS = (): number => 1;
 
 function singleSide(contour: StyledContour, id: string, visibility: (progress: number) => number): PartSpec {
-  const closed = contour.closed;
-  const nodes = distinct(sampleContour(contour, autoNodeCount(contour, contour)), closed);
+  const closed = fillsClosed(contour);
+  const sampled = sampleContour(contour, autoNodeCount(contour, contour));
+  const nodes = distinct(sampled, closed, contour.closed || coincide(sampled[0], sampled[sampled.length - 1]));
   return {
     id,
     kind: closed && isFilled(contour) ? 'solid' : 'tube',
@@ -361,13 +370,18 @@ export function buildContourScene(
         resolveNodeCount(entry, from, to, { nodeCount: options.nodeCount }),
         entry.anchors,
       );
-      const closed = from.closed && to.closed;
+      const closed = fillsClosed(from) && fillsClosed(to);
+      // both sides must lose the same node, or the two outlines would not line up
+      const repeats =
+        (from.closed && to.closed) ||
+        (coincide(nodes.from[0], nodes.from[nodes.from.length - 1]) &&
+          coincide(nodes.to[0], nodes.to[nodes.to.length - 1]));
       return [
         {
           id: `${from.id}~${to.id}`,
           kind: closed && (isFilled(from) || isFilled(to)) ? 'solid' : 'tube',
-          from: distinct(nodes.from, closed),
-          to: distinct(nodes.to, closed),
+          from: distinct(nodes.from, closed, repeats),
+          to: distinct(nodes.to, closed, repeats),
           closed,
           radiusFrom: radiusOf(from),
           radiusTo: radiusOf(to),
@@ -408,7 +422,11 @@ export function buildContourScene(
     return parts;
   });
 
-  const specs = mergeHoles(allSpecs, holeStructure(sourceContours), holeStructure(targetContours));
+  const specs = mergeHoles(
+    allSpecs,
+    holeStructure(sourceContours, { openFilled: true }),
+    holeStructure(targetContours, { openFilled: true }),
+  );
 
   if (specs.length === 0) {
     throw new Error('The SVGs have no drawable contours for the 3D view');
