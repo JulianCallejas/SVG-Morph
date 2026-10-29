@@ -2,7 +2,9 @@ import { sanitizeSVG } from './sanitizeSVG';
 
 const PAINT_ATTRIBUTES = ['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin'];
 const SHAPES = 'path, rect, circle, ellipse, polygon, polyline, line';
-const CURRENT_COLOR_REPLACEMENT = '#000000';
+// Icons are drawn in `currentColor`, which means nothing once the SVG leaves the page. A mid gray reads on
+// both the dark and the light canvas (about 5:1 on the dark one, 4:1 on white); black vanishes on dark.
+export const ICON_COLOR = '#808080';
 
 const isPlainNumber = (value: string | null): boolean => value !== null && /^\d+(\.\d+)?$/.test(value.trim());
 
@@ -27,7 +29,7 @@ export const prepareIconSvg = (svg: string): string => {
     }
     for (const name of ['fill', 'stroke']) {
       if (shape.getAttribute(name)?.toLowerCase() === 'currentcolor') {
-        shape.setAttribute(name, CURRENT_COLOR_REPLACEMENT);
+        shape.setAttribute(name, ICON_COLOR);
       }
     }
   });

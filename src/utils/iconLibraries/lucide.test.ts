@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { lucideProvider } from './lucide';
-import { prepareIconSvg } from '../iconSvg';
+import { ICON_COLOR, prepareIconSvg } from '../iconSvg';
 import { parseSVG } from '../svgMorphing';
 
 describe('lucideProvider', () => {
@@ -15,7 +15,7 @@ describe('lucideProvider', () => {
 
     const data = parseSVG(prepareIconSvg(icon!.svg));
     expect(data.paths.length).toBeGreaterThan(0);
-    expect(data.paths[0]).toMatchObject({ fill: 'none', stroke: '#000000' });
+    expect(data.paths[0]).toMatchObject({ fill: 'none', stroke: ICON_COLOR });
     expect(data.width).toBe(24);
   });
 
