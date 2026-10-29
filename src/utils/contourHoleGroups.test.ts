@@ -54,3 +54,14 @@ describe('holeGroups', () => {
     expect(holeGroups(swapped, planned.sourceContours, planned.targetContours)).toEqual([]);
   });
 });
+
+describe('holeGroups with contours that are not closed', () => {
+  it('groups a hole in filled shapes written without the closing Z', () => {
+    const open = (d: string, fill: string) => svg({ d, fill });
+    const { groups: found } = groups(
+      open('M0 0 H100 V100 H0 M25 25 V75 H75 V25', '#ff0000'),
+      open('M5 5 H95 V95 H5 M30 30 V70 H70 V30', '#0000ff'),
+    );
+    expect(found).toEqual([{ outer: 0, holes: [1] }]);
+  });
+});

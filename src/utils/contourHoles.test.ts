@@ -84,3 +84,23 @@ describe('holeStructure', () => {
     expect(holeStructure([]).size).toBe(0);
   });
 });
+
+describe('holeStructure with open filled contours', () => {
+  // no closing Z, like the Phosphor icons: a renderer still fills each subpath as if it were closed
+  const openDonut = svg({ d: 'M0 0 H100 V100 H0 M25 25 V75 H75 V25', fill: '#000000' });
+
+  it('ignores them by default, as before (the 3D export relies on that)', () => {
+    expect(entries(holes(openDonut))).toEqual([]);
+  });
+
+  it('counts them when asked: the inner subpath is a hole of the outer one', () => {
+    expect(entries(holeStructure(contoursFromSVGData(openDonut, 'source'), { openFilled: true }))).toEqual([
+      ['s1.2', 's1.1'],
+    ]);
+  });
+
+  it('still never makes a hole of an unfilled one', () => {
+    const outline = svg({ d: 'M0 0 H100 V100 H0 M25 25 V75 H75 V25', fill: 'none' });
+    expect(entries(holeStructure(contoursFromSVGData(outline, 'source'), { openFilled: true }))).toEqual([]);
+  });
+});

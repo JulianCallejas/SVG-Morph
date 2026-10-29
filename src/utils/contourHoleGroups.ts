@@ -17,16 +17,17 @@ const isMorphPair = (entry: ContourPlanEntry): boolean =>
  *
  * A pair is a hole of another when both pairs morph, its source contour is a hole of the other's
  * source contour, and its target contour is a hole of the other's target contour (see
- * `holeStructure`). Anything else, such as a hole that is paired with a solid shape or one that is
- * swapped, is left out and drawn alone, as it always was. Stroke-only shapes never have holes.
+ * `holeStructure`, which also counts filled contours that are not closed, the way a renderer fills them).
+ * Anything else, such as a hole paired with a solid shape or one that is swapped, is left out and drawn
+ * alone, as it always was. Stroke-only shapes never have holes.
  */
 export function holeGroups(
   plan: ContourPlanEntry[],
   source: StyledContour[],
   target: StyledContour[],
 ): HoleGroup[] {
-  const sourceHoles = holeStructure(source);
-  const targetHoles = holeStructure(target);
+  const sourceHoles = holeStructure(source, { openFilled: true });
+  const targetHoles = holeStructure(target, { openFilled: true });
 
   const pairIndex = new Map<string, number>();
   plan.forEach((entry, index) => {
