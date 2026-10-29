@@ -12,6 +12,8 @@ export interface VideoExportOptions {
   filename?: string;
   /** Per-contour plan; when set, frames come from the contour pipeline instead of whole paths. */
   contourPlan?: ContourPlanEntry[];
+  /** With a contour plan: draw the holes of filled shapes as holes. Default false. */
+  keepHoles?: boolean;
 }
 
 export interface VideoFrame {
@@ -183,7 +185,7 @@ export class VideoExporter {
     
     for (let i = 0; i < totalFrames; i++) {
       const progress = i / (totalFrames - 1);
-      const interpolatedSVG = await this.interpolateSVG(sourceSVG, targetSVG, progress, options.contourPlan);
+      const interpolatedSVG = await this.interpolateSVG(sourceSVG, targetSVG, progress, options.contourPlan, options.keepHoles);
       
       const canvas = await this.renderSVGToCanvas(interpolatedSVG, options);
       frames.push({
@@ -286,7 +288,8 @@ export class VideoExporter {
     sourceSVG: string,
     targetSVG: string,
     progress: number,
-    contourPlan?: ContourPlanEntry[]
+    contourPlan?: ContourPlanEntry[],
+    keepHoles?: boolean
   ): Promise<string> {
     try {
       // Import workerManager for proper path interpolation
@@ -294,7 +297,7 @@ export class VideoExporter {
 
       // Use the same interpolation logic as the preview animation
       const interpolatedSVG = contourPlan
-        ? await workerManager.createContourSVG(sourceSVG, targetSVG, progress, contourPlan)
+        ? await workerManager.createContourSVG(sourceSVG, targetSVG, progress, contourPlan, undefined, undefined, keepHoles)
         : await workerManager.createInterpolatedSVG(sourceSVG, targetSVG, progress);
       
       return interpolatedSVG;

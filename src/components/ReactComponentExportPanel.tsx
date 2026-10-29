@@ -41,7 +41,7 @@ export const ReactComponentExportPanel: React.FC<ReactComponentExportPanelProps>
 
   // Same rule as the preview and the other exports: the per-contour plan applies to paths with
   // several subpaths or a plan the user edited, and never while the point-matching mode is selected.
-  const { sourceContours, targetContours, contourPlan, contourPlanCustomized, manualModeEnabled } =
+  const { sourceContours, targetContours, contourPlan, contourPlanCustomized, manualModeEnabled, keepHoles } =
     useMorphStore();
   const activePlan = activeContourPlan(
     contourPlan,
@@ -61,7 +61,7 @@ export const ReactComponentExportPanel: React.FC<ReactComponentExportPanelProps>
       const result = reactComponentGenerator.generateComponent(
         sourceSVG,
         targetSVG,
-        options,
+        { ...options, keepHoles },
         activePlan ?? undefined,
       );
 
@@ -74,7 +74,7 @@ export const ReactComponentExportPanel: React.FC<ReactComponentExportPanelProps>
     } catch (error) {
       showError(`Failed to generate component: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [sourceSVG, targetSVG, options, activePlan, showSuccess, showError, showWarning]);
+  }, [sourceSVG, targetSVG, options, keepHoles, activePlan, showSuccess, showError, showWarning]);
 
   const handleCopyCode = useCallback((code: string, type: string) => {
     navigator.clipboard.writeText(code);

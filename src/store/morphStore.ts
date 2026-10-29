@@ -87,6 +87,8 @@ interface MorphState {
   contourHover: number | null;
   contourSelection: ContourSelection;
   showContourNodes: boolean;
+  // Draw the holes of filled shapes as holes while they morph (see contourHoleGroups.ts)
+  keepHoles: boolean;
   /** Boxes and labels over the SVGs of the split preview. */
   showContourBoxes: boolean;
 
@@ -148,6 +150,7 @@ interface MorphState {
   /** Pick a contour: the second pick, on the other side, pairs the two as a morph. */
   selectContour: (side: 'source' | 'target', id: string) => Promise<void>;
   setShowContourNodes: (show: boolean) => void;
+  setKeepHoles: (keep: boolean) => Promise<void>;
   setShowContourBoxes: (show: boolean) => void;
 
   // Phase 2 actions
@@ -239,6 +242,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   contourHover: null,
   contourSelection: null,
   showContourNodes: true,
+  keepHoles: true,
   showContourBoxes: true,
 
   // Phase 2 state
@@ -640,7 +644,15 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       );
 
       const interpolatedSVG = plan
-        ? await workerManager.createContourSVG(state.sourceSVG, state.targetSVG, progress, plan)
+        ? await workerManager.createContourSVG(
+            state.sourceSVG,
+            state.targetSVG,
+            progress,
+            plan,
+            undefined,
+            undefined,
+            state.keepHoles,
+          )
         : await workerManager.createInterpolatedSVG(
             state.sourceSVG,
             state.targetSVG,
@@ -705,6 +717,10 @@ export const useMorphStore = create<MorphState>((set, get) => ({
     set({ contourSelection: contourSelection?.id === id ? null : { side, id } });
   },
   setShowContourNodes: (show) => set({ showContourNodes: show }),
+  setKeepHoles: async (keep) => {
+    set({ keepHoles: keep });
+    await get().generateInterpolatedSVG(get().currentProgress);
+  },
   setShowContourBoxes: (show) => set({ showContourBoxes: show }),
 
   // Phase 2 actions

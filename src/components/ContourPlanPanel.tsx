@@ -63,6 +63,8 @@ export const ContourPlanPanel: React.FC = () => {
     contourHover: hoveredEntry,
     contourSelection: selection,
     showContourNodes: showNodes,
+    keepHoles,
+    setKeepHoles,
     setContourHover: setHoveredEntry,
     selectContour,
     setShowContourNodes: setShowNodes,
@@ -227,13 +229,22 @@ export const ContourPlanPanel: React.FC = () => {
       <p role="status" className="mt-3 text-sm font-medium">
         {status}
       </p>
-      <div className="mt-4 max-w-sm">
+      <div className="mt-4 grid max-w-3xl gap-2 sm:grid-cols-2">
         <CheckRow
           label="Show nodes on the maps"
           checked={showNodes}
           onChange={(event) => setShowNodes(event.target.checked)}
         />
+        <CheckRow
+          label="Keep holes empty in filled shapes"
+          checked={keepHoles}
+          onChange={(event) => void setKeepHoles(event.target.checked)}
+        />
       </div>
+      <p className="mt-2 max-w-[70ch] text-sm text-muted">
+        A filled shape with a hole, like a ring or an "O", keeps the hole while it morphs. Turn it off to draw
+        every contour on its own, as before.
+      </p>
 
       <div className="mt-5 grid gap-6 sm:grid-cols-2">
         <figure>

@@ -26,6 +26,8 @@ export interface ExportOptions {
    * (`activeContourPlan`); absent keeps the whole-path export exactly as before.
    */
   contourPlan?: ContourPlanEntry[];
+  /** With a contour plan: draw the holes of filled shapes as holes (SMIL, video). Default false. */
+  keepHoles?: boolean;
 }
 
 export interface JavaScriptExportOptions extends ExportOptions {
@@ -164,6 +166,7 @@ export class ExportSystem {
       backgroundColor: options.backgroundColor,
       filename: options.filename,
       contourPlan: options.contourPlan,
+      keepHoles: options.keepHoles,
     };
 
     try {
@@ -356,7 +359,12 @@ function ${options.functionName}(containerId, userOptions = {}) {
         await workerManager.parseSVG(sourceSVG),
         await workerManager.parseSVG(targetSVG),
         options.contourPlan,
-        { duration: options.duration, loop: options.loop, direction: options.loopDirection },
+        {
+          duration: options.duration,
+          loop: options.loop,
+          direction: options.loopDirection,
+          keepHoles: options.keepHoles,
+        },
       );
     }
 

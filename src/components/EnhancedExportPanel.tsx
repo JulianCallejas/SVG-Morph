@@ -33,6 +33,7 @@ export const EnhancedExportPanel: React.FC = () => {
     targetContours,
     contourPlan,
     contourPlanCustomized,
+    keepHoles,
   } = useMorphStore();
   const canExport = !!sourceSVG && !!targetSVG;
   const { showSuccess, showError, showWarning, showInfo } = useToast();
@@ -126,6 +127,7 @@ export const EnhancedExportPanel: React.FC = () => {
         nodeMatches: shouldUseManualMatches ? nodeMatches : undefined,
         useManualMatching: shouldUseManualMatches,
         contourPlan: activePlan ?? undefined,
+        keepHoles,
       };
       
       if (shouldUseManualMatches) {
@@ -167,7 +169,7 @@ export const EnhancedExportPanel: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [sourceSVG, targetSVG, exportOptions, jsOptions, videoOptions, nodeMatches, manualModeEnabled, sourceContours, targetContours, contourPlan, contourPlanCustomized, showWarning, showError, showSuccess]);
+  }, [sourceSVG, targetSVG, exportOptions, jsOptions, videoOptions, nodeMatches, manualModeEnabled, sourceContours, targetContours, contourPlan, contourPlanCustomized, keepHoles, showWarning, showError, showSuccess]);
 
   const handleHistoryDownload = useCallback(() => {
     // In a real implementation, you'd re-export or store the content

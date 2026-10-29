@@ -375,3 +375,46 @@ describe('morphStore output size', () => {
     expect(useMorphStore.getState().interpolatedSVG).toContain('viewBox="0 0 240 240"');
   });
 });
+
+describe('morphStore keepHoles', () => {
+  const DONUT_A = `<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 H100 V100 H0 Z M25 25 V75 H75 V25 Z" fill="#ff0000" stroke="none"/></svg>`;
+  const DONUT_B = `<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M5 5 H95 V95 H5 Z M30 30 V70 H70 V30 Z" fill="#0000ff" stroke="none"/></svg>`;
+
+  beforeEach(async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    useMorphStore.setState(initialState, true);
+    await useMorphStore.getState().setSourceSVG(DONUT_A);
+    await useMorphStore.getState().setTargetSVG(DONUT_B);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('is on by default and keeps the donut hollow: one even-odd path', () => {
+    const state = useMorphStore.getState();
+
+    expect(state.keepHoles).toBe(true);
+    expect(pathCount(state.interpolatedSVG)).toBe(1);
+    expect(state.interpolatedSVG).toContain('fill-rule="evenodd"');
+  });
+
+  it('turning it off redraws the previous way, and on again brings the hollow back', async () => {
+    await useMorphStore.getState().setKeepHoles(false);
+    expect(pathCount(useMorphStore.getState().interpolatedSVG)).toBe(2);
+    expect(useMorphStore.getState().interpolatedSVG).not.toContain('fill-rule');
+
+    await useMorphStore.getState().setKeepHoles(true);
+    expect(pathCount(useMorphStore.getState().interpolatedSVG)).toBe(1);
+  });
+
+  it('does not touch a drawing that has no holes', async () => {
+    await useMorphStore.getState().setSourceSVG(SQUARE_SVG);
+    await useMorphStore.getState().setTargetSVG(DIAMOND_SVG);
+    const on = useMorphStore.getState().interpolatedSVG;
+
+    await useMorphStore.getState().setKeepHoles(false);
+
+    expect(useMorphStore.getState().interpolatedSVG).toBe(on);
+  });
+});
