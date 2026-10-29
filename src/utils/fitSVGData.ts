@@ -81,3 +81,32 @@ export const fitPair = (
     ? { source: fitToReference(source, source), target: fitToReference(target, source) }
     : { source: fitToReference(source, target), target: fitToReference(target, target) };
 };
+
+const escapeAttribute = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// Writes parsed data back as an SVG string. It carries exactly what `parseSVG` reads (paths with
+// their paint, plus the box), which is all the morphing pipeline looks at, so a fitted drawing can
+// go through the same string-based pipeline as an uploaded one.
+export const serializeSVGData = (data: SVGData): string => {
+  const paths = data.paths.map((path) => {
+    const attributes: [string, string | number | undefined][] = [
+      ['d', path.d],
+      ['fill', path.fill],
+      ['stroke', path.stroke],
+      ['stroke-width', path.strokeWidth],
+      ['opacity', path.opacity],
+      ['stroke-linecap', path.strokeLinecap],
+      ['stroke-linejoin', path.strokeLinejoin],
+    ];
+    const text = attributes
+      .filter((entry): entry is [string, string | number] => entry[1] !== undefined)
+      .map(([name, value]) => `${name}="${escapeAttribute(String(value))}"`)
+      .join(' ');
+    return `<path ${text}/>`;
+  });
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${escapeAttribute(data.viewBox)}" ` +
+    `width="${data.width}" height="${data.height}">${paths.join('')}</svg>`
+  );
+};

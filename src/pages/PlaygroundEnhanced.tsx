@@ -9,6 +9,7 @@ import { EnhancedExportPanel } from '../components/EnhancedExportPanel';
 import { ReactComponentExportPanel } from '../components/ReactComponentExportPanel';
 import { ThreeDMorphingPanel } from '../components/ThreeDMorphingPanel';
 import { FittedSVG } from '../components/FittedSVG';
+import { OutputSizeSelect } from '../components/OutputSizeSelect';
 import { ProcessingIndicator } from '../components/ProcessingIndicator';
 import { Button } from '../components/ui/Button';
 import { CheckRow } from '../components/ui/Fields';
@@ -234,6 +235,12 @@ export const PlaygroundEnhanced: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {sourceSVG && targetSVG && (
+              <Panel>
+                <OutputSizeSelect />
+              </Panel>
+            )}
 
             {canProceedToMatching && (
               <Button variant="primary" onClick={() => setActiveTab('match')}>

@@ -1,7 +1,9 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { getPathBBox } from 'svg-path-commander';
 import type { SVGData } from './svgMorphing';
-import { fitToReference, fitPair, viewBoxOf } from './fitSVGData';
+import { parseSVG } from './svgMorphing';
+import { fitToReference, fitPair, serializeSVGData, viewBoxOf } from './fitSVGData';
 
 const square = (size: number): SVGData => ({
   viewBox: `0 0 ${size} ${size}`,
@@ -119,5 +121,23 @@ describe('fitPair', () => {
   it('on equal areas the source wins', () => {
     const other = { ...square(24), viewBox: '0 0 12 48', width: 12, height: 48 };
     expect(fitPair(small, other, 'larger').source.viewBox).toBe('0 0 24 24');
+  });
+});
+
+describe('serializeSVGData', () => {
+  it('round-trips through parseSVG: the pipeline reads back exactly what was fitted', () => {
+    const fitted = fitToReference(
+      {
+        viewBox: '0 0 24 24',
+        width: 24,
+        height: 24,
+        paths: [
+          { d: 'M0 0 L24 0 L24 24 Z', fill: '#ff0000', stroke: '#000000', strokeWidth: 2, opacity: 0.5, strokeLinecap: 'round', strokeLinejoin: 'bevel' },
+          { d: 'M2 2 L4 4', fill: 'none', stroke: 'url("#a&b")', strokeWidth: 1, opacity: 1 },
+        ],
+      },
+      square(240),
+    );
+    expect(parseSVG(serializeSVGData(fitted))).toEqual(fitted);
   });
 });

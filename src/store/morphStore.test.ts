@@ -315,3 +315,63 @@ describe('contour UI state', () => {
     expect(useMorphStore.getState().contourHover).toBe(1);
   });
 });
+
+describe('morphStore output size', () => {
+  const SMALL_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L24 0 L24 24 L0 24 Z" fill="#ff0000" stroke="#000000" stroke-width="2"/></svg>`;
+  const BIG_SVG = `<svg width="240" height="240" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L240 0 L240 240 L0 240 Z" fill="#0000ff" stroke="none"/></svg>`;
+
+  beforeEach(async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    useMorphStore.setState(initialState, true);
+    await useMorphStore.getState().setSourceSVG(SMALL_SVG);
+    await useMorphStore.getState().setTargetSVG(BIG_SVG);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('defaults to "asIs": both SVGs keep their own box and parsed data', () => {
+    const state = useMorphStore.getState();
+    expect(state.outputSizeMode).toBe('asIs');
+    expect(state.sourceSVGData?.viewBox).toBe('0 0 24 24');
+    expect(state.targetSVGData?.viewBox).toBe('0 0 240 240');
+    expect(state.sourceSVGData).toBe(state.rawSourceSVGData);
+    expect(state.targetSVGData).toBe(state.rawTargetSVGData);
+  });
+
+  it('"larger" scales the small SVG up to the big box, strokes included', async () => {
+    await useMorphStore.getState().setOutputSizeMode('larger');
+    const { sourceSVGData, targetSVGData } = useMorphStore.getState();
+    expect(sourceSVGData?.viewBox).toBe('0 0 240 240');
+    expect(targetSVGData?.viewBox).toBe('0 0 240 240');
+    expect(sourceSVGData?.paths[0].strokeWidth).toBeCloseTo(20);
+  });
+
+  it('"smaller" shrinks the big SVG, and going back to "asIs" restores both', async () => {
+    await useMorphStore.getState().setOutputSizeMode('smaller');
+    expect(useMorphStore.getState().targetSVGData?.viewBox).toBe('0 0 24 24');
+
+    await useMorphStore.getState().setOutputSizeMode('asIs');
+    const { sourceSVGData, targetSVGData } = useMorphStore.getState();
+    expect(sourceSVGData?.viewBox).toBe('0 0 24 24');
+    expect(targetSVGData?.viewBox).toBe('0 0 240 240');
+    expect(sourceSVGData?.paths[0].strokeWidth).toBe(2);
+  });
+
+  it('uploading a new SVG fits it against the other one as uploaded, not as already scaled', async () => {
+    await useMorphStore.getState().setOutputSizeMode('target');
+    expect(useMorphStore.getState().sourceSVGData?.viewBox).toBe('0 0 240 240');
+
+    await useMorphStore.getState().setTargetSVG(SMALL_SVG);
+    await useMorphStore.getState().setOutputSizeMode('larger');
+    // both are 24 wide now; if the source were still the scaled one the box would stay 240
+    expect(useMorphStore.getState().sourceSVGData?.viewBox).toBe('0 0 24 24');
+    expect(useMorphStore.getState().targetSVGData?.viewBox).toBe('0 0 24 24');
+  });
+
+  it('still produces an interpolated SVG in the chosen box', async () => {
+    await useMorphStore.getState().setOutputSizeMode('larger');
+    expect(useMorphStore.getState().interpolatedSVG).toContain('viewBox="0 0 240 240"');
+  });
+});
