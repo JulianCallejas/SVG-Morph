@@ -10,6 +10,7 @@ import { ReactComponentExportPanel } from '../components/ReactComponentExportPan
 import { ThreeDMorphingPanel } from '../components/ThreeDMorphingPanel';
 import { FittedSVG } from '../components/FittedSVG';
 import { OutputSizeSelect } from '../components/OutputSizeSelect';
+import { UrlImport } from '../components/UrlImport';
 import { ProcessingIndicator } from '../components/ProcessingIndicator';
 import { Button } from '../components/ui/Button';
 import { CheckRow } from '../components/ui/Fields';
@@ -206,6 +207,12 @@ export const PlaygroundEnhanced: React.FC = () => {
                   label="Drop your source SVG here"
                   hasFile={!!sourceSVG}
                 />
+                <UrlImport
+                  label="Or import the source from a URL"
+                  onImport={async (content) => {
+                    await setSourceSVG(content);
+                  }}
+                />
                 {sourceSVG && (
                   <Panel>
                     <h4 className="mb-3 text-sm font-medium text-muted">Source Preview</h4>
@@ -224,6 +231,12 @@ export const PlaygroundEnhanced: React.FC = () => {
                   }}
                   label="Drop your target SVG here"
                   hasFile={!!targetSVG}
+                />
+                <UrlImport
+                  label="Or import the target from a URL"
+                  onImport={async (content) => {
+                    await setTargetSVG(content);
+                  }}
                 />
                 {targetSVG && (
                   <Panel>
