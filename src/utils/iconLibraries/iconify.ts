@@ -1,11 +1,10 @@
 import { filterNames, paginate } from '../iconPaging';
-import { sanitizeSVG } from '../sanitizeSVG';
+import { isRecord, toSvg } from './iconifyData';
 import type { IconProvider } from './types';
 
 const API = 'https://api.iconify.design';
 const TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_CHARS = 4 * 1024 * 1024;
-const DEFAULT_SIZE = 16;
 
 // A few free, permissively licensed sets; the prefix is the Iconify id of the set.
 export const ICONIFY_SETS = [
@@ -18,12 +17,6 @@ export const ICONIFY_SETS = [
   { id: 'material-symbols', label: 'Material Symbols' },
   { id: 'ri', label: 'Remix Icon' },
 ];
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const firstNumber = (...values: unknown[]): number | undefined =>
-  values.find((value): value is number => typeof value === 'number' && Number.isFinite(value));
 
 // GET + JSON with a timeout that also follows the caller's signal. Nothing identifying is sent.
 const getJson = async (url: string, signal?: AbortSignal): Promise<unknown> => {
@@ -65,18 +58,6 @@ const readListing = (data: unknown): SetListing => {
   const license =
     isRecord(info) && isRecord(info.license) && typeof info.license.title === 'string' ? info.license.title : undefined;
   return { names: [...names].sort(), license };
-};
-
-// One icon of a batch answer as a standalone SVG, sized by the icon, else by the set, else 16.
-const toSvg = (batch: Record<string, unknown>, icon: unknown): string | null => {
-  if (!isRecord(icon) || typeof icon.body !== 'string') return null;
-  const left = firstNumber(icon.left, batch.left) ?? 0;
-  const top = firstNumber(icon.top, batch.top) ?? 0;
-  const width = firstNumber(icon.width, batch.width) ?? DEFAULT_SIZE;
-  const height = firstNumber(icon.height, batch.height) ?? DEFAULT_SIZE;
-  return sanitizeSVG(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${left} ${top} ${width} ${height}" width="${width}" height="${height}">${icon.body}</svg>`,
-  );
 };
 
 // Iconify (api.iconify.design): the names of a set come in one request and are searched and paged
