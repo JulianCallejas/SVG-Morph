@@ -15,6 +15,7 @@ import { CanvasRenderOptions } from '../utils/canvasRenderer';
 import { activeContourPlan, planContours, type StyledContour } from '../utils/contourSvg';
 import type { ContourPlanEntry } from '../utils/contourPairing';
 import { pairManually } from '../utils/contourPlanEditing';
+import { fitPair, serializeSVGData, type OutputSizeMode } from '../utils/fitSVGData';
 
 /** A contour picked on one side, waiting for a partner on the other side. */
 export type ContourSelection = { side: 'source' | 'target'; id: string } | null;
@@ -59,6 +60,14 @@ interface MorphState {
   targetSVG: string | null;
   sourceSVGData: SVGData | null;
   targetSVGData: SVGData | null;
+  // What the user uploaded, parsed or not. sourceSVG / targetSVG are these as-is, or rebuilt from the
+  // fitted data when an output size is chosen, so every consumer sees the SVG that will be morphed
+  uploadedSourceSVG: string | null;
+  uploadedTargetSVG: string | null;
+  // The parsed SVGs as uploaded; sourceSVGData / targetSVGData are these after the output size is applied
+  rawSourceSVGData: SVGData | null;
+  rawTargetSVGData: SVGData | null;
+  outputSizeMode: OutputSizeMode;
   animationSettings: AnimationSettings;
   isAnimating: boolean;
   currentProgress: number;
@@ -78,6 +87,8 @@ interface MorphState {
   contourHover: number | null;
   contourSelection: ContourSelection;
   showContourNodes: boolean;
+  // Draw the holes of filled shapes as holes while they morph (see contourHoleGroups.ts)
+  keepHoles: boolean;
   /** Boxes and labels over the SVGs of the split preview. */
   showContourBoxes: boolean;
 
@@ -113,6 +124,7 @@ interface MorphState {
   // Actions
   setSourceSVG: (svg: string) => Promise<void>;
   setTargetSVG: (svg: string) => Promise<void>;
+  setOutputSizeMode: (mode: OutputSizeMode) => Promise<void>;
   updateAnimationSettings: (settings: Partial<AnimationSettings>) => void;
   setManualMode: (enabled: boolean) => void;
   addNodePair: (pair: NodePair) => void;
@@ -138,6 +150,7 @@ interface MorphState {
   /** Pick a contour: the second pick, on the other side, pairs the two as a morph. */
   selectContour: (side: 'source' | 'target', id: string) => Promise<void>;
   setShowContourNodes: (show: boolean) => void;
+  setKeepHoles: (keep: boolean) => Promise<void>;
   setShowContourBoxes: (show: boolean) => void;
 
   // Phase 2 actions
@@ -208,6 +221,11 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   sourceSVG: null,
   targetSVG: null,
   sourceSVGData: null,
+  uploadedSourceSVG: null,
+  uploadedTargetSVG: null,
+  rawSourceSVGData: null,
+  rawTargetSVGData: null,
+  outputSizeMode: 'asIs',
   targetSVGData: null,
   animationSettings: defaultAnimationSettings,
   isAnimating: false,
@@ -224,6 +242,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   contourHover: null,
   contourSelection: null,
   showContourNodes: true,
+  keepHoles: true,
   showContourBoxes: true,
 
   // Phase 2 state
@@ -315,19 +334,26 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   renderMode: '2d',
 
   setSourceSVG: async (svg) => {
-    set({ sourceSVG: svg, sourceSVGData: null });
+    set({ sourceSVG: svg, uploadedSourceSVG: svg, sourceSVGData: null, rawSourceSVGData: null });
     if (svg) {
       await get().processSVGs();
     }
   },
   
   setTargetSVG: async (svg) => {
-    set({ targetSVG: svg, targetSVGData: null });
+    set({ targetSVG: svg, uploadedTargetSVG: svg, targetSVGData: null, rawTargetSVGData: null });
     if (svg) {
       await get().processSVGs();
     }
   },
   
+  // Re-applies the output size to what is already parsed; the contour plan is suggested again
+  // because the geometry it was built from changed
+  setOutputSizeMode: async (mode) => {
+    set({ outputSizeMode: mode });
+    await get().processSVGs();
+  },
+
   updateAnimationSettings: (settings) =>
     set((state) => ({
       animationSettings: { ...state.animationSettings, ...settings },
@@ -507,9 +533,9 @@ export const useMorphStore = create<MorphState>((set, get) => ({
 
       const promises: Promise<SVGData | null>[] = [];
 
-      if (state.sourceSVG && !state.sourceSVGData) {
+      if (state.sourceSVG && !state.rawSourceSVGData) {
         promises.push(
-          workerManager.parseSVG(state.sourceSVG, (progress) => {
+          workerManager.parseSVG(state.uploadedSourceSVG ?? state.sourceSVG, (progress) => {
             set((state) => ({
               processingState: {
                 ...state.processingState,
@@ -519,12 +545,12 @@ export const useMorphStore = create<MorphState>((set, get) => ({
           })
         );
       } else {
-        promises.push(Promise.resolve(state.sourceSVGData));
+        promises.push(Promise.resolve(state.rawSourceSVGData));
       }
 
-      if (state.targetSVG && !state.targetSVGData) {
+      if (state.targetSVG && !state.rawTargetSVGData) {
         promises.push(
-          workerManager.parseSVG(state.targetSVG, (progress) => {
+          workerManager.parseSVG(state.uploadedTargetSVG ?? state.targetSVG, (progress) => {
             set((state) => ({
               processingState: {
                 ...state.processingState,
@@ -534,10 +560,17 @@ export const useMorphStore = create<MorphState>((set, get) => ({
           })
         );
       } else {
-        promises.push(Promise.resolve(state.targetSVGData));
+        promises.push(Promise.resolve(state.rawTargetSVGData));
       }
 
-      const [sourceSVGData, targetSVGData] = await Promise.all(promises);
+      const [rawSourceSVGData, rawTargetSVGData] = await Promise.all(promises);
+      const fitted =
+        rawSourceSVGData && rawTargetSVGData
+          ? fitPair(rawSourceSVGData, rawTargetSVGData, get().outputSizeMode)
+          : { source: rawSourceSVGData, target: rawTargetSVGData };
+      const sourceSVGData = fitted.source;
+      const targetSVGData = fitted.target;
+      const isFitted = get().outputSizeMode !== 'asIs' && !!rawSourceSVGData && !!rawTargetSVGData;
 
       // A fresh upload gets a fresh suggested plan; null keeps the whole-path pipeline
       const planned = sourceSVGData && targetSVGData ? planContours(sourceSVGData, targetSVGData) : null;
@@ -545,6 +578,11 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       set({
         sourceSVGData,
         targetSVGData,
+        rawSourceSVGData,
+        rawTargetSVGData,
+        ...(isFitted && sourceSVGData && targetSVGData
+          ? { sourceSVG: serializeSVGData(sourceSVGData), targetSVG: serializeSVGData(targetSVGData) }
+          : { sourceSVG: get().uploadedSourceSVG ?? state.sourceSVG, targetSVG: get().uploadedTargetSVG ?? state.targetSVG }),
         sourceContours: planned?.sourceContours ?? [],
         targetContours: planned?.targetContours ?? [],
         contourPlan: planned?.plan ?? null,
@@ -606,7 +644,15 @@ export const useMorphStore = create<MorphState>((set, get) => ({
       );
 
       const interpolatedSVG = plan
-        ? await workerManager.createContourSVG(state.sourceSVG, state.targetSVG, progress, plan)
+        ? await workerManager.createContourSVG(
+            state.sourceSVG,
+            state.targetSVG,
+            progress,
+            plan,
+            undefined,
+            undefined,
+            state.keepHoles,
+          )
         : await workerManager.createInterpolatedSVG(
             state.sourceSVG,
             state.targetSVG,
@@ -671,6 +717,10 @@ export const useMorphStore = create<MorphState>((set, get) => ({
     set({ contourSelection: contourSelection?.id === id ? null : { side, id } });
   },
   setShowContourNodes: (show) => set({ showContourNodes: show }),
+  setKeepHoles: async (keep) => {
+    set({ keepHoles: keep });
+    await get().generateInterpolatedSVG(get().currentProgress);
+  },
   setShowContourBoxes: (show) => set({ showContourBoxes: show }),
 
   // Phase 2 actions

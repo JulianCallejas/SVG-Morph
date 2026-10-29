@@ -185,7 +185,8 @@ export class WorkerManager {
     progress: number,
     plan: ContourPlanEntry[],
     nodeCount?: number,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    keepHoles?: boolean
   ): Promise<string> {
     if (!this.isInitialized) {
       // Fallback to synchronous processing, same pure builder as the worker
@@ -193,7 +194,7 @@ export class WorkerManager {
         import('./svgMorphing'),
         import('./contourSvg'),
       ]);
-      return buildContourSVG(parseSVG(sourceSVG), parseSVG(targetSVG), plan, progress, { nodeCount });
+      return buildContourSVG(parseSVG(sourceSVG), parseSVG(targetSVG), plan, progress, { nodeCount, keepHoles });
     }
 
     return this.postMessage<string>('CREATE_CONTOUR_SVG', {
@@ -201,7 +202,8 @@ export class WorkerManager {
       targetSVG,
       progress,
       plan,
-      nodeCount
+      nodeCount,
+      keepHoles
     }, onProgress);
   }
 

@@ -1,6 +1,7 @@
 import type { SVGData } from './svgMorphing';
 import type { ContourPlanEntry } from './contourPairing';
 import { contoursFromSVGData, escapeAttr, type StyledContour } from './contourSvg';
+import { holeGroups } from './contourHoleGroups';
 import { findContour, pairNodes, pointsToPath, resolveNodeCount } from './contourInterpolation';
 import type { StrokeLinecap, StrokeLinejoin } from './strokeStyle';
 import {
@@ -29,6 +30,8 @@ export interface ContourSmilOptions {
   direction?: SmilDirection;
   /** Nodes for every morphing pair that does not set its own. Absent means automatic. */
   nodeCount?: number;
+  /** Draw the holes of filled shapes as holes (see `holeGroups`). Default false. */
+  keepHoles?: boolean;
 }
 
 /**
@@ -55,6 +58,8 @@ export interface SmilPath {
   opacity: number;
   strokeLinecap?: StrokeLinecap;
   strokeLinejoin?: StrokeLinejoin;
+  /** Set on a path that holds a shape and its holes, so the holes stay empty. */
+  fillRule?: 'evenodd';
   animations: SmilAnimation[];
 }
 
@@ -167,6 +172,54 @@ function animateTranslate(
   };
 }
 
+// `a;b;a` and `c;d;c` become `a c;b d;a c`: the same keyframes, two outlines each. Null when the
+// two animations do not have the same number of keyframes.
+function joinKeyframes(outer: string, hole: string): string | null {
+  const outerFrames = outer.split(';');
+  const holeFrames = hole.split(';');
+  if (outerFrames.length !== holeFrames.length) return null;
+  return outerFrames.map((frame, i) => `${frame} ${holeFrames[i]}`).join(';');
+}
+
+// Folds the path of every hole into the path of its outer shape (ids are `contour-<plan index>`), so
+// the holes are drawn with it and stay empty. A group that cannot be joined cleanly is left as it was.
+function joinHoles(paths: SmilPath[], groups: ReturnType<typeof holeGroups>): SmilPath[] {
+  const byId = new Map(paths.map((path) => [path.id, path]));
+  const merged = new Map<string, SmilPath>();
+  const absorbed = new Set<string>();
+
+  for (const group of groups) {
+    const outer = byId.get(`contour-${group.outer}`);
+    const holes = group.holes.map((index) => byId.get(`contour-${index}`));
+    if (!outer || holes.some((hole) => !hole)) continue;
+
+    let { d } = outer;
+    let animations = outer.animations;
+    let joinable = true;
+    for (const hole of holes as SmilPath[]) {
+      d = `${d} ${hole.d}`;
+      const outerShape = animations.find((a) => a.attributeName === 'd');
+      const holeShape = hole.animations.find((a) => a.attributeName === 'd');
+      if (!outerShape || !holeShape) {
+        joinable = false;
+        break;
+      }
+      const values = joinKeyframes(outerShape.values, holeShape.values);
+      if (values === null) {
+        joinable = false;
+        break;
+      }
+      animations = animations.map((a) => (a === outerShape ? { ...a, values } : a));
+    }
+    if (!joinable) continue;
+
+    merged.set(outer.id, { ...outer, d, animations, fillRule: 'evenodd' });
+    (holes as SmilPath[]).forEach((hole) => absorbed.add(hole.id));
+  }
+
+  return paths.filter((path) => !absorbed.has(path.id)).map((path) => merged.get(path.id) ?? path);
+}
+
 function smilPath(
   id: string,
   d: string,
@@ -200,14 +253,14 @@ export function buildContourSmilModel(
   source: SVGData,
   target: SVGData,
   plan: ContourPlanEntry[],
-  options: { nodeCount?: number; direction?: SmilDirection } = {},
+  options: { nodeCount?: number; direction?: SmilDirection; keepHoles?: boolean } = {},
 ): SmilModel {
   const forward = options.direction === 'forward';
   const bounds = parseViewBox(source.viewBox, source.width, source.height);
   const sourceContours = contoursFromSVGData(source, 'source');
   const targetContours = contoursFromSVGData(target, 'target');
 
-  const paths = plan.flatMap((entry, index): SmilPath[] => {
+  const drawn = plan.flatMap((entry, index): SmilPath[] => {
     const from = findContour(sourceContours, entry.sourceId, 'source');
     const to = findContour(targetContours, entry.targetId, 'target');
     if (!from && !to) throw new Error('A contour plan entry needs a source or a target contour');
@@ -274,6 +327,8 @@ export function buildContourSmilModel(
     return result;
   });
 
+  const paths = options.keepHoles ? joinHoles(drawn, holeGroups(plan, sourceContours, targetContours)) : drawn;
+
   return {
     width: source.width,
     height: source.height,
@@ -308,6 +363,7 @@ export function buildContourSMIL(
 ): string {
   const model = buildContourSmilModel(source, target, plan, {
     nodeCount: options.nodeCount,
+    keepHoles: options.keepHoles,
     // a cycle that does not repeat always runs the whole way there and back
     direction: options.loop && options.direction === 'forward' ? 'forward' : 'both',
   });
@@ -318,7 +374,7 @@ export function buildContourSMIL(
       (path.strokeLinecap ? ` stroke-linecap="${escapeAttr(path.strokeLinecap)}"` : '') +
       (path.strokeLinejoin ? ` stroke-linejoin="${escapeAttr(path.strokeLinejoin)}"` : '');
     const attrs =
-      ` id="${path.id}" d="${escapeAttr(path.d)}" fill="${escapeAttr(path.fill)}" stroke="${escapeAttr(path.stroke)}"` +
+      ` id="${path.id}" d="${escapeAttr(path.d)}" fill="${escapeAttr(path.fill)}"${path.fillRule ? ` fill-rule="${path.fillRule}"` : ''} stroke="${escapeAttr(path.stroke)}"` +
       ` stroke-width="${num(path.strokeWidth)}" opacity="${num(path.opacity)}"${caps}`;
     return path.animations.length > 0
       ? `<path${attrs}>${path.animations.map((a) => animateTag(a, timing)).join('')}</path>`

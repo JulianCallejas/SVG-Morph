@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { SVGData } from './svgMorphing';
 import type { ContourPlanEntry } from './contourPairing';
 import { planContours } from './contourSvg';
-import { buildContourSMIL } from './contourSmil';
+import { buildContourSMIL, buildContourSmilModel } from './contourSmil';
 
 // `d` attributes of the two reference icons (see contours.test.ts)
 const CLOUD_ARROW_D =
@@ -386,5 +386,66 @@ describe('buildContourSMIL: slide', () => {
 
     expect(svg).not.toContain('clip');
     expect(svg).not.toContain('animateTransform');
+  });
+});
+
+describe('contour SMIL with keepHoles', () => {
+  const donut = (fill: string, d: string): SVGData => ({
+    paths: [{ d, fill, stroke: 'none', strokeWidth: 1, opacity: 1 }],
+    viewBox: '0 0 100 100',
+    width: 100,
+    height: 100,
+  });
+  const source = donut('#ff0000', 'M0 0 H100 V100 H0 Z M25 25 V75 H75 V25 Z');
+  const target = donut('#0000ff', 'M5 5 H95 V95 H5 Z M30 30 V70 H70 V30 Z');
+  const { plan } = planContours(source, target)!;
+
+  it('animates one compound path: both outlines per keyframe, filled even-odd', () => {
+    const model = buildContourSmilModel(source, target, plan, { keepHoles: true });
+
+    expect(model.paths).toHaveLength(1);
+    const [path] = model.paths;
+    expect(path.fillRule).toBe('evenodd');
+    expect(path.d.match(/M/g)).toHaveLength(2);
+
+    const d = path.animations.find((a) => a.attributeName === 'd')!;
+    const frames = d.values.split(';');
+    expect(frames).toHaveLength(3); // source, target, source
+    frames.forEach((frame) => expect(frame.match(/M/g)).toHaveLength(2));
+    expect(frames[0]).toBe(frames[2]);
+    // the paint still animates on the compound
+    expect(path.animations.some((a) => a.attributeName === 'fill')).toBe(true);
+  });
+
+  it('keeps one frame per keyframe going forward only', () => {
+    const model = buildContourSmilModel(source, target, plan, { keepHoles: true, direction: 'forward' });
+    const d = model.paths[0].animations.find((a) => a.attributeName === 'd')!;
+    expect(d.values.split(';')).toHaveLength(2);
+  });
+
+  it('is exactly the previous model when it is off or not given', () => {
+    const before = buildContourSmilModel(source, target, plan);
+
+    expect(buildContourSmilModel(source, target, plan, { keepHoles: false })).toEqual(before);
+    expect(before.paths).toHaveLength(2);
+    expect(before.paths.every((path) => path.fillRule === undefined)).toBe(true);
+  });
+
+  it('writes fill-rule in the SVG it exports', () => {
+    const svg = buildContourSMIL(source, target, plan, { ...options, keepHoles: true });
+    const paths = parse(svg).querySelectorAll('path');
+
+    expect(paths).toHaveLength(1);
+    expect(paths[0].getAttribute('fill-rule')).toBe('evenodd');
+    expect(buildContourSMIL(source, target, plan, options)).not.toContain('fill-rule');
+  });
+
+  it('leaves a stroke-only drawing as it is, even when on', () => {
+    const outline = (d: string): SVGData => ({ ...donut('none', d), paths: [{ d, fill: 'none', stroke: '#000000', strokeWidth: 2, opacity: 1 }] });
+    const a = outline('M0 0 H100 V100 H0 Z M25 25 V75 H75 V25 Z');
+    const b = outline('M5 5 H95 V95 H5 Z M30 30 V70 H70 V30 Z');
+    const { plan: outlinePlan } = planContours(a, b)!;
+
+    expect(buildContourSMIL(a, b, outlinePlan, { ...options, keepHoles: true })).toBe(buildContourSMIL(a, b, outlinePlan, options));
   });
 });

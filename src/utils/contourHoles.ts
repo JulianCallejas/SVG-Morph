@@ -42,14 +42,19 @@ function boxContains(outer: StyledContour, inner: StyledContour): boolean {
  * Which closed, filled contours are holes of which, by even-odd nesting: a contour inside one other
  * contour is a hole; inside two it is filled again (an island in a hole); inside three, a hole again.
  * Only contours of the same `<path>` count: separate paths overlap each other, they do not cut.
- * Open and unfilled contours never nest. Returns hole id -> id of the contour that directly holds it.
+ * Open and unfilled contours never nest, unless `openFilled` is set: a renderer fills an open subpath as if
+ * it were closed, and icon sets such as Phosphor leave out the closing `Z`, so with it a filled contour counts
+ * whether or not it is closed. Returns hole id -> id of the contour that directly holds it.
  *
  * Even-odd is a stand-in for the path's fill rule, which the app does not read. It matches the usual
  * donut (opposite windings, or evenodd) and only differs for a nonzero path whose inner contour runs
  * the same way as the outer one, which that rule would fill.
  */
-export function holeStructure(contours: StyledContour[]): Map<string, string> {
-  const candidates = contours.filter((c) => c.closed && isFilled(c));
+export function holeStructure(
+  contours: StyledContour[],
+  { openFilled = false }: { openFilled?: boolean } = {},
+): Map<string, string> {
+  const candidates = contours.filter((c) => (openFilled || c.closed) && isFilled(c));
   const polygons = new Map(candidates.map((c) => [c.id, outline(c)]));
 
   const holes = new Map<string, string>();

@@ -359,12 +359,13 @@ export interface ContourSVGPayload {
   progress: number;
   plan: ContourPlanEntry[];
   nodeCount?: number;
+  keepHoles?: boolean;
 }
 
 // Unlike CREATE_INTERPOLATED_SVG this does not swallow errors into an opacity blend:
 // an invalid plan is reported back as an ERROR so the caller can decide what to do.
 function handleCreateContourSVG(id: string, payload: ContourSVGPayload) {
-  const { sourceSVG, targetSVG, progress, plan, nodeCount } = payload;
+  const { sourceSVG, targetSVG, progress, plan, nodeCount, keepHoles } = payload;
   postMessage({ type: 'PROGRESS', id, progress: 0 } as WorkerResponse);
 
   const result = buildContourSVG(
@@ -372,7 +373,7 @@ function handleCreateContourSVG(id: string, payload: ContourSVGPayload) {
     parseSVGString(targetSVG),
     plan,
     progress,
-    { nodeCount }
+    { nodeCount, keepHoles }
   );
 
   postMessage({ type: 'SUCCESS', id, payload: result, progress: 100 } as WorkerResponse);

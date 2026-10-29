@@ -5,6 +5,7 @@ import { workerManager } from './workerManager';
 import { VideoExporter } from './videoExport';
 import { parseSVG } from './svgMorphing';
 import { planContours } from './contourSvg';
+import { fitPair, serializeSVGData } from './fitSVGData';
 
 const CLOUD_ARROW_SVG = `<svg width="800px" height="800px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M5.25589 16C3.8899 15.0291 3 13.4422 3 11.6493C3 9.20008 4.8 6.9375 7.5 6.5C8.34694 4.48637 10.3514 3 12.6893 3C15.684 3 18.1317 5.32251 18.3 8.25C19.8893 8.94488 21 10.6503 21 12.4969C21 14.0582 20.206 15.4339 19 16.2417M12 21V11M12 21L9 18M12 21L15 18" stroke="#FFFFFF" stroke-width="2"/>
@@ -167,5 +168,45 @@ describe('VideoExporter with a contour plan', () => {
 
     expect(wholePathSpy).toHaveBeenCalledOnce();
     expect(contourSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('ExportSystem with a fitted output size', () => {
+  const SMALL = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L24 0 L24 24 L0 24 Z" fill="#ff0000" stroke="none"/></svg>`;
+  const BIG = `<svg width="240" height="240" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L240 0 L240 240 L0 240 Z" fill="#0000ff" stroke="none"/></svg>`;
+
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const exportSMIL = async (source: string, target: string) => {
+    const result = await new ExportSystem().exportAnimation(
+      source,
+      target,
+      createExportOptions({ format: 'smil', optimize: false, duration: 2 }),
+    );
+    return result.content as string;
+  };
+
+  it('exports in the shared box: the small drawing is scaled up, not stretched', async () => {
+    const { source, target } = fitPair(parseSVG(SMALL), parseSVG(BIG), 'larger');
+    const content = await exportSMIL(serializeSVGData(source), serializeSVGData(target));
+
+    expect(content).toContain('viewBox="0 0 240 240"');
+    expect(content).not.toContain('viewBox="0 0 24 24"');
+    // the 24-wide square reaches the far edge of the 240 box
+    expect(content).toMatch(/240/);
+  });
+
+  it('is the same export as before when no scaling is chosen ("asIs" hands over the uploaded strings)', async () => {
+    const pair = fitPair(parseSVG(SMALL), parseSVG(BIG), 'asIs');
+    expect(pair.source).toEqual(parseSVG(SMALL));
+    const content = await exportSMIL(SMALL, BIG);
+    expect(content).toContain('viewBox="0 0 24 24"');
   });
 });

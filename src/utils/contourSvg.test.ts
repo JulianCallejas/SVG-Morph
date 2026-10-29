@@ -251,3 +251,51 @@ describe('buildContourSVG: slide', () => {
     expect(svg).not.toContain('transform');
   });
 });
+
+describe('buildContourSVG with keepHoles', () => {
+  const donut = (fill: string, d = 'M0 0 H100 V100 H0 Z M25 25 V75 H75 V25 Z'): SVGData => ({
+    paths: [{ d, fill, stroke: 'none', strokeWidth: 1 }],
+    viewBox: '0 0 100 100',
+    width: 100,
+    height: 100,
+  });
+  const source = donut('#ff0000');
+  const target = donut('#0000ff', 'M5 5 H95 V95 H5 Z M30 30 V70 H70 V30 Z');
+  const { plan } = planContours(source, target)!;
+
+  it('draws the donut as one compound path that stays a donut, instead of two filled paths', () => {
+    const svg = buildContourSVG(source, target, plan, 0.5, { keepHoles: true });
+
+    expect(pathCount(svg)).toBe(1);
+    expect(svg).toContain('fill-rule="evenodd"');
+    const d = svg.match(/ d="([^"]*)"/)![1];
+    expect(d.match(/M/g)).toHaveLength(2);
+    expect(svg).toContain('fill="rgb(128, 0, 128)"');
+  });
+
+  it('is exactly the previous output when it is off or not given', () => {
+    const before = buildContourSVG(source, target, plan, 0.5);
+
+    expect(buildContourSVG(source, target, plan, 0.5, { keepHoles: false })).toBe(before);
+    expect(pathCount(before)).toBe(2);
+    expect(before).not.toContain('fill-rule');
+  });
+
+  it('changes nothing for a shape without fill, even when on', () => {
+    const outline = (d?: string) => ({ ...donut('none', d), paths: [{ d: d ?? 'M0 0 H100 V100 H0 Z M25 25 V75 H75 V25 Z', fill: 'none', stroke: '#000000', strokeWidth: 2 }] });
+    const a = outline();
+    const b = outline('M5 5 H95 V95 H5 Z M30 30 V70 H70 V30 Z');
+    const { plan: outlinePlan } = planContours(a, b)!;
+
+    expect(buildContourSVG(a, b, outlinePlan, 0.5, { keepHoles: true })).toBe(buildContourSVG(a, b, outlinePlan, 0.5));
+  });
+
+  it('the compound holds the outer then the hole at every progress, ends included', () => {
+    for (const progress of [0, 1]) {
+      const svg = buildContourSVG(source, target, plan, progress, { keepHoles: true });
+      const separate = buildContourSVG(source, target, plan, progress);
+      const parts = [...separate.matchAll(/ d="([^"]*)"/g)].map((m) => m[1]);
+      expect(svg).toContain(`d="${parts.join(' ')}"`);
+    }
+  });
+});

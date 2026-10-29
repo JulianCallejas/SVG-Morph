@@ -232,3 +232,32 @@ describe('React component with sliding contours', () => {
     expect(plain).not.toContain('clipPath');
   });
 });
+
+describe('React component with keepHoles', () => {
+  const donut = (fill: string, d: string): SVGData => ({
+    paths: [{ d, fill, stroke: 'none', strokeWidth: 1 }],
+    viewBox: '0 0 100 100',
+    width: 100,
+    height: 100,
+  });
+  const a = donut('#ff0000', 'M0 0 H100 V100 H0 Z M25 25 V75 H75 V25 Z');
+  const b = donut('#0000ff', 'M5 5 H95 V95 H5 Z M30 30 V70 H70 V30 Z');
+  const donutPlan = planContours(a, b)!.plan;
+  const generate = (overrides: Partial<ReactComponentOptions> = {}) =>
+    reactComponentGenerator.generateComponent(forReact(a), forReact(b), options(overrides), donutPlan).component;
+
+  it('renders the donut as one even-odd path that still compiles', () => {
+    const html = render(load(generate({ keepHoles: true })).default);
+
+    expect(count(html, /<path /g)).toBe(1);
+    expect(html).toContain('fill-rule="evenodd"');
+  });
+
+  it('is the same component as before when it is off or not given', () => {
+    const before = generate();
+
+    expect(generate({ keepHoles: false })).toBe(before);
+    expect(count(render(load(before).default), /<path /g)).toBe(2);
+    expect(before).not.toContain('fillRule');
+  });
+});

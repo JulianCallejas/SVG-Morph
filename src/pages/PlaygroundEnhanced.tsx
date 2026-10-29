@@ -9,6 +9,9 @@ import { EnhancedExportPanel } from '../components/EnhancedExportPanel';
 import { ReactComponentExportPanel } from '../components/ReactComponentExportPanel';
 import { ThreeDMorphingPanel } from '../components/ThreeDMorphingPanel';
 import { FittedSVG } from '../components/FittedSVG';
+import { OutputSizeSelect } from '../components/OutputSizeSelect';
+import { UrlImport } from '../components/UrlImport';
+import { IconLibraryDialog } from '../components/IconLibraryDialog';
 import { ProcessingIndicator } from '../components/ProcessingIndicator';
 import { Button } from '../components/ui/Button';
 import { CheckRow } from '../components/ui/Fields';
@@ -57,6 +60,7 @@ export const PlaygroundEnhanced: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<StudioTab>('upload');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showIcons, setShowIcons] = useState(false);
   const [viewMode, setViewMode] = useState<'split' | 'overlay'>('overlay');
 
   // Extract points from SVG data when available
@@ -195,6 +199,8 @@ export const PlaygroundEnhanced: React.FC = () => {
               text="Start by uploading your source and target SVG files to create morphing animations"
             />
 
+            <Button onClick={() => setShowIcons(true)}>Browse icon libraries</Button>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Source SVG</h3>
@@ -204,6 +210,12 @@ export const PlaygroundEnhanced: React.FC = () => {
                   }}
                   label="Drop your source SVG here"
                   hasFile={!!sourceSVG}
+                />
+                <UrlImport
+                  label="Or import the source from a URL"
+                  onImport={async (content) => {
+                    await setSourceSVG(content);
+                  }}
                 />
                 {sourceSVG && (
                   <Panel>
@@ -224,6 +236,12 @@ export const PlaygroundEnhanced: React.FC = () => {
                   label="Drop your target SVG here"
                   hasFile={!!targetSVG}
                 />
+                <UrlImport
+                  label="Or import the target from a URL"
+                  onImport={async (content) => {
+                    await setTargetSVG(content);
+                  }}
+                />
                 {targetSVG && (
                   <Panel>
                     <h4 className="mb-3 text-sm font-medium text-muted">Target Preview</h4>
@@ -234,6 +252,12 @@ export const PlaygroundEnhanced: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {sourceSVG && targetSVG && (
+              <Panel>
+                <OutputSizeSelect />
+              </Panel>
+            )}
 
             {canProceedToMatching && (
               <Button variant="primary" onClick={() => setActiveTab('match')}>
@@ -397,6 +421,15 @@ export const PlaygroundEnhanced: React.FC = () => {
           </div>
         )}
       </div>
+
+      {showIcons && (
+        <IconLibraryDialog
+          onClose={() => setShowIcons(false)}
+          onUse={async (side, svg) => {
+            await (side === 'source' ? setSourceSVG(svg) : setTargetSVG(svg));
+          }}
+        />
+      )}
 
       {/* Advanced Settings Panel */}
       {showAdvanced && (

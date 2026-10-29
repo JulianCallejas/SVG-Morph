@@ -36,6 +36,8 @@ export interface ReactComponentOptions {
   responsive: boolean;
   accessibility: boolean;
   styledComponents: boolean;
+  /** With a contour plan: draw the holes of filled shapes as holes. Default false. */
+  keepHoles?: boolean;
 }
 
 export interface ComponentTemplate {
@@ -119,7 +121,9 @@ export class ReactComponentGenerator {
       );
     }
 
-    const model = buildContourSmilModel(toMorphData(sourceSVG), toMorphData(targetSVG), plan);
+    const model = buildContourSmilModel(toMorphData(sourceSVG), toMorphData(targetSVG), plan, {
+      keepHoles: options.keepHoles,
+    });
     const ts = options.typescript;
     const props = options.includeProps;
     const width = options.responsive ? "'100%'" : String(finite(model.width, 100));
@@ -145,6 +149,7 @@ export class ReactComponentGenerator {
       const attrs = [
         `d={${literal(path.d)}}`,
         `fill={${literal(path.fill)}}`,
+        path.fillRule ? `fillRule=${literal(path.fillRule)}` : '',
         `stroke={${literal(path.stroke)}}`,
         `strokeWidth={${finite(path.strokeWidth, 1)}}`,
         `opacity={${finite(path.opacity, 1)}}`,
