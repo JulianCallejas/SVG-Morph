@@ -9,6 +9,7 @@ import {
   type RenderedContour,
 } from './contourInterpolation';
 import { VIEW_CLIP_ID, clipPathTag, parseViewBox, planSlides } from './contourSlide';
+import { holeGroups } from './contourHoleGroups';
 
 /** A contour plus the style of the `<path>` it was split from. */
 export interface StyledContour extends Contour {
@@ -121,6 +122,7 @@ function pathElement(
   from: StyledContour | undefined,
   to: StyledContour | undefined,
   progress: number,
+  fillRule?: 'evenodd',
 ): string {
   const a = from ?? to;
   const b = to ?? from;
@@ -141,8 +143,8 @@ function pathElement(
   const move = item.offset ? ` transform="translate(${round4(item.offset.x)} ${round4(item.offset.y)})"` : '';
 
   return (
-    `<path d="${escapeAttr(item.d)}" fill="${escapeAttr(fill)}" stroke="${escapeAttr(stroke)}"` +
-    ` stroke-width="${round4(strokeWidth)}" opacity="${opacity}"${capAttrs}${move} />`
+    `<path d="${escapeAttr(item.d)}" fill="${escapeAttr(fill)}"${fillRule ? ` fill-rule="${fillRule}"` : ''}` +
+    ` stroke="${escapeAttr(stroke)}" stroke-width="${round4(strokeWidth)}" opacity="${opacity}"${capAttrs}${move} />`
   );
 }
 
@@ -156,7 +158,7 @@ export function buildContourSVG(
   target: SVGData,
   plan: ContourPlanEntry[],
   progress: number,
-  options?: InterpolateContoursOptions,
+  { keepHoles = false, ...options }: InterpolateContoursOptions & { keepHoles?: boolean } = {},
 ): string {
   const sourceContours = contoursFromSVGData(source, 'source');
   const targetContours = contoursFromSVGData(target, 'target');
@@ -167,14 +169,37 @@ export function buildContourSVG(
   const targetById = new Map(targetContours.map((c) => [c.id, c]));
   const t = Math.min(1, Math.max(0, progress));
 
-  const paths = items.map((item) =>
-    pathElement(
-      item,
-      item.sourceId ? sourceById.get(item.sourceId) : undefined,
-      item.targetId ? targetById.get(item.targetId) : undefined,
-      t,
-    ),
-  );
+  // With `keepHoles`, a hole is not drawn on its own: its outline joins the outer shape's path,
+  // which is filled even-odd, so the hole stays empty while both morph.
+  const pairKey = (sourceId: string | null, targetId: string | null) => `${sourceId}|${targetId}`;
+  const itemOfPair = new Map(items.map((item) => [pairKey(item.sourceId, item.targetId), item]));
+  const holesOf = new Map<RenderedContour, RenderedContour[]>();
+  const absorbed = new Set<RenderedContour>();
+  if (keepHoles) {
+    for (const group of holeGroups(plan, sourceContours, targetContours)) {
+      const outer = itemOfPair.get(pairKey(plan[group.outer].sourceId, plan[group.outer].targetId));
+      const holes = group.holes.flatMap((index) => {
+        const hole = itemOfPair.get(pairKey(plan[index].sourceId, plan[index].targetId));
+        return hole ? [hole] : [];
+      });
+      if (!outer || holes.length === 0) continue;
+      holesOf.set(outer, holes);
+      holes.forEach((hole) => absorbed.add(hole));
+    }
+  }
+
+  const paths = items
+    .filter((item) => !absorbed.has(item))
+    .map((item) => {
+      const holes = holesOf.get(item);
+      return pathElement(
+        holes ? { ...item, d: [item.d, ...holes.map((hole) => hole.d)].join(' ') } : item,
+        item.sourceId ? sourceById.get(item.sourceId) : undefined,
+        item.targetId ? targetById.get(item.targetId) : undefined,
+        t,
+        holes ? 'evenodd' : undefined,
+      );
+    });
 
   // a slide leaves the drawing through its edge: whatever is outside the viewBox stays hidden
   const body = planSlides(plan)
