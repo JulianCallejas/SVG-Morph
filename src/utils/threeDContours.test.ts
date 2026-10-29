@@ -506,3 +506,77 @@ describe('buildContourScene with filled contours that are not closed', () => {
     expect(parts[0].kind).toBe('tube');
   });
 });
+
+describe('buildSolid caps while morphing', () => {
+  // Twelve nodes on both sides. The first outline is a convex ring of points, the second is a
+  // plus sign: the triangles that cover one do not cover the other, so the caps must follow the shape.
+  const circle = Array.from({ length: 12 }, (_, i) => ({
+    x: 10 * Math.cos((i / 12) * 2 * Math.PI),
+    y: 10 * Math.sin((i / 12) * 2 * Math.PI),
+  }));
+  const plus = [
+    [-3, -10], [3, -10], [3, -3], [10, -3], [10, 3], [3, 3], [3, 10], [-3, 10], [-3, 3], [-10, 3], [-10, -3], [-3, -3],
+  ].map(([x, y]) => ({ x, y }));
+
+  const frontCaps = (solid: MorphGeometryData, progress: number) => {
+    const out = positionsAt(solid, progress);
+    const total = solid.vertexCount / 6;
+    let signed = 0;
+    let absolute = 0;
+    let inverted = 0;
+    for (let i = 0; i < solid.index.length; i += 3) {
+      const [a, b, c] = [solid.index[i], solid.index[i + 1], solid.index[i + 2]];
+      if (a >= total || b >= total || c >= total || (a === b && b === c)) continue;
+      const area =
+        ((out[b * 3] - out[a * 3]) * (out[c * 3 + 1] - out[a * 3 + 1]) -
+          (out[c * 3] - out[a * 3]) * (out[b * 3 + 1] - out[a * 3 + 1])) /
+        2;
+      signed += area;
+      absolute += Math.abs(area);
+      if (area < -1e-9) inverted++;
+    }
+    return { signed, absolute, inverted };
+  };
+
+  const shoelace = (points: Array<{ x: number; y: number }>) =>
+    Math.abs(points.reduce((sum, p, i) => sum + (p.x * points[(i + 1) % points.length].y - points[(i + 1) % points.length].x * p.y), 0)) / 2;
+
+  it('covers the shape it has reached with triangles that do not overlap, at the start and at the end', () => {
+    const solid = buildSolid(circle, plus, 6);
+
+    const start = frontCaps(solid, 0);
+    expect(start.inverted).toBe(0);
+    expect(start.absolute).toBeCloseTo(shoelace(circle), 3);
+
+    const end = frontCaps(solid, 1);
+    expect(end.inverted).toBe(0);
+    expect(end.signed).toBeCloseTo(shoelace(plus), 3);
+    expect(end.absolute).toBeCloseTo(end.signed, 3);
+  });
+
+  it('keeps the same size of index buffer, so the geometry can be updated in place', () => {
+    const solid = buildSolid(circle, plus, 6);
+    const index = solid.index;
+    const length = index.length;
+
+    positionsAt(solid, 1);
+    positionsAt(solid, 0.5);
+
+    expect(solid.index).toBe(index);
+    expect(solid.index.length).toBe(length);
+    expect(Math.max(...solid.index)).toBeLessThan(solid.vertexCount);
+  });
+
+  it('retriangulates a ring with a hole at the end too', () => {
+    const outer = { from: circle, to: plus };
+    const smallCircle = circle.map((p) => ({ x: p.x * 0.3, y: p.y * 0.3 }));
+    const smallPlus = plus.map((p) => ({ x: p.x * 0.3, y: p.y * 0.3 }));
+    const solid = buildSolid(outer.from, outer.to, 6, [{ from: smallCircle, to: smallPlus }]);
+
+    const end = frontCaps(solid, 1);
+
+    expect(end.inverted).toBe(0);
+    expect(end.signed).toBeCloseTo(shoelace(plus) - shoelace(smallPlus), 3);
+    expect(end.absolute).toBeCloseTo(end.signed, 3);
+  });
+});
