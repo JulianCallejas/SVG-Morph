@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { ICON_PROVIDERS, type IconEntry } from '../utils/iconLibraries';
-import { DEFAULT_PAGE_SIZE, PAGE_SIZES, type Page } from '../utils/iconPaging';
+import { ICON_PROVIDERS, type IconEntry, type IconPage } from '../utils/iconLibraries';
+import { DEFAULT_PAGE_SIZE, PAGE_SIZES } from '../utils/iconPaging';
 import { prepareIconSvg } from '../utils/iconSvg';
 import { Button } from './ui/Button';
 import { Field, Select } from './ui/Fields';
@@ -19,7 +19,10 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
-  const [result, setResult] = useState<Page<IconEntry> | null>(null);
+  const [setId, setSetId] = useState<string | undefined>(ICON_PROVIDERS[0].sets?.[0]?.id);
+  // Online providers stay idle until the user agrees to connect, once per opening of the dialog
+  const [connected, setConnected] = useState<string[]>([]);
+  const [result, setResult] = useState<IconPage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
@@ -28,6 +31,7 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
   const searchRef = useRef<HTMLInputElement>(null);
 
   const provider = ICON_PROVIDERS.find((item) => item.id === providerId) ?? ICON_PROVIDERS[0];
+  const needsConsent = provider.remote && !connected.includes(provider.id);
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -48,11 +52,12 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
   }, [searchText]);
 
   useEffect(() => {
+    if (needsConsent) return;
     const controller = new AbortController();
     setIsLoading(true);
     setError(null);
     provider
-      .list({ query, page, pageSize, signal: controller.signal })
+      .list({ query, page, pageSize, set: setId, signal: controller.signal })
       .then((next) => {
         if (controller.signal.aborted) return;
         setResult(next);
@@ -66,7 +71,7 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
         if (!controller.signal.aborted) setIsLoading(false);
       });
     return () => controller.abort();
-  }, [provider, query, page, pageSize, retry]);
+  }, [provider, setId, needsConsent, query, page, pageSize, retry]);
 
   const use = async (side: 'source' | 'target') => {
     if (!selected) return;
@@ -101,15 +106,18 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 px-4 sm:grid-cols-[1fr_2fr_1fr] sm:px-6">
+        <div className="grid grid-cols-1 gap-3 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
           <Field label="Library">
             <Select
               value={providerId}
               onChange={(event) => {
-                setProviderId(event.target.value);
+                const next = ICON_PROVIDERS.find((item) => item.id === event.target.value) ?? ICON_PROVIDERS[0];
+                setProviderId(next.id);
+                setSetId(next.sets?.[0]?.id);
                 setPage(1);
                 setSelected(null);
                 setResult(null);
+                setError(null);
               }}
             >
               {ICON_PROVIDERS.map((item) => (
@@ -119,6 +127,25 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
               ))}
             </Select>
           </Field>
+          {provider.sets && (
+            <Field label="Icon set">
+              <Select
+                value={setId}
+                onChange={(event) => {
+                  setSetId(event.target.value);
+                  setPage(1);
+                  setSelected(null);
+                  setResult(null);
+                }}
+              >
+                {provider.sets.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Field label="Search">
             <input
               ref={searchRef}
@@ -147,7 +174,17 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6" aria-busy={isLoading}>
-          {error ? (
+          {needsConsent ? (
+            <div className="max-w-[60ch] space-y-3">
+              <p className="text-sm">
+                {provider.label} is an online service. Browsing it sends the icon set you pick, your search text and the
+                names of the icons on screen to api.iconify.design. Your own SVGs are never sent.
+              </p>
+              <Button variant="primary" onClick={() => setConnected((ids) => [...ids, provider.id])}>
+                Connect to {provider.label}
+              </Button>
+            </div>
+          ) : error ? (
             <div role="alert" className="space-y-3">
               <p className="text-sm text-danger">{error}</p>
               <Button onClick={() => setRetry((count) => count + 1)}>Try again</Button>
@@ -221,7 +258,7 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
                   <p className="min-w-0 text-sm">
                     <span className="block truncate font-medium">{selected.name}</span>
                     <span className="text-muted">
-                      {provider.label} · {provider.license} license
+                      {provider.label} · {result?.license ?? provider.license} license
                     </span>
                   </p>
                 </>
