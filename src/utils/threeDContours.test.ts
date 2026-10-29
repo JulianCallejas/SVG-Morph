@@ -464,3 +464,119 @@ describe('buildContourScene', () => {
     });
   });
 });
+
+describe('buildContourScene with filled contours that are not closed', () => {
+  // no closing Z, like the Phosphor icons: a renderer fills each subpath as if it were closed
+  const open = (d: string, fill = '#ffffff') => ({ ...svgData([{ d, fill }]), viewBox: '0 0 100 100' });
+  const donut = open('M0 0 H100 V100 H0 M30 30 V70 H70 V30');
+  const other = open('M0 0 H100 V100 H0 M20 20 V80 H80 V20');
+  const morph = (id: string, to: string): ContourPlanEntry => ({
+    sourceId: id,
+    targetId: to,
+    mode: 'morph',
+    swapAt: 0.5,
+    fadeWindow: 0,
+  });
+  const plan = [morph('s1.1', 't1.1'), morph('s1.2', 't1.2')];
+
+  it('extrudes them as one ring with its hole, not as wires', () => {
+    const { parts } = buildContourScene(donut, other, plan, { depth: 20 });
+
+    expect(parts).toHaveLength(1);
+    expect(parts[0].kind).toBe('solid');
+    const plain = buildContourScene(open('M0 0 H100 V100 H0'), open('M0 0 H100 V100 H0'), [morph('s1.1', 't1.1')], {
+      depth: 20,
+    }).parts[0];
+    expect(plain.kind).toBe('solid');
+    expect(parts[0].geometry.vertexCount).toBeGreaterThan(plain.geometry.vertexCount);
+  });
+
+  it('gives finite positions at every progress', () => {
+    const { geometry } = buildContourScene(donut, other, plan, { depth: 20 }).parts[0];
+    for (const progress of [0, 0.5, 1]) {
+      expect(positionsAt(geometry, progress).every(Number.isFinite)).toBe(true);
+    }
+  });
+
+  it('still draws an open contour without fill as a tube', () => {
+    const line = open('M0 0 H100 V100', 'none');
+
+    const { parts } = buildContourScene(line, line, [morph('s1.1', 't1.1')], { depth: 20 });
+
+    expect(parts[0].kind).toBe('tube');
+  });
+});
+
+describe('buildSolid caps while morphing', () => {
+  // Twelve nodes on both sides. The first outline is a convex ring of points, the second is a
+  // plus sign: the triangles that cover one do not cover the other, so the caps must follow the shape.
+  const circle = Array.from({ length: 12 }, (_, i) => ({
+    x: 10 * Math.cos((i / 12) * 2 * Math.PI),
+    y: 10 * Math.sin((i / 12) * 2 * Math.PI),
+  }));
+  const plus = [
+    [-3, -10], [3, -10], [3, -3], [10, -3], [10, 3], [3, 3], [3, 10], [-3, 10], [-3, 3], [-10, 3], [-10, -3], [-3, -3],
+  ].map(([x, y]) => ({ x, y }));
+
+  const frontCaps = (solid: MorphGeometryData, progress: number) => {
+    const out = positionsAt(solid, progress);
+    const total = solid.vertexCount / 6;
+    let signed = 0;
+    let absolute = 0;
+    let inverted = 0;
+    for (let i = 0; i < solid.index.length; i += 3) {
+      const [a, b, c] = [solid.index[i], solid.index[i + 1], solid.index[i + 2]];
+      if (a >= total || b >= total || c >= total || (a === b && b === c)) continue;
+      const area =
+        ((out[b * 3] - out[a * 3]) * (out[c * 3 + 1] - out[a * 3 + 1]) -
+          (out[c * 3] - out[a * 3]) * (out[b * 3 + 1] - out[a * 3 + 1])) /
+        2;
+      signed += area;
+      absolute += Math.abs(area);
+      if (area < -1e-9) inverted++;
+    }
+    return { signed, absolute, inverted };
+  };
+
+  const shoelace = (points: Array<{ x: number; y: number }>) =>
+    Math.abs(points.reduce((sum, p, i) => sum + (p.x * points[(i + 1) % points.length].y - points[(i + 1) % points.length].x * p.y), 0)) / 2;
+
+  it('covers the shape it has reached with triangles that do not overlap, at the start and at the end', () => {
+    const solid = buildSolid(circle, plus, 6);
+
+    const start = frontCaps(solid, 0);
+    expect(start.inverted).toBe(0);
+    expect(start.absolute).toBeCloseTo(shoelace(circle), 3);
+
+    const end = frontCaps(solid, 1);
+    expect(end.inverted).toBe(0);
+    expect(end.signed).toBeCloseTo(shoelace(plus), 3);
+    expect(end.absolute).toBeCloseTo(end.signed, 3);
+  });
+
+  it('keeps the same size of index buffer, so the geometry can be updated in place', () => {
+    const solid = buildSolid(circle, plus, 6);
+    const index = solid.index;
+    const length = index.length;
+
+    positionsAt(solid, 1);
+    positionsAt(solid, 0.5);
+
+    expect(solid.index).toBe(index);
+    expect(solid.index.length).toBe(length);
+    expect(Math.max(...solid.index)).toBeLessThan(solid.vertexCount);
+  });
+
+  it('retriangulates a ring with a hole at the end too', () => {
+    const outer = { from: circle, to: plus };
+    const smallCircle = circle.map((p) => ({ x: p.x * 0.3, y: p.y * 0.3 }));
+    const smallPlus = plus.map((p) => ({ x: p.x * 0.3, y: p.y * 0.3 }));
+    const solid = buildSolid(outer.from, outer.to, 6, [{ from: smallCircle, to: smallPlus }]);
+
+    const end = frontCaps(solid, 1);
+
+    expect(end.inverted).toBe(0);
+    expect(end.signed).toBeCloseTo(shoelace(plus) - shoelace(smallPlus), 3);
+    expect(end.absolute).toBeCloseTo(end.signed, 3);
+  });
+});

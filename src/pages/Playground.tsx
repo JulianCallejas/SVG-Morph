@@ -4,6 +4,9 @@ import { SVGPreview } from '../components/SVGPreview';
 import { AnimationControls } from '../components/AnimationControls';
 import { ExportPanel } from '../components/ExportPanel';
 import { ContourPlanPanel } from '../components/ContourPlanPanel';
+import { IconLibraryButton } from '../components/IconLibraryButton';
+import { OutputSizeSelect } from '../components/OutputSizeSelect';
+import { UrlImport } from '../components/UrlImport';
 import { Button } from '../components/ui/Button';
 import { Panel } from '../components/ui/Panel';
 import { useMorphStore } from '../store/morphStore';
@@ -51,16 +54,24 @@ export const Playground: React.FC = () => {
         <div className="grid gap-8 lg:grid-cols-3 lg:items-start">
           <Panel title="Upload SVGs" className="lg:col-start-1">
             <div className="space-y-4">
+              <IconLibraryButton
+                onUse={async (side, svg) => {
+                  await (side === 'source' ? setSourceSVG(svg) : setTargetSVG(svg));
+                }}
+              />
               <FileUploadZone
                 label="Source SVG"
                 onUpload={handleSourceUpload}
                 hasFile={!!sourceSVG}
               />
+              <UrlImport label="Or import the source from a URL" onImport={setSourceSVG} />
               <FileUploadZone
                 label="Target SVG"
                 onUpload={handleTargetUpload}
                 hasFile={!!targetSVG}
               />
+              <UrlImport label="Or import the target from a URL" onImport={setTargetSVG} />
+              {sourceSVG && targetSVG && <OutputSizeSelect />}
             </div>
           </Panel>
 

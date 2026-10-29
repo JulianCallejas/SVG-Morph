@@ -270,7 +270,11 @@ export class ThreeDMorphingEngine {
   exportImage(format: 'png' | 'jpg' = 'png', quality: number = 1.0): string {
     if (!this.scene) throw new Error('No 3D scene available');
 
-    return this.scene.renderer.domElement.toDataURL(`image/${format}`, quality);
+    // The canvas is cleared once the browser has shown a frame, so draw one right before reading it
+    // back: without this the image comes out empty.
+    const { renderer, scene, camera } = this.scene;
+    renderer.render(scene, camera);
+    return renderer.domElement.toDataURL(`image/${format}`, quality);
   }
 
   /**
@@ -382,6 +386,8 @@ export class ThreeDMorphingEngine {
     for (const { part, mesh, positions } of group.userData.live as LivePart[]) {
       part.geometry.fill(progress, positions);
       mesh.geometry.attributes.position.needsUpdate = true;
+      // a solid re-triangulates its caps for the shape it has reached
+      if (mesh.geometry.index) mesh.geometry.index.needsUpdate = true;
       mesh.geometry.computeVertexNormals();
       if (part.geometry.fixNormals) {
         part.geometry.fixNormals(mesh.geometry.attributes.normal.array);

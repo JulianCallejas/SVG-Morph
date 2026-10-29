@@ -4,6 +4,8 @@ import { threeDMorphing, ThreeDMorphingOptions, DEFAULT_MATERIAL_COLOR } from '.
 import { useToast } from '../contexts/ToastContext';
 import { useMorphStore } from '../store/morphStore';
 import { FileUploadZone } from '../components/FileUploadZone';
+import { IconLibraryButton } from '../components/IconLibraryButton';
+import { UrlImport } from '../components/UrlImport';
 import { ThreeDExportPanel } from '../components/ThreeDExportPanel';
 import { Button } from '../components/ui/Button';
 import { CheckRow, Field, Slider } from '../components/ui/Fields';
@@ -175,7 +177,13 @@ export const ThreeDMorphing: React.FC = () => {
 
         {/* File Upload Section */}
         {(!sourceSVG || !targetSVG) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="mb-8 space-y-6">
+            <IconLibraryButton
+              onUse={async (side, svg) => {
+                await (side === 'source' ? setSourceSVG(svg) : setTargetSVG(svg));
+              }}
+            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h3 className="text-lg font-medium mb-4">Source SVG</h3>
               <FileUploadZone
@@ -185,6 +193,9 @@ export const ThreeDMorphing: React.FC = () => {
                 }}
                 hasFile={!!sourceSVG}
               />
+              <div className="mt-4">
+                <UrlImport label="Or import the source from a URL" onImport={setSourceSVG} />
+              </div>
             </div>
             <div>
               <h3 className="text-lg font-medium mb-4">Target SVG</h3>
@@ -195,7 +206,11 @@ export const ThreeDMorphing: React.FC = () => {
                 }}
                 hasFile={!!targetSVG}
               />
+              <div className="mt-4">
+                <UrlImport label="Or import the target from a URL" onImport={setTargetSVG} />
+              </div>
             </div>
+          </div>
           </div>
         )}
 

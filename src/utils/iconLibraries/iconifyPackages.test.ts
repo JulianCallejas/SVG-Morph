@@ -5,6 +5,7 @@ import { prepareIconSvg } from '../iconSvg';
 import { parseSVG } from '../svgMorphing';
 import { planContours } from '../contourSvg';
 import { holeGroups } from '../contourHoleGroups';
+import { buildContourScene } from '../threeDContours';
 
 describe.each([
   ['tabler', tablerProvider, 'arrow-up', 24],
@@ -49,5 +50,28 @@ describe('hollow Phosphor icons', () => {
     expect(found).toHaveLength(1);
     expect(planned.plan[found[0].outer].mode).toBe('morph');
     expect(found[0].holes).toHaveLength(1);
+  });
+
+  it('are extruded in 3D as solids with their hole, at every progress', async () => {
+    const load = async (name: string) => {
+      const page = await phosphorProvider.list({ query: name, page: 1, pageSize: 96 });
+      return parseSVG(prepareIconSvg(page.items.find((item) => item.name === name)!.svg));
+    };
+    const source = await load('airplane');
+    const target = await load('airplane-landing');
+    const { plan } = planContours(source, target)!;
+
+    const { parts } = buildContourScene(source, target, plan, { depth: 20 });
+
+    // the plane and the bar under it are solids, not wires, and the hole is cut out of the plane
+    expect(parts.every((part) => part.kind === 'solid')).toBe(true);
+    expect(parts).toHaveLength(2);
+    for (const part of parts) {
+      for (const progress of [0, 0.5, 1]) {
+        const out = new Float32Array(part.geometry.vertexCount * 3);
+        part.geometry.fill(progress, out);
+        expect(out.every(Number.isFinite)).toBe(true);
+      }
+    }
   });
 });

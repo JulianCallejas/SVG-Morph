@@ -5,6 +5,7 @@ import type { SVGData } from '../workers/pathProcessor';
 import { useToast } from '../contexts/ToastContext';
 import { useMorphStore } from '../store/morphStore';
 import { Button } from './ui/Button';
+import { ThreeDExportPanel } from './ThreeDExportPanel';
 import { CheckRow, Field, Slider } from './ui/Fields';
 import { Panel } from './ui/Panel';
 
@@ -23,6 +24,7 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [showModelExport, setShowModelExport] = useState(false);
   
   const [options, setOptions] = useState<ThreeDMorphingOptions>({
     depth: 20,
@@ -201,6 +203,16 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
             aria-label="Export Image"
           >
             <Download className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowModelExport(true)}
+            disabled={!isInitialized}
+            title="Export 3D model (glTF, OBJ, STL, PLY)"
+            aria-label="Export 3D model"
+          >
+            <Box className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
@@ -434,6 +446,12 @@ export const ThreeDMorphingPanel: React.FC<ThreeDMorphingPanelProps> = ({
           </div>
         )}
       </div>
+
+      <ThreeDExportPanel
+        scene={sceneRef.current}
+        isOpen={showModelExport}
+        onClose={() => setShowModelExport(false)}
+      />
     </Panel>
   );
 };

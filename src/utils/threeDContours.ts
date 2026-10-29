@@ -22,7 +22,10 @@ import { offscreenOffset, oppositeDirection, parseViewBox, slideOf, slideProgres
 export interface MorphGeometryData {
   vertexCount: number;
   index: Uint32Array;
-  /** Writes `vertexCount * 3` positions for this progress (0..1) into `out`. */
+  /**
+   * Writes `vertexCount * 3` positions for this progress (0..1) into `out`. A solid also rewrites its
+   * `index` in place (same length), so whoever draws it has to upload the index again after each call.
+   */
   fill(progress: number, out: Float32Array): void;
   /**
    * Optional: overwrite the normals that averaging the triangles gets wrong (the flat caps of a
@@ -209,8 +212,10 @@ function mergeHoles(specs: PartSpec[], sourceHoles: Map<string, string>, targetH
 
 /**
  * A closed outline extruded by `depth` (centered on z = 0), morphing between two outlines with
- * the same number of nodes. The cap triangles come from the first outline and are reused for
- * the whole morph. `holes` are inner outlines cut out of the caps and walled like the outline, so
+ * the same number of nodes. The cap triangles are worked out again for the shape the morph has
+ * reached each time `fill` runs (the same triangles would overlap and flip on a different shape, and
+ * flicker); the index buffer keeps its size and is rewritten in place, padded with degenerate
+ * triangles when a frame needs fewer. `holes` are inner outlines cut out of the caps and walled like the outline, so
  * a ring is a ring and not a disc; each one morphs between its own two shapes. Vertices are laid
  * out ring by ring (outline, then each hole), front cap first, then back cap, then the walls.
  */
@@ -218,22 +223,40 @@ export function buildSolid(from: Point[], to: Point[], depth: number, holes: Sol
   const rings = [{ from, to }, ...holes];
   const total = rings.reduce((sum, ring) => sum + ring.from.length, 0);
   const vec = (points: Point[]) => points.map((p) => new Vector2(p.x, p.y));
-  const faces = ShapeUtils.triangulateShape(vec(from), holes.map((hole) => vec(hole.from)));
+  const capFaces = (progress: number): number[][] => {
+    const shapes = rings.map((ring) => vec(lerpPoints(ring.from, ring.to, progress)));
+    return ShapeUtils.triangulateShape(shapes[0], shapes.slice(1));
+  };
+  // the most triangles a frame can need: the two ends and the middle
+  const capacity = Math.max(capFaces(0).length, capFaces(0.5).length, capFaces(1).length);
 
-  const indices: number[] = [];
-  for (const [a, b, c] of faces) indices.push(a, b, c, total + a, total + c, total + b);
+  const wallIndices: number[] = [];
   // each wall quad has its own four vertices (flat shading)
   let base = 2 * total;
   for (const ring of rings) {
     for (let i = 0; i < ring.from.length; i++) {
-      indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      wallIndices.push(base, base + 1, base + 2, base, base + 2, base + 3);
       base += 4;
     }
   }
 
+  const index = new Uint32Array(capacity * 6 + wallIndices.length);
+  index.set(wallIndices, capacity * 6);
+  let capsFor = Number.NaN;
+  const writeCaps = (progress: number) => {
+    if (progress === capsFor) return;
+    capsFor = progress;
+    const faces = capFaces(progress);
+    for (let f = 0; f < capacity; f++) {
+      const [a, b, c] = faces[f] ?? [0, 0, 0];
+      index.set([a, b, c, total + a, total + c, total + b], f * 6);
+    }
+  };
+  writeCaps(0);
+
   return {
     vertexCount: 6 * total,
-    index: Uint32Array.from(indices),
+    index,
     // the cap triangles do not all wind the same way, so their averaged normals shade patchily
     fixNormals(normals) {
       for (let i = 0; i < total; i++) {
@@ -243,6 +266,7 @@ export function buildSolid(from: Point[], to: Point[], depth: number, holes: Sol
     },
     fill(progress, out) {
       const t = clamp01(progress);
+      writeCaps(t);
       const front = depth / 2;
       const back = -depth / 2;
       const shapes = rings.map((ring) => lerpPoints(ring.from, ring.to, t));
@@ -285,8 +309,16 @@ export function buildSolid(from: Point[], to: Point[], depth: number, holes: Sol
 // An unset fill counts as no fill, like everywhere else in the app.
 const isFilled = (contour: StyledContour): boolean => contour.fill !== undefined && contour.fill !== 'none';
 
-// Nodes of a closed contour repeat the first one at the end; geometry wants each node once.
-const distinct = (points: Point[], closed: boolean): Point[] => (closed ? points.slice(0, -1) : points);
+// A renderer fills an open subpath as if it were closed, and icon sets such as Phosphor leave out the
+// closing Z, so a filled contour is a closed outline for the 3D view whether or not it says so.
+const fillsClosed = (contour: StyledContour): boolean => contour.closed || isFilled(contour);
+
+const coincide = (a: Point, b: Point): boolean => Math.hypot(a.x - b.x, a.y - b.y) < 1e-6;
+
+// Nodes of a closed contour repeat the first one at the end; geometry wants each node once. A contour that
+// only counts as closed because it is filled repeats it just when it ends where it started.
+const distinct = (points: Point[], closed: boolean, repeats = closed): Point[] =>
+  closed && repeats ? points.slice(0, -1) : points;
 
 interface PartSpec {
   id: string;
@@ -311,8 +343,9 @@ const radiusOf = (contour: StyledContour): number => (contour.strokeWidth ?? 1) 
 const ALWAYS = (): number => 1;
 
 function singleSide(contour: StyledContour, id: string, visibility: (progress: number) => number): PartSpec {
-  const closed = contour.closed;
-  const nodes = distinct(sampleContour(contour, autoNodeCount(contour, contour)), closed);
+  const closed = fillsClosed(contour);
+  const sampled = sampleContour(contour, autoNodeCount(contour, contour));
+  const nodes = distinct(sampled, closed, contour.closed || coincide(sampled[0], sampled[sampled.length - 1]));
   return {
     id,
     kind: closed && isFilled(contour) ? 'solid' : 'tube',
@@ -361,13 +394,18 @@ export function buildContourScene(
         resolveNodeCount(entry, from, to, { nodeCount: options.nodeCount }),
         entry.anchors,
       );
-      const closed = from.closed && to.closed;
+      const closed = fillsClosed(from) && fillsClosed(to);
+      // both sides must lose the same node, or the two outlines would not line up
+      const repeats =
+        (from.closed && to.closed) ||
+        (coincide(nodes.from[0], nodes.from[nodes.from.length - 1]) &&
+          coincide(nodes.to[0], nodes.to[nodes.to.length - 1]));
       return [
         {
           id: `${from.id}~${to.id}`,
           kind: closed && (isFilled(from) || isFilled(to)) ? 'solid' : 'tube',
-          from: distinct(nodes.from, closed),
-          to: distinct(nodes.to, closed),
+          from: distinct(nodes.from, closed, repeats),
+          to: distinct(nodes.to, closed, repeats),
           closed,
           radiusFrom: radiusOf(from),
           radiusTo: radiusOf(to),
@@ -408,7 +446,11 @@ export function buildContourScene(
     return parts;
   });
 
-  const specs = mergeHoles(allSpecs, holeStructure(sourceContours), holeStructure(targetContours));
+  const specs = mergeHoles(
+    allSpecs,
+    holeStructure(sourceContours, { openFilled: true }),
+    holeStructure(targetContours, { openFilled: true }),
+  );
 
   if (specs.length === 0) {
     throw new Error('The SVGs have no drawable contours for the 3D view');
