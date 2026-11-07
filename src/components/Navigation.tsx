@@ -78,7 +78,8 @@ export const Navigation: React.FC = () => {
       }`}
     >
       <nav aria-label="Main" className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="text-lg font-semibold tracking-tight text-content">
+        <Link to="/" className="inline-flex items-center gap-2.5 text-lg font-semibold tracking-tight text-content">
+          <img src="/svg-morph-logo-64.png" alt="" width={32} height={32} className="h-8 w-8" />
           SVG Morph
         </Link>
 
