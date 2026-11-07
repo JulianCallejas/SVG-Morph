@@ -17,10 +17,6 @@
 
 <br/>
 
-<p align="center">
-  <img src="public/og-image.png" title="SVG Morph" alt="SVG Morph" width="720" />
-</p>
-
 SVG Morph turns two SVG files into a smooth morphing animation. It normalizes both paths so they have the same number and order of commands, pairs their nodes, interpolates between them and lets you export the result as code, 3D models or video. It is part of the app family by { jc-develop }.
 
 ---
@@ -78,6 +74,12 @@ Choose the animation layer by context: **SMIL** keeps running when the SVG is us
 > Icon libraries are the only feature that calls an external service (the public Iconify API). Your own SVG files never leave the browser.
 
 ---
+
+<p align="center">
+  <img src="public/og-image.png" title="SVG Morph" alt="SVG Morph" width="720" />
+</p>
+
+<br/>
 
 ## Built with
 
