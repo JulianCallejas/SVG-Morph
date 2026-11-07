@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // GitHub Pages serves the project site under /<repo>/. Override with VITE_BASE for another host.
+  base: process.env.VITE_BASE ?? '/SVG-Morph/',
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],

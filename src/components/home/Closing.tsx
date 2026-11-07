@@ -7,7 +7,7 @@ export const Closing: React.FC = () => (
     <section aria-labelledby="cta-title" className="bg-field-sun px-4 py-16 text-content sm:px-6 lg:px-8 lg:py-32">
       <div className="mx-auto grid max-w-[1600px] grid-cols-[auto_1fr] items-center gap-x-4 gap-y-10 sm:gap-x-6 lg:grid-cols-[1fr_auto] lg:gap-x-16">
         <img
-          src="/svg-morph-logo-512.webp"
+          src={`${import.meta.env.BASE_URL}svg-morph-logo-512.webp`}
           alt=""
           width={512}
           height={512}

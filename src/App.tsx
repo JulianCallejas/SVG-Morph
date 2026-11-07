@@ -33,7 +33,7 @@ function AppRoutes() {
 function App() {
   return (
     <ToastProvider>
-      <Router>
+      <Router basename={import.meta.env.BASE_URL}>
         <div className="min-h-screen bg-canvas text-content transition-colors duration-300">
           <Navigation />
           <ProcessingIndicator />
