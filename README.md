@@ -99,7 +99,7 @@ Heavy path processing runs in a Web Worker and keeps a synchronous fallback, so 
 
 ## Run it locally
 
-You need [Node.js](https://nodejs.org) 20 or newer and [pnpm](https://pnpm.io/installation).
+You need [Node.js](https://nodejs.org) 22.22 or newer (24 LTS recommended) and [pnpm](https://pnpm.io/installation).
 
 ```bash
 git clone https://github.com/JulianCallejas/SVG-Morph.git
