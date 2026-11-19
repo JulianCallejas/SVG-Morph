@@ -8,7 +8,7 @@ import {
   isLoop,
   pairNodes,
 } from '../utils/contourInterpolation';
-import { continueMatching } from '../utils/contourContinue';
+import { continueMatching, type ContinueMode } from '../utils/contourContinue';
 import {
   clearAnchors,
   contourLabel,
@@ -196,18 +196,23 @@ export const ContourPlanPanel: React.FC = () => {
     setPendingTarget(null);
   };
 
-  // Runs the matched points on at their own pace through the rest of the outline
-  const continueAtPace = () => {
+  // Runs the matched points on at their own pace: the next node only, or every node left in the stretch.
+  // All or nothing: if any of the points cannot be added, the plan stays as it was.
+  const continueAtPace = (mode: ContinueMode) => {
     if (matchingEntry === null || !matching || !matchingContours?.from || !matchingContours.to || matchingCount === null) {
       return;
     }
-    const next = continueMatching(matchingContours.from, matchingContours.to, matchingCount, matching.anchors ?? []);
-    if (!next) {
+    const made = continueMatching(matchingContours.from, matchingContours.to, matchingCount, matching.anchors ?? [], mode);
+    if (made.length === 0) {
       setPointsMessage('Nothing to continue: match at least two points and leave part of the outline unmatched');
       return;
     }
     try {
-      apply(setAnchor(contourPlan, matchingEntry, next, sourceContours, targetContours), true);
+      const plan = made.reduce(
+        (current, point) => setAnchor(current, matchingEntry, point, sourceContours, targetContours),
+        contourPlan,
+      );
+      apply(plan, true);
       setPointsMessage(null);
     } catch (error) {
       setPointsMessage(error instanceof Error ? error.message : 'Those points cannot be matched');
@@ -513,7 +518,11 @@ export const ContourPlanPanel: React.FC = () => {
                           </p>
                         )}
                         {entry.anchors && entry.anchors.length > 0 && (
-                          <ul className="space-y-2">
+                          <ul
+                            className="max-h-64 space-y-2 overflow-y-auto pr-2"
+                            tabIndex={0}
+                            aria-label={`Matched points of ${title}`}
+                          >
                             {entry.anchors.map((anchor, anchorIndex) => (
                               <li key={`${anchor.source}-${anchor.target}`} className="flex flex-wrap items-center gap-3 text-sm">
                                 <span>
@@ -533,19 +542,25 @@ export const ContourPlanPanel: React.FC = () => {
                           <div className="space-y-2">
                             <div className="flex flex-wrap gap-2">
                               <Button
+                                disabled={entry.anchors.length < 2}
+                                onClick={() => continueAtPace('next')}
+                              >
+                                Next point
+                              </Button>
+                              <Button
                                 variant="primary"
                                 disabled={entry.anchors.length < 2}
-                                onClick={continueAtPace}
+                                onClick={() => continueAtPace('all')}
                               >
-                                Continue at my pace
+                                All remaining
                               </Button>
                               <Button onClick={() => apply(clearAnchors(contourPlan, index), true)}>
                                 Back to automatic
                               </Button>
                             </div>
                             <p className="max-w-[70ch] text-sm text-muted">
-                              With two or more points matched, Continue at my pace carries on in the same
-                              direction and at the same pace, adding one point that you can remove.
+                              With two or more points matched, Next point carries on one node in the same
+                              direction and at the same pace; All remaining does it for every node left.
                             </p>
                           </div>
                         )}

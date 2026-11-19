@@ -5,16 +5,19 @@ import { anchorsRealizable, isLoop, pairNodes } from './contourInterpolation';
 const mod = (value: number, size: number): number => ((value % size) + size) % size;
 const EPSILON = 1e-9;
 
+/** How far to continue: the next node only, or every node up to where the pace runs out. */
+export type ContinueMode = 'next' | 'all';
+
 /**
- * The point that continues a hand matching at its own pace, or null when there is nothing to add.
+ * The points that continue a hand matching at its own pace, one per node (none when there is nothing
+ * to add). `'next'` gives the node after the last matched one, `'all'` every node up to where the
+ * pace stops.
  *
  * The pace is how far the target moves per node of the source between the last two matched points
  * (so it carries the direction too). From the last matched point it runs on at that pace, through the
- * unmatched stretch that follows, and the point it returns is where it stops: the nodes in between
- * follow the pace exactly, as the matching already spreads them in proportion between points.
- * It stops one node short of the end of either side, so the last stretch keeps a node of each and
- * absorbs whatever the pace does not cover. A pace that fits the shapes closes cleanly; one that
- * does not leaves a stretch that is squeezed or stretched.
+ * unmatched stretch that follows. It stops one node short of the end of either side, so the last
+ * stretch keeps a node of each and absorbs whatever the pace does not cover. A pace that fits the
+ * shapes closes cleanly; one that does not leaves a stretch that is squeezed or stretched.
  *
  * On a contour that runs round it continues after the matched run (the point before the longest
  * unmatched stretch); on a line, from the last matched point towards its end.
@@ -24,8 +27,9 @@ export function continueMatching(
   target: Contour,
   nodeCount: number,
   anchors: NodeAnchor[],
-): NodeAnchor | null {
-  if (anchors.length < 2 || !anchorsRealizable(source, target, anchors)) return null;
+  mode: ContinueMode = 'all',
+): NodeAnchor[] {
+  if (anchors.length < 2 || !anchorsRealizable(source, target, anchors)) return [];
 
   const n = nodeCount;
   const closed = isLoop(source) && isLoop(target);
@@ -62,10 +66,10 @@ export function continueMatching(
     before = index[index.length - 2];
     room = n - last;
   }
-  if (last === before) return null;
+  if (last === before) return [];
 
   const pace = (targetOf(last) - targetOf(before)) / (last - before);
-  if (Math.abs(pace) < EPSILON) return null;
+  if (Math.abs(pace) < EPSILON) return [];
 
   // target nodes left to cover from `last` to the end of the stretch
   const left = closed
@@ -74,11 +78,14 @@ export function continueMatching(
       ? n - targetOf(last)
       : targetOf(last);
   const steps = Math.floor(Math.min(room - 1, (left - 1) / Math.abs(pace) + EPSILON));
-  if (steps < 1) return null;
+  if (steps < 1) return [];
 
-  const at = targetOf(last) + pace * steps;
-  const next: NodeAnchor = closed
-    ? { source: mod(last + steps, n) / n, target: mod(at, n) / n }
-    : { source: (last + steps) / n, target: at / n };
-  return anchorsRealizable(source, target, [...anchors, next]) ? next : null;
+  const pointAt = (step: number): NodeAnchor => {
+    const at = targetOf(last) + pace * step;
+    return closed
+      ? { source: mod(last + step, n) / n, target: mod(at, n) / n }
+      : { source: (last + step) / n, target: at / n };
+  };
+  const made = Array.from({ length: mode === 'next' ? 1 : steps }, (_, i) => pointAt(i + 1));
+  return anchorsRealizable(source, target, [...anchors, ...made]) ? made : [];
 }
