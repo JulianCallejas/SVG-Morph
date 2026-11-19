@@ -28,6 +28,8 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
   const [retry, setRetry] = useState(0);
   const [selected, setSelected] = useState<IconEntry | null>(null);
   const [isUsing, setIsUsing] = useState(false);
+  // What the dialog has already handed over, so it can stay open for the second icon
+  const [applied, setApplied] = useState<{ source?: string; target?: string }>({});
   const searchRef = useRef<HTMLInputElement>(null);
 
   const provider = ICON_PROVIDERS.find((item) => item.id === providerId) ?? ICON_PROVIDERS[0];
@@ -83,7 +85,7 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
     setIsUsing(true);
     try {
       await onUse(side, svg);
-      onClose();
+      setApplied((current) => ({ ...current, [side]: selected.name }));
     } finally {
       setIsUsing(false);
     }
@@ -266,15 +268,25 @@ export const IconLibraryDialog: React.FC<IconLibraryDialogProps> = ({ onClose, o
                 <p className="text-sm text-muted">Pick an icon to preview it.</p>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="primary" disabled={!selected || isUsing} onClick={() => void use('source')}>
                 Use as source
               </Button>
               <Button variant="primary" disabled={!selected || isUsing} onClick={() => void use('target')}>
                 Use as target
               </Button>
+              {applied.source && applied.target && (
+                <Button variant="secondary" onClick={onClose}>
+                  Done
+                </Button>
+              )}
             </div>
           </div>
+          {(applied.source || applied.target) && (
+            <p className="text-sm text-muted" aria-live="polite">
+              Source: {applied.source ?? 'not chosen yet'} · Target: {applied.target ?? 'not chosen yet'}
+            </p>
+          )}
         </div>
       </div>
     </div>
