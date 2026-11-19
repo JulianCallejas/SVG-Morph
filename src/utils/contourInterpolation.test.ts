@@ -485,6 +485,25 @@ describe('matching points by hand (anchors)', () => {
     });
   });
 
+  it('spreads the nodes along the whole contour when two neighbouring points are matched', () => {
+    const a = splitContours('M0 50 A50 50 0 1 1 100 50 A50 50 0 1 1 0 50 Z', 's')[0];
+    const b = splitContours('M80 90 L20 90 L50 0 Z', 't')[0];
+
+    // two source nodes side by side meet two target points side by side, in the same direction
+    const { targetAt, to } = pairNodes(a, b, 64, [
+      { source: 0, target: 0.92 },
+      { source: 63 / 64, target: 0.91 },
+    ]);
+
+    for (let i = 0; i < 62; i++) {
+      const step = (((targetAt[i + 1] - targetAt[i]) % 1) + 1) % 1;
+      // every node moves on by about its share of the target, none is piled on another
+      expect(step).toBeGreaterThan(0.01);
+      expect(step).toBeLessThan(0.02);
+    }
+    expect(new Set(to.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)).size).toBeGreaterThan(60);
+  });
+
   it('follows the order of the matched points', () => {
     const a = square('s');
     const b = square('t');

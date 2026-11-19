@@ -240,9 +240,24 @@ function sampleAtFractions(contour: Contour, fractions: number[], nodeCount: num
   });
 }
 
+// How much a direction of travel distorts the contour: for each stretch between two matched points,
+// how far the target length differs from the source length (as a ratio, so doubling and halving cost
+// the same). Two points side by side on the source must meet two points side by side on the target,
+// not the whole rest of the contour squeezed into the gap between them.
+function distortion(knots: Knots): number {
+  let total = 0;
+  for (let k = 0; k + 1 < knots.u.length; k++) {
+    total += Math.abs(Math.log(Math.abs(knots.v[k + 1] - knots.v[k]) / (knots.u[k + 1] - knots.u[k])));
+  }
+  return total;
+}
+
+const DISTORTION_TIE = 1e-6;
+
 // Aligns the target to the source through the anchors: the nodes between two anchors are spread in
-// proportion, and the direction of travel is the one that keeps the nodes closest. Null when no
-// direction can honour the anchors.
+// proportion. On a contour that runs round, the direction of travel is the one that distorts the
+// stretches between anchors least (one anchor distorts both the same), then the one that keeps the
+// nodes closest; on a line only the second counts. Null when no direction can honour the anchors.
 function alignThroughAnchors(
   source: Contour,
   target: Contour,
@@ -252,7 +267,7 @@ function alignThroughAnchors(
   const n = from.length - 1;
   const closed = isLoop(source) && isLoop(target);
 
-  let best: (Alignment & { cost: number }) | null = null;
+  let best: (Alignment & { cost: number; stretch: number }) | null = null;
   for (const direction of [1, -1] as const) {
     const knots = buildKnots(anchors, direction, closed);
     if (!knots) continue;
@@ -262,7 +277,14 @@ function alignThroughAnchors(
     );
     const to = sampleAtFractions(target, at, n);
     const cost = to.reduce((sum, point, i) => sum + squaredDistance(from[i], point), 0);
-    if (!best || cost < best.cost) best = { to, at, cost };
+    const stretch = closed ? distortion(knots) : 0;
+    if (
+      !best ||
+      stretch < best.stretch - DISTORTION_TIE ||
+      (Math.abs(stretch - best.stretch) <= DISTORTION_TIE && cost < best.cost)
+    ) {
+      best = { to, at, cost, stretch };
+    }
   }
   return best && { to: best.to, at: best.at };
 }
