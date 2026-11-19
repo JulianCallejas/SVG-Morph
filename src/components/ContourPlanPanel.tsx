@@ -5,8 +5,10 @@ import { SLIDE_DIRECTIONS } from '../utils/contourSlide';
 import {
   MAX_NODE_COUNT,
   MIN_NODE_COUNT,
+  isLoop,
   pairNodes,
 } from '../utils/contourInterpolation';
+import { continueMatching, type ContinueMode } from '../utils/contourContinue';
 import {
   clearAnchors,
   contourLabel,
@@ -62,6 +64,8 @@ export const ContourPlanPanel: React.FC = () => {
     resetContourPlan,
     contourHover: hoveredEntry,
     contourSelection: selection,
+    contourFront,
+    setContourFront,
     showContourNodes: showNodes,
     keepHoles,
     setKeepHoles,
@@ -114,6 +118,22 @@ export const ContourPlanPanel: React.FC = () => {
   const sourceNodes = new Map([...shownNodes.source, ...(matchingNodes?.source ?? [])]);
   const targetNodes = new Map([...shownNodes.target, ...(matchingNodes?.target ?? [])]);
 
+  // Brings one contour above the others on its map (and over the preview), or lets it go back to its place
+  const frontButton = (side: 'source' | 'target', id: string | null, text: string, label: string) => {
+    if (id === null) return null;
+    const raised = contourFront[side] === id;
+    return (
+      <Button
+        variant={raised ? 'primary' : 'secondary'}
+        aria-pressed={raised}
+        aria-label={label}
+        onClick={() => setContourFront(side, raised ? null : id)}
+      >
+        {text}
+      </Button>
+    );
+  };
+
   const sourceLabel = (id: string) => contourLabel(id, sourceContours);
   const targetLabel = (id: string) => contourLabel(id, targetContours);
   const entryTitle = (entry: ContourPlanEntry): string =>
@@ -144,11 +164,11 @@ export const ContourPlanPanel: React.FC = () => {
           to: targetContours.find((c) => c.id === matching.targetId),
         }
       : null;
-  // Nodes a person can pick: a closed contour ends on the node it starts from
+  // Nodes a person can pick: a contour that runs round ends on the node it starts from
   const pickableNodes = matchingContours?.from && matchingContours.to && matchingCount !== null
     ? {
-        source: matchingContours.from.closed ? matchingCount : matchingCount + 1,
-        target: matchingContours.to.closed ? matchingCount : matchingCount + 1,
+        source: isLoop(matchingContours.from) ? matchingCount : matchingCount + 1,
+        target: isLoop(matchingContours.to) ? matchingCount : matchingCount + 1,
       }
     : null;
 
@@ -174,6 +194,29 @@ export const ContourPlanPanel: React.FC = () => {
     }
     setPendingSource(null);
     setPendingTarget(null);
+  };
+
+  // Runs the matched points on at their own pace: the next node only, or every node left in the stretch.
+  // All or nothing: if any of the points cannot be added, the plan stays as it was.
+  const continueAtPace = (mode: ContinueMode) => {
+    if (matchingEntry === null || !matching || !matchingContours?.from || !matchingContours.to || matchingCount === null) {
+      return;
+    }
+    const made = continueMatching(matchingContours.from, matchingContours.to, matchingCount, matching.anchors ?? [], mode);
+    if (made.length === 0) {
+      setPointsMessage('Nothing to continue: match at least two points and leave part of the outline unmatched');
+      return;
+    }
+    try {
+      const plan = made.reduce(
+        (current, point) => setAnchor(current, matchingEntry, point, sourceContours, targetContours),
+        contourPlan,
+      );
+      apply(plan, true);
+      setPointsMessage(null);
+    } catch (error) {
+      setPointsMessage(error instanceof Error ? error.message : 'Those points cannot be matched');
+    }
   };
 
   const pickNode = (side: 'source' | 'target', nodeIndex: number) => {
@@ -248,7 +291,16 @@ export const ContourPlanPanel: React.FC = () => {
 
       <div className="mt-5 grid gap-6 sm:grid-cols-2">
         <figure>
-          <figcaption className="mb-2 text-sm text-muted">Source</figcaption>
+          <figcaption className="mb-2 flex min-h-11 flex-wrap items-center justify-between gap-2 text-sm text-muted">
+            Source
+            {selection?.side === 'source' &&
+              frontButton(
+                'source',
+                selection.id,
+                'Bring selected to front',
+                `Bring ${sourceLabel(selection.id)} to front`,
+              )}
+          </figcaption>
           <ContourMap
             side="source"
             viewBox={sourceSVGData.viewBox}
@@ -261,12 +313,22 @@ export const ContourPlanPanel: React.FC = () => {
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'source' ? selection.id : null}
             picking={picking('source')}
+            raisedId={contourFront.source}
             onHover={setHoveredEntry}
             onSelect={(id) => handleSelect('source', id)}
           />
         </figure>
         <figure>
-          <figcaption className="mb-2 text-sm text-muted">Target</figcaption>
+          <figcaption className="mb-2 flex min-h-11 flex-wrap items-center justify-between gap-2 text-sm text-muted">
+            Target
+            {selection?.side === 'target' &&
+              frontButton(
+                'target',
+                selection.id,
+                'Bring selected to front',
+                `Bring ${targetLabel(selection.id)} to front`,
+              )}
+          </figcaption>
           <ContourMap
             side="target"
             viewBox={targetSVGData.viewBox}
@@ -279,6 +341,7 @@ export const ContourPlanPanel: React.FC = () => {
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'target' ? selection.id : null}
             picking={picking('target')}
+            raisedId={contourFront.target}
             onHover={setHoveredEntry}
             onSelect={(id) => handleSelect('target', id)}
           />
@@ -316,6 +379,20 @@ export const ContourPlanPanel: React.FC = () => {
                     Unpair
                   </Button>
                 )}
+                <div className="flex flex-wrap gap-2">
+                  {frontButton(
+                    'source',
+                    entry.sourceId,
+                    'Source to front',
+                    `Bring ${entry.sourceId ? sourceLabel(entry.sourceId) : ''} (source) to front`,
+                  )}
+                  {frontButton(
+                    'target',
+                    entry.targetId,
+                    'Target to front',
+                    `Bring ${entry.targetId ? targetLabel(entry.targetId) : ''} (target) to front`,
+                  )}
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -441,7 +518,11 @@ export const ContourPlanPanel: React.FC = () => {
                           </p>
                         )}
                         {entry.anchors && entry.anchors.length > 0 && (
-                          <ul className="space-y-2">
+                          <ul
+                            className="max-h-64 space-y-2 overflow-y-auto pr-2"
+                            tabIndex={0}
+                            aria-label={`Matched points of ${title}`}
+                          >
                             {entry.anchors.map((anchor, anchorIndex) => (
                               <li key={`${anchor.source}-${anchor.target}`} className="flex flex-wrap items-center gap-3 text-sm">
                                 <span>
@@ -458,9 +539,30 @@ export const ContourPlanPanel: React.FC = () => {
                           </ul>
                         )}
                         {entry.anchors && entry.anchors.length > 0 && (
-                          <Button onClick={() => apply(clearAnchors(contourPlan, index), true)}>
-                            Back to automatic
-                          </Button>
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                disabled={entry.anchors.length < 2}
+                                onClick={() => continueAtPace('next')}
+                              >
+                                Next point
+                              </Button>
+                              <Button
+                                variant="primary"
+                                disabled={entry.anchors.length < 2}
+                                onClick={() => continueAtPace('all')}
+                              >
+                                All remaining
+                              </Button>
+                              <Button onClick={() => apply(clearAnchors(contourPlan, index), true)}>
+                                Back to automatic
+                              </Button>
+                            </div>
+                            <p className="max-w-[70ch] text-sm text-muted">
+                              With two or more points matched, Next point carries on one node in the same
+                              direction and at the same pace; All remaining does it for every node left.
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}

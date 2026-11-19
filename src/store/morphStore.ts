@@ -86,6 +86,8 @@ interface MorphState {
   /** Index of the plan entry under the pointer or focus. */
   contourHover: number | null;
   contourSelection: ContourSelection;
+  /** Contour drawn above the others on each side's map, so it can be picked whatever covers it. */
+  contourFront: { source: string | null; target: string | null };
   showContourNodes: boolean;
   // Draw the holes of filled shapes as holes while they morph (see contourHoleGroups.ts)
   keepHoles: boolean;
@@ -147,6 +149,7 @@ interface MorphState {
   resetContourPlan: () => Promise<void>;
   setContourHover: (entryIndex: number | null) => void;
   setContourSelection: (selection: ContourSelection) => void;
+  setContourFront: (side: 'source' | 'target', id: string | null) => void;
   /** Pick a contour: the second pick, on the other side, pairs the two as a morph. */
   selectContour: (side: 'source' | 'target', id: string) => Promise<void>;
   setShowContourNodes: (show: boolean) => void;
@@ -241,6 +244,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
   contourPlanCustomized: false,
   contourHover: null,
   contourSelection: null,
+  contourFront: { source: null, target: null },
   showContourNodes: true,
   keepHoles: true,
   showContourBoxes: true,
@@ -590,6 +594,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
         // the contours are new, so whatever pointed at the old ones is stale
         contourHover: null,
         contourSelection: null,
+        contourFront: { source: null, target: null },
         processingState: {
           isProcessing: false,
           currentTask: null,
@@ -705,6 +710,7 @@ export const useMorphStore = create<MorphState>((set, get) => ({
 
   setContourHover: (entryIndex) => set({ contourHover: entryIndex }),
   setContourSelection: (selection) => set({ contourSelection: selection }),
+  setContourFront: (side, id) => set((state) => ({ contourFront: { ...state.contourFront, [side]: id } })),
   selectContour: async (side, id) => {
     const { contourSelection, contourPlan, sourceContours, targetContours } = get();
     if (!contourPlan) return;

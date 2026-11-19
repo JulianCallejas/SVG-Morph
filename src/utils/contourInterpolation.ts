@@ -84,6 +84,26 @@ export function sampleContour(contour: Contour, nodeCount: number): Point[] {
 
 const squaredDistance = (a: Point, b: Point): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
 
+// Distance, in the SVG's units, under which the end of an open contour counts as its start
+const LOOP_TOLERANCE = 1e-3;
+const loopCache = new WeakMap<Contour, boolean>();
+
+/**
+ * Whether a contour runs round and ends where it starts: one closed with Z, or an open one whose last
+ * point is its first. Either can start at any of its points, so matching points by hand may rotate it;
+ * a real line cannot, its ends stay its ends.
+ */
+export function isLoop(contour: Contour): boolean {
+  if (contour.closed) return true;
+  let loop = loopCache.get(contour);
+  if (loop === undefined) {
+    const [start, end] = sampleContour(contour, 1);
+    loop = squaredDistance(start, end) <= LOOP_TOLERANCE ** 2;
+    loopCache.set(contour, loop);
+  }
+  return loop;
+}
+
 // The target nodes a pair morphs into, and where each one sits along the target contour (a fraction
 // of its length). The fractions are what lets a manual point match name a node of the target.
 interface Alignment {
@@ -201,7 +221,7 @@ function mapFraction(knots: Knots, fraction: number, closed: boolean): number {
  */
 export function anchorsRealizable(source: Contour, target: Contour, anchors: NodeAnchor[]): boolean {
   if (anchors.length === 0) return true;
-  const closed = source.closed && target.closed;
+  const closed = isLoop(source) && isLoop(target);
   return [1, -1].some((direction) => buildKnots(anchors, direction as 1 | -1, closed) !== null);
 }
 
@@ -220,9 +240,24 @@ function sampleAtFractions(contour: Contour, fractions: number[], nodeCount: num
   });
 }
 
+// How much a direction of travel distorts the contour: for each stretch between two matched points,
+// how far the target length differs from the source length (as a ratio, so doubling and halving cost
+// the same). Two points side by side on the source must meet two points side by side on the target,
+// not the whole rest of the contour squeezed into the gap between them.
+function distortion(knots: Knots): number {
+  let total = 0;
+  for (let k = 0; k + 1 < knots.u.length; k++) {
+    total += Math.abs(Math.log(Math.abs(knots.v[k + 1] - knots.v[k]) / (knots.u[k + 1] - knots.u[k])));
+  }
+  return total;
+}
+
+const DISTORTION_TIE = 1e-6;
+
 // Aligns the target to the source through the anchors: the nodes between two anchors are spread in
-// proportion, and the direction of travel is the one that keeps the nodes closest. Null when no
-// direction can honour the anchors.
+// proportion. On a contour that runs round, the direction of travel is the one that distorts the
+// stretches between anchors least (one anchor distorts both the same), then the one that keeps the
+// nodes closest; on a line only the second counts. Null when no direction can honour the anchors.
 function alignThroughAnchors(
   source: Contour,
   target: Contour,
@@ -230,9 +265,9 @@ function alignThroughAnchors(
   anchors: NodeAnchor[],
 ): Alignment | null {
   const n = from.length - 1;
-  const closed = source.closed && target.closed;
+  const closed = isLoop(source) && isLoop(target);
 
-  let best: (Alignment & { cost: number }) | null = null;
+  let best: (Alignment & { cost: number; stretch: number }) | null = null;
   for (const direction of [1, -1] as const) {
     const knots = buildKnots(anchors, direction, closed);
     if (!knots) continue;
@@ -242,7 +277,14 @@ function alignThroughAnchors(
     );
     const to = sampleAtFractions(target, at, n);
     const cost = to.reduce((sum, point, i) => sum + squaredDistance(from[i], point), 0);
-    if (!best || cost < best.cost) best = { to, at, cost };
+    const stretch = closed ? distortion(knots) : 0;
+    if (
+      !best ||
+      stretch < best.stretch - DISTORTION_TIE ||
+      (Math.abs(stretch - best.stretch) <= DISTORTION_TIE && cost < best.cost)
+    ) {
+      best = { to, at, cost, stretch };
+    }
   }
   return best && { to: best.to, at: best.at };
 }

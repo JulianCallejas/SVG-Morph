@@ -28,6 +28,7 @@ export const ContourOverlay: React.FC<ContourOverlayProps> = ({ side, viewBox })
     contourPlan,
     contourHover,
     contourSelection,
+    contourFront,
     showContourNodes,
     setContourHover,
     selectContour,
@@ -58,6 +59,7 @@ export const ContourOverlay: React.FC<ContourOverlayProps> = ({ side, viewBox })
         nodePoints={side === 'source' ? nodes.source : nodes.target}
         hoveredEntry={contourHover}
         selectedId={contourSelection?.side === side ? contourSelection.id : null}
+        raisedId={contourFront[side]}
         keyboard={false}
         showContourStroke={false}
         onHover={setContourHover}

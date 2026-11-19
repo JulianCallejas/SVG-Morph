@@ -2,13 +2,18 @@ import React from 'react';
 import type { ContourPlanEntry } from '../utils/contourPairing';
 import type { StyledContour } from '../utils/contourSvg';
 import { colorIndexByContour, contourLabel, pathBoxes } from '../utils/contourPlanEditing';
-import type { Point } from '../utils/contourInterpolation';
+import { isLoop, type Point } from '../utils/contourInterpolation';
+import { stackContours } from '../utils/contourStacking';
 import { parseViewBox, viewBoxAttr } from '../utils/contourSlide';
 import { CONTOUR_FILL, CONTOUR_SOFT_FILL, CONTOUR_STROKE, colorSlot } from './contourColors';
 
 const STROKE = CONTOUR_STROKE;
 const SOFT_FILL = CONTOUR_SOFT_FILL;
 const FILL = CONTOUR_FILL;
+
+// Width, in screen pixels, of the invisible line along a contour that picks it: wider than the drawn
+// one, so thin outlines and tiny shapes are easy to hit.
+const HIT_WIDTH = 14;
 
 /** Nodes of one contour that can be clicked to match them with a node of the other side. */
 export interface NodePicking {
@@ -35,6 +40,8 @@ export interface ContourLayerProps {
   hoveredEntry: number | null;
   /** The contour picked on this side, waiting for a partner on the other side. */
   selectedId: string | null;
+  /** Contour drawn above the others, so it can be picked whatever covers it. */
+  raisedId?: string | null;
   /** When set, the nodes of that contour are clickable. Pointer only: the panel offers number fields too. */
   picking?: NodePicking | null;
   /** False draws only: the boxes ignore the pointer. Default true. */
@@ -66,6 +73,7 @@ export const ContourLayer: React.FC<ContourLayerProps> = ({
   hoveredEntry,
   selectedId,
   picking = null,
+  raisedId = null,
   interactive = true,
   keyboard = true,
   showContourStroke = true,
@@ -115,7 +123,9 @@ export const ContourLayer: React.FC<ContourLayerProps> = ({
           </g>
         ))}
 
-      {contours.map((contour) => {
+      {/* Big contours first, so a small one is never under a big one; the one being worked on (raised, or
+          having its points matched) goes last, on top of everything. */}
+      {stackContours(contours, [raisedId, picking?.contourId]).map((contour) => {
         const entryIndex = entryOf.get(contour.id);
         const slot = colorSlot(entryIndex ?? 0);
         const selected = selectedId === contour.id;
@@ -143,15 +153,27 @@ export const ContourLayer: React.FC<ContourLayerProps> = ({
             onFocus={() => entryIndex !== undefined && onHover(entryIndex)}
             onBlur={() => onHover(null)}
           >
+            {/* Only the outline answers the pointer, below: the inside of a box would cover whatever is under it */}
             <rect
               x={x - pad}
               y={y - pad}
               width={w + pad * 2}
               height={h + pad * 2}
+              pointerEvents="none"
               className={`${STROKE[slot]} ${active ? SOFT_FILL[slot] : 'fill-transparent'}`}
               strokeWidth={active ? 3 : 1.5}
               strokeDasharray={several ? '5 3' : undefined}
               vectorEffect="non-scaling-stroke"
+            />
+            <path
+              d={contour.d}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={HIT_WIDTH}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              pointerEvents={interactive ? 'stroke' : 'none'}
             />
             {showContourStroke && (
               <path
@@ -175,8 +197,8 @@ export const ContourLayer: React.FC<ContourLayerProps> = ({
             {picking?.contourId === contour.id && nodePoints.has(contour.id) && (
               <g aria-hidden="true">
                 {(nodePoints.get(contour.id) as Point[])
-                  // a closed contour ends on the node it starts from: one node, not two
-                  .slice(0, contour.closed ? -1 : undefined)
+                  // a contour that runs round ends on the node it starts from: one node, not two
+                  .slice(0, isLoop(contour) ? -1 : undefined)
                   .map((point, i) => {
                     const matched = picking.matched.includes(i);
                     const chosen = picking.selected === i;

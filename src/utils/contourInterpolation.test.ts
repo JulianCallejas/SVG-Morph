@@ -7,6 +7,7 @@ import {
   anchorsRealizable,
   autoNodeCount,
   interpolateContours,
+  isLoop,
   pairNodes,
   resolveNodeCount,
   sampleContour,
@@ -436,6 +437,71 @@ describe('matching points by hand (anchors)', () => {
 
     // the same corner anchored, and the rest follow the same way round, so every node is on its twin
     from.forEach((p, i) => near(to[i], p));
+  });
+
+  describe('an open contour that comes back to where it starts', () => {
+    // same square, but drawn without a Z: its last point is its first
+    const loopSquare = (prefix: string) => splitContours('M0 0 L10 0 L10 10 L0 10 L0 0', prefix)[0];
+
+    it('is told apart from a line', () => {
+      expect(isLoop(loopSquare('s'))).toBe(true);
+      expect(isLoop(square('s'))).toBe(true);
+      expect(isLoop(line('M0 0 L10 0 L10 10', 's'))).toBe(false);
+    });
+
+    it('moves its starting point like a closed one, keeping every node', () => {
+      const anchors = [{ source: 0, target: 0.25 }];
+      const closed = pairNodes(square('s'), square('t'), 8, anchors);
+      const open = pairNodes(loopSquare('s'), loopSquare('t'), 8, anchors);
+
+      expect(open.to).toHaveLength(9);
+      open.to.forEach((p, i) => near(p, closed.to[i]));
+      near(open.to[8], open.to[0]);
+    });
+
+    it('accepts a starting point that sits later in the source', () => {
+      const a = loopSquare('s');
+      const b = loopSquare('t');
+
+      expect(anchorsRealizable(a, b, [{ source: 0.25, target: 0 }])).toBe(true);
+      const { to } = pairNodes(a, b, 8, [{ source: 0.25, target: 0 }]);
+      // node 3 of the source (a quarter round) meets the start of the target; nothing is squashed
+      near(to[2], { x: 0, y: 0 });
+      near(to[0], { x: 0, y: 10 });
+    });
+
+    it('also works against a contour closed with Z', () => {
+      const { to } = pairNodes(loopSquare('s'), square('t'), 8, [{ source: 0, target: 0.5 }]);
+
+      near(to[0], { x: 10, y: 10 });
+      near(to[8], to[0]);
+    });
+
+    it('still keeps the ends of a real line in place', () => {
+      const a = line('M0 0 L10 0 L10 10', 's');
+      const b = line('M0 0 L10 0 L10 10', 't');
+
+      expect(anchorsRealizable(a, b, [{ source: 0.25, target: 0 }])).toBe(false);
+    });
+  });
+
+  it('spreads the nodes along the whole contour when two neighbouring points are matched', () => {
+    const a = splitContours('M0 50 A50 50 0 1 1 100 50 A50 50 0 1 1 0 50 Z', 's')[0];
+    const b = splitContours('M80 90 L20 90 L50 0 Z', 't')[0];
+
+    // two source nodes side by side meet two target points side by side, in the same direction
+    const { targetAt, to } = pairNodes(a, b, 64, [
+      { source: 0, target: 0.92 },
+      { source: 63 / 64, target: 0.91 },
+    ]);
+
+    for (let i = 0; i < 62; i++) {
+      const step = (((targetAt[i + 1] - targetAt[i]) % 1) + 1) % 1;
+      // every node moves on by about its share of the target, none is piled on another
+      expect(step).toBeGreaterThan(0.01);
+      expect(step).toBeLessThan(0.02);
+    }
+    expect(new Set(to.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)).size).toBeGreaterThan(60);
   });
 
   it('follows the order of the matched points', () => {

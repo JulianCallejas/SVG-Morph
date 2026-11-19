@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useMorphStore } from '../store/morphStore';
 import { FileUploadZone } from '../components/FileUploadZone';
 import { SVGPreview } from '../components/SVGPreview';
@@ -17,6 +18,7 @@ import { Button } from '../components/ui/Button';
 import { CheckRow } from '../components/ui/Fields';
 import { Panel } from '../components/ui/Panel';
 import { extractPointsFromSVGData, scalePointsToFit } from '../utils/pointExtraction';
+import { resolveStudioStep } from '../utils/studioEntry';
 import { Settings, Zap, Eye, Download, Play, Code, Box, X } from 'lucide-react';
 
 type StudioTab = 'upload' | 'match' | 'animate' | 'export' | 'react' | '3d';
@@ -58,7 +60,11 @@ export const PlaygroundEnhanced: React.FC = () => {
     resetAnimation,
   } = useMorphStore();
 
-  const [activeTab, setActiveTab] = useState<StudioTab>('upload');
+  // The Playground links here with the step to open on (node matching when both SVGs are loaded)
+  const { state: locationState } = useLocation();
+  const [activeTab, setActiveTab] = useState<StudioTab>(() =>
+    resolveStudioStep(locationState, !!sourceSVG, !!targetSVG),
+  );
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [viewMode, setViewMode] = useState<'split' | 'overlay'>('overlay');
 

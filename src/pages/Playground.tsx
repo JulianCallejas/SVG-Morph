@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { FileUploadZone } from '../components/FileUploadZone';
 import { SVGPreview } from '../components/SVGPreview';
 import { AnimationControls } from '../components/AnimationControls';
@@ -10,6 +11,7 @@ import { UrlImport } from '../components/UrlImport';
 import { Button } from '../components/ui/Button';
 import { Panel } from '../components/ui/Panel';
 import { useMorphStore } from '../store/morphStore';
+import { studioEntryStep, type StudioLocationState } from '../utils/studioEntry';
 
 export const Playground: React.FC = () => {
   const {
@@ -27,6 +29,7 @@ export const Playground: React.FC = () => {
   } = useMorphStore();
 
   const [viewMode, setViewMode] = useState<'split' | 'overlay'>('split');
+  const studioStep = studioEntryStep(!!sourceSVG, !!targetSVG);
 
   const handleSourceUpload = useCallback(async (_file: File, content: string) => {
     await setSourceSVG(content);
@@ -48,6 +51,27 @@ export const Playground: React.FC = () => {
             Upload your SVGs, customize the animation, and create stunning morphing effects
           </p>
         </header>
+
+        {/* Way into the Studio: node matching, advanced options and more exports. With both SVGs loaded it
+            skips the upload step and opens on node matching. */}
+        <Panel className="mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-medium">Need more control?</h2>
+              <p className="mt-1 max-w-[70ch] text-muted">
+                The Studio adds manual point matching, advanced matching options and React and 3D export.
+                {studioStep === 'match' && ' Your SVGs come with you: it opens on node matching.'}
+              </p>
+            </div>
+            <Link
+              to="/playground-enhanced"
+              state={{ step: studioStep } satisfies StudioLocationState}
+              className="press inline-flex h-11 shrink-0 items-center justify-center bg-action px-5 font-semibold text-on-action hover:bg-sun-300"
+            >
+              {studioStep === 'match' ? 'Continue in the Studio' : 'Open the Studio'}
+            </Link>
+          </div>
+        </Panel>
 
         {/* One column on small screens (upload, preview, contours, controls, export); on large screens
             the preview and the contour plan stack in the right two columns beside the controls. */}
@@ -75,9 +99,13 @@ export const Playground: React.FC = () => {
             </div>
           </Panel>
 
-          <div className="space-y-8 lg:col-span-2 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+          <div className="space-y-8 lg:col-span-2 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-stretch">
+            {/* Stays in view while the rest of the column scrolls (two-column layout only: on a phone it
+                would cover the screen). top-20 clears the 4rem sticky navigation. A sticky element only
+                travels inside its parent, so that column stretches to the height of the whole grid. */}
             <Panel
               title="Preview"
+              className="z-10 lg:sticky lg:top-20"
               actions={
                 <div className="flex gap-2">
                   <Button
