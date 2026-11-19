@@ -99,9 +99,10 @@ export const Playground: React.FC = () => {
             </div>
           </Panel>
 
-          <div className="space-y-8 lg:col-span-2 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+          <div className="space-y-8 lg:col-span-2 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:self-stretch">
             {/* Stays in view while the rest of the column scrolls (two-column layout only: on a phone it
-                would cover the screen). top-20 clears the 4rem sticky navigation. */}
+                would cover the screen). top-20 clears the 4rem sticky navigation. A sticky element only
+                travels inside its parent, so that column stretches to the height of the whole grid. */}
             <Panel
               title="Preview"
               className="z-10 lg:sticky lg:top-20"
