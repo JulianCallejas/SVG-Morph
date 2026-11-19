@@ -8,6 +8,7 @@ import {
   isLoop,
   pairNodes,
 } from '../utils/contourInterpolation';
+import { continueMatching } from '../utils/contourContinue';
 import {
   clearAnchors,
   contourLabel,
@@ -193,6 +194,24 @@ export const ContourPlanPanel: React.FC = () => {
     }
     setPendingSource(null);
     setPendingTarget(null);
+  };
+
+  // Runs the matched points on at their own pace through the rest of the outline
+  const continueAtPace = () => {
+    if (matchingEntry === null || !matching || !matchingContours?.from || !matchingContours.to || matchingCount === null) {
+      return;
+    }
+    const next = continueMatching(matchingContours.from, matchingContours.to, matchingCount, matching.anchors ?? []);
+    if (!next) {
+      setPointsMessage('Nothing to continue: match at least two points and leave part of the outline unmatched');
+      return;
+    }
+    try {
+      apply(setAnchor(contourPlan, matchingEntry, next, sourceContours, targetContours), true);
+      setPointsMessage(null);
+    } catch (error) {
+      setPointsMessage(error instanceof Error ? error.message : 'Those points cannot be matched');
+    }
   };
 
   const pickNode = (side: 'source' | 'target', nodeIndex: number) => {
@@ -511,9 +530,24 @@ export const ContourPlanPanel: React.FC = () => {
                           </ul>
                         )}
                         {entry.anchors && entry.anchors.length > 0 && (
-                          <Button onClick={() => apply(clearAnchors(contourPlan, index), true)}>
-                            Back to automatic
-                          </Button>
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="primary"
+                                disabled={entry.anchors.length < 2}
+                                onClick={continueAtPace}
+                              >
+                                Continue at my pace
+                              </Button>
+                              <Button onClick={() => apply(clearAnchors(contourPlan, index), true)}>
+                                Back to automatic
+                              </Button>
+                            </div>
+                            <p className="max-w-[70ch] text-sm text-muted">
+                              With two or more points matched, Continue at my pace carries on in the same
+                              direction and at the same pace, adding one point that you can remove.
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}
