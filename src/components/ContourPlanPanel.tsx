@@ -63,6 +63,8 @@ export const ContourPlanPanel: React.FC = () => {
     resetContourPlan,
     contourHover: hoveredEntry,
     contourSelection: selection,
+    contourFront,
+    setContourFront,
     showContourNodes: showNodes,
     keepHoles,
     setKeepHoles,
@@ -114,6 +116,22 @@ export const ContourPlanPanel: React.FC = () => {
     : pairNodePoints(contourPlan, sourceContours, targetContours, (index) => index === matchingEntry);
   const sourceNodes = new Map([...shownNodes.source, ...(matchingNodes?.source ?? [])]);
   const targetNodes = new Map([...shownNodes.target, ...(matchingNodes?.target ?? [])]);
+
+  // Brings one contour above the others on its map (and over the preview), or lets it go back to its place
+  const frontButton = (side: 'source' | 'target', id: string | null, text: string, label: string) => {
+    if (id === null) return null;
+    const raised = contourFront[side] === id;
+    return (
+      <Button
+        variant={raised ? 'primary' : 'secondary'}
+        aria-pressed={raised}
+        aria-label={label}
+        onClick={() => setContourFront(side, raised ? null : id)}
+      >
+        {text}
+      </Button>
+    );
+  };
 
   const sourceLabel = (id: string) => contourLabel(id, sourceContours);
   const targetLabel = (id: string) => contourLabel(id, targetContours);
@@ -249,7 +267,16 @@ export const ContourPlanPanel: React.FC = () => {
 
       <div className="mt-5 grid gap-6 sm:grid-cols-2">
         <figure>
-          <figcaption className="mb-2 text-sm text-muted">Source</figcaption>
+          <figcaption className="mb-2 flex min-h-11 flex-wrap items-center justify-between gap-2 text-sm text-muted">
+            Source
+            {selection?.side === 'source' &&
+              frontButton(
+                'source',
+                selection.id,
+                'Bring selected to front',
+                `Bring ${sourceLabel(selection.id)} to front`,
+              )}
+          </figcaption>
           <ContourMap
             side="source"
             viewBox={sourceSVGData.viewBox}
@@ -262,12 +289,22 @@ export const ContourPlanPanel: React.FC = () => {
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'source' ? selection.id : null}
             picking={picking('source')}
+            raisedId={contourFront.source}
             onHover={setHoveredEntry}
             onSelect={(id) => handleSelect('source', id)}
           />
         </figure>
         <figure>
-          <figcaption className="mb-2 text-sm text-muted">Target</figcaption>
+          <figcaption className="mb-2 flex min-h-11 flex-wrap items-center justify-between gap-2 text-sm text-muted">
+            Target
+            {selection?.side === 'target' &&
+              frontButton(
+                'target',
+                selection.id,
+                'Bring selected to front',
+                `Bring ${targetLabel(selection.id)} to front`,
+              )}
+          </figcaption>
           <ContourMap
             side="target"
             viewBox={targetSVGData.viewBox}
@@ -280,6 +317,7 @@ export const ContourPlanPanel: React.FC = () => {
             hoveredEntry={hoveredEntry}
             selectedId={selection?.side === 'target' ? selection.id : null}
             picking={picking('target')}
+            raisedId={contourFront.target}
             onHover={setHoveredEntry}
             onSelect={(id) => handleSelect('target', id)}
           />
@@ -317,6 +355,20 @@ export const ContourPlanPanel: React.FC = () => {
                     Unpair
                   </Button>
                 )}
+                <div className="flex flex-wrap gap-2">
+                  {frontButton(
+                    'source',
+                    entry.sourceId,
+                    'Source to front',
+                    `Bring ${entry.sourceId ? sourceLabel(entry.sourceId) : ''} (source) to front`,
+                  )}
+                  {frontButton(
+                    'target',
+                    entry.targetId,
+                    'Target to front',
+                    `Bring ${entry.targetId ? targetLabel(entry.targetId) : ''} (target) to front`,
+                  )}
+                </div>
               </div>
 
               <div className="space-y-4">
