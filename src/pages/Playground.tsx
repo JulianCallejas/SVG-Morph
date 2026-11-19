@@ -100,8 +100,11 @@ export const Playground: React.FC = () => {
           </Panel>
 
           <div className="space-y-8 lg:col-span-2 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+            {/* Stays in view while the rest of the column scrolls (two-column layout only: on a phone it
+                would cover the screen). top-20 clears the 4rem sticky navigation. */}
             <Panel
               title="Preview"
+              className="z-10 lg:sticky lg:top-20"
               actions={
                 <div className="flex gap-2">
                   <Button
