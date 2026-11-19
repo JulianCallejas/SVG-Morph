@@ -2,7 +2,7 @@ import React from 'react';
 import type { ContourPlanEntry } from '../utils/contourPairing';
 import type { StyledContour } from '../utils/contourSvg';
 import { colorIndexByContour, contourLabel, pathBoxes } from '../utils/contourPlanEditing';
-import type { Point } from '../utils/contourInterpolation';
+import { isLoop, type Point } from '../utils/contourInterpolation';
 import { parseViewBox, viewBoxAttr } from '../utils/contourSlide';
 import { CONTOUR_FILL, CONTOUR_SOFT_FILL, CONTOUR_STROKE, colorSlot } from './contourColors';
 
@@ -175,8 +175,8 @@ export const ContourLayer: React.FC<ContourLayerProps> = ({
             {picking?.contourId === contour.id && nodePoints.has(contour.id) && (
               <g aria-hidden="true">
                 {(nodePoints.get(contour.id) as Point[])
-                  // a closed contour ends on the node it starts from: one node, not two
-                  .slice(0, contour.closed ? -1 : undefined)
+                  // a contour that runs round ends on the node it starts from: one node, not two
+                  .slice(0, isLoop(contour) ? -1 : undefined)
                   .map((point, i) => {
                     const matched = picking.matched.includes(i);
                     const chosen = picking.selected === i;

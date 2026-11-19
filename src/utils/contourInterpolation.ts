@@ -84,6 +84,26 @@ export function sampleContour(contour: Contour, nodeCount: number): Point[] {
 
 const squaredDistance = (a: Point, b: Point): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
 
+// Distance, in the SVG's units, under which the end of an open contour counts as its start
+const LOOP_TOLERANCE = 1e-3;
+const loopCache = new WeakMap<Contour, boolean>();
+
+/**
+ * Whether a contour runs round and ends where it starts: one closed with Z, or an open one whose last
+ * point is its first. Either can start at any of its points, so matching points by hand may rotate it;
+ * a real line cannot, its ends stay its ends.
+ */
+export function isLoop(contour: Contour): boolean {
+  if (contour.closed) return true;
+  let loop = loopCache.get(contour);
+  if (loop === undefined) {
+    const [start, end] = sampleContour(contour, 1);
+    loop = squaredDistance(start, end) <= LOOP_TOLERANCE ** 2;
+    loopCache.set(contour, loop);
+  }
+  return loop;
+}
+
 // The target nodes a pair morphs into, and where each one sits along the target contour (a fraction
 // of its length). The fractions are what lets a manual point match name a node of the target.
 interface Alignment {
@@ -201,7 +221,7 @@ function mapFraction(knots: Knots, fraction: number, closed: boolean): number {
  */
 export function anchorsRealizable(source: Contour, target: Contour, anchors: NodeAnchor[]): boolean {
   if (anchors.length === 0) return true;
-  const closed = source.closed && target.closed;
+  const closed = isLoop(source) && isLoop(target);
   return [1, -1].some((direction) => buildKnots(anchors, direction as 1 | -1, closed) !== null);
 }
 
@@ -230,7 +250,7 @@ function alignThroughAnchors(
   anchors: NodeAnchor[],
 ): Alignment | null {
   const n = from.length - 1;
-  const closed = source.closed && target.closed;
+  const closed = isLoop(source) && isLoop(target);
 
   let best: (Alignment & { cost: number }) | null = null;
   for (const direction of [1, -1] as const) {

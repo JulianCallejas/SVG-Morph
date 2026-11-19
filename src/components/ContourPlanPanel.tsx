@@ -5,6 +5,7 @@ import { SLIDE_DIRECTIONS } from '../utils/contourSlide';
 import {
   MAX_NODE_COUNT,
   MIN_NODE_COUNT,
+  isLoop,
   pairNodes,
 } from '../utils/contourInterpolation';
 import {
@@ -144,11 +145,11 @@ export const ContourPlanPanel: React.FC = () => {
           to: targetContours.find((c) => c.id === matching.targetId),
         }
       : null;
-  // Nodes a person can pick: a closed contour ends on the node it starts from
+  // Nodes a person can pick: a contour that runs round ends on the node it starts from
   const pickableNodes = matchingContours?.from && matchingContours.to && matchingCount !== null
     ? {
-        source: matchingContours.from.closed ? matchingCount : matchingCount + 1,
-        target: matchingContours.to.closed ? matchingCount : matchingCount + 1,
+        source: isLoop(matchingContours.from) ? matchingCount : matchingCount + 1,
+        target: isLoop(matchingContours.to) ? matchingCount : matchingCount + 1,
       }
     : null;
 
